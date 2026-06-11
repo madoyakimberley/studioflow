@@ -1,0 +1,23 @@
+{
+  "name": "@studioflow/db",
+  "version": "1.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "drizzle-orm": "latest",
+    "mysql2": "latest",
+    "dotenv": "latest"
+  },
+  "devDependencies": {
+    "drizzle-kit": "latest",
+    "typescript": "latest",
+    "@types/node": "latest"
+  }
+}

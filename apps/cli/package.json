@@ -1,0 +1,11 @@
+{
+  "name": "studioflow-cli",
+  "version": "1.0.0",
+  "private": true,
+  "bin": {
+    "studioflow": "./index.js"
+  },
+  "scripts": {
+    "dev": "echo 'CLI dev mode'"
+  }
+}
