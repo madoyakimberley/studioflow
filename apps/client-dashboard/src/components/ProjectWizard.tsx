@@ -9,12 +9,11 @@ import {
   CheckCircle2,
   ArrowRight,
   ArrowLeft,
-  Terminal,
   Activity,
   Zap,
   Radio,
   Database,
-  HelpCircle,
+  X,
 } from "lucide-react";
 import {
   queueProjectProvisioning,
@@ -22,11 +21,14 @@ import {
 } from "../app/action";
 import { toast } from "sonner";
 
-export default function ProjectWizard() {
+interface ProjectWizardProps {
+  onClose?: () => void;
+}
+
+export default function ProjectWizard({ onClose }: ProjectWizardProps) {
   const [step, setStep] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // State collection machines
   const [formData, setFormData] = useState<ProjectManifestPayload>({
     name: "",
     clientName: "",
@@ -56,7 +58,6 @@ export default function ProjectWizard() {
       toast.success(
         `Project ${formData.name} successfully injected into pipeline.`,
       );
-      // Reset the wizard to Step 1 and clear the form for the next project
       setStep(1);
       setFormData({
         name: "",
@@ -72,15 +73,27 @@ export default function ProjectWizard() {
         ],
         priority: "PRIORITY",
       });
+      // Auto close down structural layer container
+      onClose?.();
     } else {
       toast.error(`Infrastructure setup dropped: ${result.error}`);
     }
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto min-h-[75vh] flex flex-col font-sans text-slate-200 select-none bg-[#090a0f] p-8 rounded-2xl border border-slate-900 shadow-2xl">
+    <div className="w-full max-w-6xl mx-auto min-h-[75vh] flex flex-col font-sans text-slate-200 select-none bg-[#090a0f] p-8 rounded-2xl border border-slate-900 shadow-2xl relative">
+      {/* Escaping Context Trigger Vector */}
+      {onClose && (
+        <button
+          onClick={onClose}
+          className="absolute top-6 right-6 text-slate-500 hover:text-slate-200 p-1.5 hover:bg-slate-900/60 rounded-lg transition-colors z-10"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      )}
+
       {/* Dynamic Navigation Progress Bar */}
-      <div className="flex items-center justify-between border-b border-slate-900 pb-6 mb-8 text-xs font-semibold uppercase tracking-wider text-slate-500">
+      <div className="flex items-center justify-between border-b border-slate-900 pb-6 mb-8 text-xs font-semibold uppercase tracking-wider text-slate-500 pr-8">
         <div className="flex items-center gap-8">
           <span
             className={`flex items-center gap-2 ${step >= 1 ? "text-cyan-400" : ""}`}
@@ -129,7 +142,7 @@ export default function ProjectWizard() {
               className="space-y-6 max-w-xl"
             >
               <div>
-                <h1 className="text-4xl font-bold text-white tracking-tight">
+                <h1 className="text-4xl font-['Playfair_Display',_serif]  text-white tracking-tight">
                   Project Identity
                 </h1>
                 <p className="text-slate-400 mt-2 text-sm">
@@ -139,7 +152,7 @@ export default function ProjectWizard() {
               </div>
               <div className="space-y-4 pt-4">
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <label className="text-xs font-bold  tracking-wider text-slate-400">
                     Project Name
                   </label>
                   <input
@@ -153,7 +166,7 @@ export default function ProjectWizard() {
                   />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <label className="text-xs font-bold  tracking-wider text-slate-400">
                     Client / Organization
                   </label>
                   <input
@@ -167,7 +180,7 @@ export default function ProjectWizard() {
                   />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <label className="text-xs font-bold  tracking-wider text-slate-400">
                     Project Brief{" "}
                     <span className="text-slate-600">(Optional)</span>
                   </label>
@@ -200,12 +213,10 @@ export default function ProjectWizard() {
                   </h1>
                   <p className="text-slate-400 mt-2 text-sm">
                     Select foundational external platforms. The engine will
-                    pre-inject connection vectors and setup parameters
-                    automatically.
+                    pre-inject connection vectors automatically.
                   </p>
                 </div>
 
-                {/* Database Infrastructure Setup */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-fuchsia-400">
                     <Database className="w-4 h-4" /> Database
@@ -232,7 +243,6 @@ export default function ProjectWizard() {
                   </div>
                 </div>
 
-                {/* Authentication Setup */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-fuchsia-400">
                     <Shield className="w-4 h-4" /> Authentication
@@ -259,7 +269,6 @@ export default function ProjectWizard() {
                   </div>
                 </div>
 
-                {/* Storage Engine Routing */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-fuchsia-400">
                     <HardDrive className="w-4 h-4" /> Object Storage
@@ -287,7 +296,6 @@ export default function ProjectWizard() {
                 </div>
               </div>
 
-              {/* Sidebar Live Preview Metrics */}
               <div className="bg-[#0f111a] border border-slate-900 rounded-xl p-6 self-start space-y-6">
                 <div>
                   <div className="text-cyan-400 font-mono tracking-widest text-[11px] uppercase font-bold">
@@ -306,32 +314,9 @@ export default function ProjectWizard() {
                       </div>
                       <div className="text-slate-400 mt-0.5">
                         {formData.database} hooks enable instantaneous
-                        subscription layers across views.
+                        subscription layers.
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Layers className="w-4 h-4 text-cyan-400 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <div className="font-bold text-slate-200">
-                        Verified Secure Handshakes
-                      </div>
-                      <div className="text-slate-400 mt-0.5">
-                        {formData.auth} isolation blocks unverified requests
-                        cleanly inside layout roots.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="pt-4 border-t border-slate-900">
-                  <div className="flex justify-between items-center text-xs font-mono">
-                    <span className="text-slate-400">
-                      Scaffold Generation Speed
-                    </span>
-                    <span className="text-cyan-400 font-bold">~45s</span>
-                  </div>
-                  <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden mt-2">
-                    <div className="bg-gradient-to-r from-cyan-500 to-fuchsia-500 h-full w-[80%]" />
                   </div>
                 </div>
               </div>
@@ -353,7 +338,7 @@ export default function ProjectWizard() {
                   </h1>
                   <p className="text-slate-400 mt-2 text-sm">
                     Select core modules and execution priority metrics to
-                    calibrate file templates.
+                    calibrate templates.
                   </p>
                 </div>
 
@@ -369,7 +354,7 @@ export default function ProjectWizard() {
                       },
                       {
                         name: "Payment Integration",
-                        desc: "Stripe secure hooks and webhook handling scripts.",
+                        desc: "Stripe secure hooks and webhook scripts.",
                       },
                       {
                         name: "Analytics API",
@@ -381,7 +366,7 @@ export default function ProjectWizard() {
                       },
                       {
                         name: "SEO Optimization",
-                        desc: "Metadata matrices and structural schema maps.",
+                        desc: "Metadata matrices and schema maps.",
                       },
                     ].map((feat) => {
                       const active = formData.features.includes(feat.name);
@@ -435,7 +420,6 @@ export default function ProjectWizard() {
                 </div>
               </div>
 
-              {/* Sidebar Matrix Manifest Preview */}
               <div className="bg-[#0f111a] border border-slate-900 rounded-xl p-6 self-start space-y-6">
                 <div>
                   <div className="text-cyan-400 font-mono tracking-widest text-[11px] uppercase font-bold">
@@ -450,22 +434,6 @@ export default function ProjectWizard() {
                         T-Minus 48 Hours
                       </div>
                     </div>
-                  </div>
-                </div>
-                <div className="space-y-2 text-xs border-t border-slate-900 pt-4">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Active Features</span>
-                    <span className="text-white font-bold">
-                      {formData.features.length} Items
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Engine Throttle</span>
-                    <span className="text-fuchsia-400 font-bold">
-                      {formData.priority === "CRITICAL"
-                        ? "Max Overdrive"
-                        : "High Velocity"}
-                    </span>
                   </div>
                 </div>
               </div>
@@ -486,8 +454,8 @@ export default function ProjectWizard() {
                     Final Review
                   </h1>
                   <p className="text-slate-400 mt-2 text-sm">
-                    Verify configuration vectors before releasing payload to the
-                    background runtime pipeline.
+                    Verify configurations before releasing payload to background
+                    pipeline.
                   </p>
                 </div>
 
@@ -537,41 +505,15 @@ export default function ProjectWizard() {
                         ))}
                       </div>
                     </div>
-                    <div className="col-span-2 border-t border-slate-900 pt-4">
-                      <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-2">
-                        Scope Integration Index
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {formData.features.map((f) => (
-                          <span
-                            key={f}
-                            className="bg-[#121920] text-cyan-400 border border-cyan-900/30 text-xs px-2.5 py-1 rounded-lg font-medium"
-                          >
-                            ✓ {f}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Sidebar Execution Checkpoints */}
               <div className="bg-[#0f111a] border border-slate-900 rounded-xl p-6 flex flex-col justify-between space-y-6">
                 <div className="space-y-4">
                   <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
                     <Activity className="w-4.5 h-4.5 text-cyan-400" />{" "}
                     Pre-Flight Verification
-                  </div>
-                  <div className="space-y-3 text-xs">
-                    <div className="flex items-center gap-2 text-emerald-400 bg-emerald-500/5 border border-emerald-500/10 p-3 rounded-lg">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />{" "}
-                      Manifest structural integrity verified.
-                    </div>
-                    <div className="flex items-center gap-2 text-emerald-400 bg-emerald-500/5 border border-emerald-500/10 p-3 rounded-lg">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />{" "}
-                      Environment space is structurally ready.
-                    </div>
                   </div>
                 </div>
                 <button
@@ -604,7 +546,7 @@ export default function ProjectWizard() {
             onClick={() => setStep((p) => p - 1)}
             className="px-5 py-2.5 rounded-lg border border-slate-800 text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-white hover:bg-[#11131c] transition flex items-center gap-2 disabled:opacity-30 disabled:pointer-events-none"
           >
-            <ArrowLeft className="w-4 h-4" /> Back To Tech Stack
+            <ArrowLeft className="w-4 h-4" /> Back Section
           </button>
           <button
             type="button"

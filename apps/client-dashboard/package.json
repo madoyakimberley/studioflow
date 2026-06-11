@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3000",
+    "dev": "node -e 'console.log(\"\\n\\n🟢 ADMIN MAGIC LINK: http://localhost:3000/?token=studioflow-admin-key\\n⚪ NORMAL PUBLIC LINK: http://localhost:3000/\\n\\n\")' && next dev --port 3000",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

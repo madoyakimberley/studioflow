@@ -1,113 +1,291 @@
 #!/usr/bin/env node
 
 import mysql from "mysql2/promise";
-import { exec } from "child_process";
-import util from "util";
+import { spawn } from "child_process";
 import path from "path";
 import fs from "fs/promises";
+import dotenv from "dotenv";
+import readline from "readline";
+import Redis from "ioredis";
 
-const execAsync = util.promisify(exec);
+// Look for .env file at the workspace root context
+dotenv.config({ path: path.resolve(process.cwd(), "../../.env") });
 
-/**
- * UTILITY ENGINE: ProcessExecutor
- * Wraps system terminal interface routing layers cleanly.
- */
 class ProcessExecutor {
-  static async runCommand(shellStatement, executionDirectory) {
-    try {
-      const { stdout, stderr } = await execAsync(shellStatement, {
+  static runCommand(shellStatement, executionDirectory) {
+    return new Promise((resolve) => {
+      const child = spawn(shellStatement, {
         cwd: executionDirectory,
+        env: { ...process.env },
+        shell: true,
       });
-      return { success: true, output: `${stdout}\n${stderr}` };
-    } catch (error) {
-      return { success: false, output: error.message };
-    }
+
+      let output = "";
+
+      child.stdout.on("data", (data) => {
+        const chunk = data.toString();
+        output += chunk;
+        process.stdout.write(chunk);
+      });
+
+      child.stderr.on("data", (data) => {
+        const chunk = data.toString();
+        output += chunk;
+        process.stderr.write(chunk);
+      });
+
+      child.on("close", (code) => {
+        if (code === 0) {
+          resolve({ success: true, output });
+        } else {
+          resolve({
+            success: false,
+            output: output || `Process exited with code ${code}`,
+          });
+        }
+      });
+
+      child.on("error", (error) => {
+        resolve({ success: false, output: error.stack || error.message });
+      });
+    });
   }
 }
 
-/**
- * PATTERN LAYER: LocalWorkspaceScaffolder
- * Domain management class responsible for structural scaffolding operations.
- */
-class LocalWorkspaceScaffolder {
-  constructor(projectDirectoryName) {
-    // We use an absolute path to ensure projects land exactly in /Users/luna/Sites/work
-    this.targetWorkspaceRoot = path.join(
-      "/Users/luna/Sites/work",
-      projectDirectoryName,
-    );
+class HighFidelityScaffolder {
+  constructor(projectSlug, manifest) {
+    const baseWorkspace =
+      process.env.TARGET_OUTPUT_DIR || "/Users/luna/Sites/work";
+    this.targetPath = path.join(baseWorkspace, this.validateSlug(projectSlug));
+    this.manifest = manifest;
+    this.projectName = manifest.projectName || projectSlug;
+    this.githubRemote = `https://github.com/madoyakimberley/${this.validateSlug(projectSlug)}.git`;
+    this.templatePath = path.resolve(process.cwd(), "../../templates");
   }
 
-  async verifySpaceClearance() {
+  validateSlug(slug) {
+    const safeSlug = slug.toLowerCase().replace(/[^a-z0-9-]/g, "");
+    if (safeSlug !== slug) throw new Error("Invalid slug format.");
+    return safeSlug;
+  }
+
+  async verifyClearance() {
     try {
-      await fs.access(this.targetWorkspaceRoot);
-      return false; // Directory exists, validation failed
+      await fs.access(this.targetPath);
+      return false;
     } catch {
-      return true; // Directory clear, proceeding smoothly
+      return true;
     }
   }
 
-  async executeBaseScaffold() {
-    // Generate clean production layouts adjacent to current ecosystem components
-    const buildCommand = `npx create-next-app@latest . --ts --tailwind --eslint --app --src-dir --import-alias "@/*" --use-pnpm --skip-install`;
-    await fs.mkdir(this.targetWorkspaceRoot, { recursive: true });
-    return await ProcessExecutor.runCommand(
-      buildCommand,
-      this.targetWorkspaceRoot,
-    );
-  }
+  async writeBoilerplateFiles() {
+    // 1. Establish core directory structures
+    const directories = [
+      "src/app",
+      "src/components/ui",
+      "src/lib",
+      "src/db",
+      "src/schemas",
+      "public",
+    ];
 
-  async injectSelectedDependencies(dependenciesList) {
-    if (!dependenciesList || dependenciesList.length === 0)
-      return { success: true, output: "No external components requested." };
+    for (const dir of directories) {
+      await fs.mkdir(path.join(this.targetPath, dir), { recursive: true });
+    }
 
-    // Map human readable features from the dashboard wizard into real pnpm package records
-    const registryMappingMatrix = {
-      "User Dashboard": ["framer-motion", "clsx", "tailwind-merge"],
-      "Payment Integration": ["stripe", "@stripe/stripe-js"],
-      "Analytics API": ["lucide-react"],
-      "Email Notifications": ["nodemailer", "@types/nodemailer"],
-      "SEO Optimization": [],
+    // Helper to read and inject data into templates with rich error handling
+    const loadTemplate = async (fileName) => {
+      const fullPath = path.join(this.templatePath, `${fileName}.template`);
+      try {
+        let content = await fs.readFile(fullPath, "utf8");
+        content = content.replace(/{{PROJECT_NAME}}/g, this.projectName);
+        content = content.replace(
+          /{{PROJECT_SLUG}}/g,
+          this.manifest.slug || this.projectName,
+        );
+        return content;
+      } catch (err) {
+        throw new Error(
+          `Template Missing or Unreadable: Expected to find file at ${fullPath}\nSystem Error: ${err.message}`,
+        );
+      }
     };
 
-    const aggregatedPackages = [];
-    for (const feature of dependenciesList) {
-      const pkgs = registryMappingMatrix[feature];
-      if (pkgs) aggregatedPackages.push(...pkgs);
+    // 2. Inject standard high-fidelity package.json
+    let packageJsonContent = await loadTemplate("package.json");
+    let packageJson;
+    try {
+      packageJson = JSON.parse(packageJsonContent);
+    } catch (err) {
+      throw new Error(
+        `JSON Parse Error in package.json.template: ${err.message}`,
+      );
     }
 
-    if (aggregatedPackages.length === 0)
-      return {
-        success: true,
-        output: "Registry map evaluated to empty setup stack.",
-      };
+    if (
+      this.manifest.infrastructure?.database === "Supabase" ||
+      this.manifest.infrastructure?.database === "PostgreSQL"
+    ) {
+      packageJson.dependencies["drizzle-orm"] = "^0.36.1";
+      packageJson.dependencies["@postgres/postgres"] = "^1.0.0";
+    }
 
-    const uniquePackages = [...new Set(aggregatedPackages)].join(" ");
-    const installationCommand = `pnpm add ${uniquePackages}`;
-    return await ProcessExecutor.runCommand(
-      installationCommand,
-      this.targetWorkspaceRoot,
+    if (this.manifest.infrastructure?.storage === "UploadThing") {
+      packageJson.dependencies["@uploadthing/react"] = "^7.1.1";
+      packageJson.dependencies["uploadthing"] = "^7.3.0";
+    }
+
+    await fs.writeFile(
+      path.join(this.targetPath, "package.json"),
+      JSON.stringify(packageJson, null, 2),
     );
+
+    // 3. Inject strict type validation models
+    await fs.writeFile(
+      path.join(this.targetPath, "src/schemas/user.ts"),
+      await loadTemplate("user.ts"),
+    );
+
+    // 4. Build Drizzle ORM layout configurations
+    if (this.manifest.infrastructure?.database) {
+      await fs.writeFile(
+        path.join(this.targetPath, "drizzle.config.ts"),
+        await loadTemplate("drizzle.config.ts"),
+      );
+      await fs.writeFile(
+        path.join(this.targetPath, "src/db/schema.ts"),
+        await loadTemplate("schema.ts"),
+      );
+    }
+
+    // 5. Inject custom Next.js 15 root view routing layer
+    await fs.writeFile(
+      path.join(this.targetPath, "src/app/page.tsx"),
+      await loadTemplate("page.tsx"),
+    );
+
+    // 6. Setup layout wrap
+    await fs.writeFile(
+      path.join(this.targetPath, "src/app/layout.tsx"),
+      await loadTemplate("layout.tsx"),
+    );
+
+    // Inject empty globals.css
+    await fs.writeFile(
+      path.join(this.targetPath, "src/app/globals.css"),
+      await loadTemplate("globals.css"),
+    );
+
+    // Generate .env.local
+    await this.generateEnvFiles();
+  }
+
+  async generateEnvFiles() {
+    console.log(` -> Injecting environment variables...`);
+    let envContent = "";
+    if (process.env.DATABASE_URL) {
+      envContent += `DATABASE_URL="${process.env.DATABASE_URL}"\n`;
+    }
+    await fs.writeFile(path.join(this.targetPath, ".env.local"), envContent);
+  }
+
+  async createGitHubRepo() {
+    if (!process.env.GITHUB_TOKEN) {
+      throw new Error(
+        "GITHUB_TOKEN not found in environment. Cannot create repository.",
+      );
+    }
+
+    console.log(` -> Attempting to create GitHub repository via API...`);
+    const response = await fetch("https://api.github.com/user/repos", {
+      method: "POST",
+      headers: {
+        Authorization: `token ${process.env.GITHUB_TOKEN}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+      body: JSON.stringify({
+        name: this.validateSlug(this.manifest.slug || this.projectName),
+        description: `Automatically provisioned via StudioFlow Engine`,
+        private: true,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`GitHub API Rejected Request: ${errorData.message}`);
+    }
+    console.log(`✅ GitHub repository created successfully.`);
+    return true;
+  }
+
+  async setupGitRepository() {
+    console.log(
+      `\n -> Initializing Git tracking and mapping to remote origin...`,
+    );
+    const gitignoreContent =
+      "node_modules\n.next\n.env\n.env.local\n.DS_Store\n";
+    await fs.writeFile(
+      path.join(this.targetPath, ".gitignore"),
+      gitignoreContent,
+    );
+
+    await this.createGitHubRepo();
+
+    await ProcessExecutor.runCommand("git init", this.targetPath);
+    await ProcessExecutor.runCommand("git add .", this.targetPath);
+    await ProcessExecutor.runCommand(
+      `git commit -m "feat: initial architecture scaffold via StudioFlow engine"`,
+      this.targetPath,
+    );
+    await ProcessExecutor.runCommand("git branch -M main", this.targetPath);
+    await ProcessExecutor.runCommand(
+      `git remote add origin ${this.githubRemote}`,
+      this.targetPath,
+    );
+
+    const pushResult = await ProcessExecutor.runCommand(
+      `git push -u origin main`,
+      this.targetPath,
+    );
+    if (!pushResult.success) {
+      throw new Error(`Git Push Failed:\n${pushResult.output}`);
+    }
+
+    return { success: true };
+  }
+
+  async cleanupFailedRun() {
+    const timestamp = Date.now();
+    const failedPath = `${this.targetPath}.failed-${timestamp}`;
+    console.log(
+      `\n⚠️ Scaffolding failed. Moving partial files to ${failedPath}`,
+    );
+    try {
+      await fs.rename(this.targetPath, failedPath);
+      console.log(`✅ Cleanup complete.`);
+    } catch (err) {
+      console.error(`❌ Failed to move directory during cleanup:`, err.message);
+    }
   }
 }
 
-/**
- * ORCHESTRATION CORE: EngineDaemonWorker
- * Polling core coordinating engine loops and database updates.
- */
 class EngineDaemonWorker {
   constructor(dbConnectionString) {
     this.connectionString = dbConnectionString;
     this.activeExecutionState = false;
     this.poolInstance = null;
+    this.isProcessing = false;
+    this.redis = new Redis(process.env.REDIS_URL || "redis://127.0.0.1:6379");
   }
 
   async initializeConnections() {
     this.poolInstance = mysql.createPool({
       uri: this.connectionString,
       waitForConnections: true,
-      connectionLimit: 2,
+      connectionLimit: 3,
       ssl: { rejectUnauthorized: true },
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 10000,
     });
   }
 
@@ -124,159 +302,432 @@ class EngineDaemonWorker {
     return rows.length > 0 ? rows[0] : null;
   }
 
-  async updateJobState(jobId, targetStatus, trackingLogs = "") {
+  // STANDARD LOGGING: Appends a clean step message to the DB
+  async appendJobLog(jobId, message) {
+    const timestamp = new Date().toISOString();
+    const formattedLog = `[INFO] [${timestamp}] ${message}\n`;
+    await this.poolInstance.query(
+      `UPDATE provisioning_jobs SET execution_logs = CONCAT(COALESCE(execution_logs, ''), ?) WHERE id = ?`,
+      [formattedLog, jobId],
+    );
+  }
+
+  // STATUS UPDATER: Changes state and optionally sets timestamps
+  async updateJobState(jobId, targetStatus) {
     const timeColumnUpdate =
       targetStatus === "in-progress"
         ? ", started_at = NOW()"
         : targetStatus === "completed"
           ? ", completed_at = NOW()"
           : "";
-    const updateStatement = `UPDATE provisioning_jobs SET status = ?, execution_logs = CONCAT(COALESCE(execution_logs, ''), ?)${timeColumnUpdate} WHERE id = ?`;
-    await this.poolInstance.query(updateStatement, [
-      targetStatus,
-      trackingLogs,
-      jobId,
-    ]);
+
+    await this.poolInstance.query(
+      `UPDATE provisioning_jobs SET status = ?${timeColumnUpdate} WHERE id = ?`,
+      [targetStatus, jobId],
+    );
+  }
+
+  // ERROR LOGGING: Formats a massive, readable crash report into the DB
+  async markJobFailed(jobId, projectId, phase, error, outputBuffer = "") {
+    const timestamp = new Date().toISOString();
+    const stackTrace = error?.stack || error?.message || String(error);
+
+    const crashReport =
+      `\n=======================================================\n` +
+      `❌ CRITICAL ENGINE FAILURE DETECTED\n` +
+      `=======================================================\n` +
+      `Timestamp: ${timestamp}\n` +
+      `Phase:     ${phase}\n` +
+      `-------------------------------------------------------\n` +
+      `STACK TRACE / ERROR DETAILS:\n${stackTrace}\n` +
+      (outputBuffer
+        ? `-------------------------------------------------------\nPROCESS OUTPUT:\n${outputBuffer}\n`
+        : "") +
+      `=======================================================\n`;
+
+    console.error(crashReport);
+
+    await this.poolInstance.query(
+      `UPDATE provisioning_jobs SET status = 'failed', execution_logs = CONCAT(COALESCE(execution_logs, ''), ?) WHERE id = ?`,
+      [crashReport, jobId],
+    );
+    await this.updateProjectTrackingPercentage(projectId, 100, "failed");
   }
 
   async updateProjectTrackingPercentage(projectId, progressInt, statusString) {
-    const updateStatement = `UPDATE projects SET progress_percentage = ?, status = ? WHERE id = ?`;
-    await this.poolInstance.query(updateStatement, [
-      progressInt,
-      statusString,
-      projectId,
-    ]);
+    await this.poolInstance.query(
+      `UPDATE projects SET progress_percentage = ?, status = ? WHERE id = ?`,
+      [progressInt, statusString, projectId],
+    );
   }
 
   async processingLoopSequence() {
     const job = await this.fetchOldestPendingJob();
-    if (!job) return; // No jobs found, returning safely to poll phase interval
+    if (!job) return;
 
     const manifestPayload =
       typeof job.manifest === "string"
         ? JSON.parse(job.manifest)
         : job.manifest;
-    const logTracePrefix = `[Daemon Auto-Run Execution Log - ${new Date().toISOString()}]\n`;
 
     console.log(
-      `⚡ Processing Job Request #${job.id} -> Allocating local file space apps/${job.project_slug}`,
+      `\n⚡ Processing Job Request #${job.id} -> Constructing High-Fidelity App Domain: apps/${job.project_slug}`,
     );
-    await this.updateJobState(
+
+    await this.updateJobState(job.id, "in-progress");
+    await this.appendJobLog(
       job.id,
-      "in-progress",
-      `${logTracePrefix}Initialization token accepted. Locking run execution cycle.\n`,
+      `Initialization token accepted. Launching Custom Blueprint Scaffolder Engine for apps/${job.project_slug}.`,
     );
     await this.updateProjectTrackingPercentage(
       job.project_id,
-      30,
+      25,
       "provisioning",
     );
 
-    const scaffolder = new LocalWorkspaceScaffolder(job.project_slug);
+    const scaffolder = new HighFidelityScaffolder(
+      job.project_slug,
+      manifestPayload,
+    );
 
-    // Step 1: Directory clearance confirmation check
-    const spaceIsClear = await scaffolder.verifySpaceClearance();
+    // PHASE 1: Workspace Allocation
+    const spaceIsClear = await scaffolder.verifyClearance();
     if (!spaceIsClear) {
-      await this.updateJobState(
+      await this.markJobFailed(
         job.id,
-        "failed",
-        `CRITICAL REJECTION: Target workspace path apps/${job.project_slug} is already occupied.\n`,
+        job.project_id,
+        "Workspace Verification",
+        new Error(
+          `Target directory is already occupied at ${scaffolder.targetPath}`,
+        ),
       );
-      await this.updateProjectTrackingPercentage(job.project_id, 100, "failed");
       return;
     }
 
-    // Step 2: Next.js standard layout template expansion
-    console.log(` -> Launching Next.js standard blueprint extraction...`);
-    const scaffoldResult = await scaffolder.executeBaseScaffold();
-    if (!scaffoldResult.success) {
-      await this.updateJobState(
+    // PHASE 2: Template Injection
+    try {
+      console.log(` -> Injecting system layout architecture templates...`);
+      await scaffolder.writeBoilerplateFiles();
+      await this.appendJobLog(
         job.id,
-        "failed",
-        `SCAFFOLD EXTRACTION FAILED:\n${scaffoldResult.output}\n`,
+        `Architecture templates and schemas injected successfully.`,
       );
-      await this.updateProjectTrackingPercentage(job.project_id, 100, "failed");
+      await this.updateProjectTrackingPercentage(
+        job.project_id,
+        65,
+        "injecting",
+      );
+    } catch (err) {
+      await scaffolder.cleanupFailedRun();
+      await this.markJobFailed(
+        job.id,
+        job.project_id,
+        "Template Injection",
+        err,
+      );
+      return; // Stop execution on failure
+    }
+
+    // PHASE 3: Dependency Installation
+    try {
+      console.log(
+        ` -> Executing background pnpm system asset validation tree synchronization...\n`,
+      );
+      await this.appendJobLog(
+        job.id,
+        `Initiating package manager dependency installation (pnpm)...`,
+      );
+
+      const installResult = await ProcessExecutor.runCommand(
+        "pnpm install --no-frozen-lockfile --ignore-scripts",
+        scaffolder.targetPath,
+      );
+
+      if (!installResult.success) {
+        await scaffolder.cleanupFailedRun();
+        await this.markJobFailed(
+          job.id,
+          job.project_id,
+          "PNPM Vendor Installation",
+          new Error("Child process exited with a non-zero code."),
+          installResult.output,
+        );
+        return;
+      }
+
+      console.log(`\n✅ Dependencies synchronized successfully.`);
+      await this.appendJobLog(job.id, `Dependencies installed successfully.`);
+    } catch (err) {
+      await scaffolder.cleanupFailedRun();
+      await this.markJobFailed(
+        job.id,
+        job.project_id,
+        "PNPM Vendor Installation (System Exception)",
+        err,
+      );
       return;
     }
-    await this.updateJobState(
+
+    // PHASE 4: Git Setup and Remote Push
+    try {
+      await this.appendJobLog(
+        job.id,
+        `Configuring Git and attempting to push to remote registry...`,
+      );
+      await scaffolder.setupGitRepository();
+    } catch (err) {
+      // We don't necessarily cleanup the files here because the app is built, it just failed to upload to GitHub.
+      await this.markJobFailed(
+        job.id,
+        job.project_id,
+        "Git Tracking / GitHub API Upload",
+        err,
+      );
+      return;
+    }
+
+    // SUCCESS COMPLETION
+    console.log(`✅ System allocation successful for apps/${job.project_slug}`);
+    await this.appendJobLog(
       job.id,
-      "in-progress",
-      `Scaffold generated cleanly.\n${scaffoldResult.output}\n`,
+      `Ecosystem generated smoothly without exceptions. Execution pipeline verified.`,
     );
-    await this.updateProjectTrackingPercentage(job.project_id, 60, "injecting");
-
-    // Step 3: Parse manifest features and inject modules
-    console.log(
-      ` -> Injecting user-selected packages and setting up features...`,
-    );
-    const dependencyResult = await scaffolder.injectSelectedDependencies(
-      manifestPayload.features,
-    );
-    if (!dependencyResult.success) {
-      await this.updateJobState(
-        job.id,
-        "failed",
-        `DEPENDENCY INJECTION ENGINES ERRORED:\n${dependencyResult.output}\n`,
-      );
-      await this.updateProjectTrackingPercentage(job.project_id, 100, "failed");
-      return;
-    }
-
-    // Success finalization sequence
-    console.log(
-      `✅ System allocation successful for workspace apps/${job.project_slug}`,
-    );
-    await this.updateJobState(
-      job.id,
-      "completed",
-      `Dependency tree generated successfully.\n${dependencyResult.output}\nExecution pipeline completed cleanly without warnings.\n`,
-    );
+    await this.updateJobState(job.id, "completed");
     await this.updateProjectTrackingPercentage(job.project_id, 100, "active");
   }
 
   async startupEngine() {
     console.log(
-      "📡 StudioFlow orchestrator background daemon active. Monitoring TiDB queue slots...",
+      "📡 StudioFlow reactive daemon active. Listening for job events...",
     );
     this.activeExecutionState = true;
     await this.initializeConnections();
 
-    while (this.activeExecutionState) {
+    await this.redis.subscribe("provisioning_queue");
+
+    this.redis.on("message", async (channel, message) => {
+      if (channel === "provisioning_queue") {
+        if (!this.isProcessing) {
+          this.isProcessing = true;
+          console.log(`🔔 New job event detected, triggering sequence...`);
+          try {
+            await this.processingLoopSequence();
+          } catch (loopError) {
+            console.error(
+              "🚨 Daemon processing engine dropped loop iteration step:",
+              loopError.message,
+            );
+          } finally {
+            this.isProcessing = false;
+          }
+        } else {
+          console.log(
+            `🔔 Job event received, but engine is busy. Job remains in queue.`,
+          );
+        }
+      }
+    });
+
+    if (!this.isProcessing) {
+      this.isProcessing = true;
       try {
         await this.processingLoopSequence();
-      } catch (loopError) {
-        console.error(
-          "🚨 Daemon processing engine dropped loop iteration step:",
-          loopError.message,
-        );
+      } catch (err) {
+        console.error("Startup check error", err);
+      } finally {
+        this.isProcessing = false;
       }
-      // Wait exactly 4 seconds before pulling the queue state again
-      await new Promise((resolve) => setTimeout(resolve, 4000));
     }
   }
 }
 
-// Global script entry configuration routing
+// --- INTERACTIVE CLI MENU ---
+// (Menu code remains unchanged)
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
+
+const askQuestion = (query) =>
+  new Promise((resolve) => rl.question(query, resolve));
+
+async function fetchProjectsFromTiDB() {
+  const pool = mysql.createPool({
+    uri: process.env.DATABASE_URL,
+    waitForConnections: true,
+    connectionLimit: 1,
+    ssl: { rejectUnauthorized: true },
+  });
+
+  try {
+    const [rows] = await pool.query(
+      "SELECT id, name, slug FROM projects ORDER BY created_at DESC LIMIT 20",
+    );
+    return rows;
+  } catch (err) {
+    console.error("❌ Failed to query database: ", err.message);
+    return [];
+  } finally {
+    await pool.end();
+  }
+}
+
+async function projectSelectionWizard(promptAction) {
+  const projects = await fetchProjectsFromTiDB();
+
+  if (projects.length === 0) {
+    console.log(
+      `\n❌ No projects found in TiDB. Please create one in the Next.js dashboard first.`,
+    );
+    return null;
+  }
+
+  console.log(`\n--- Active StudioFlow Workspaces ---`);
+  projects.forEach((p, index) => {
+    console.log(` [${index + 1}] ${p.name} (apps/${p.slug})`);
+  });
+  console.log(` [0] Enter a custom slug manually`);
+
+  const selection = await askQuestion(
+    `\nSelect a project to ${promptAction} (0-${projects.length}): `,
+  );
+  const index = parseInt(selection);
+
+  if (index === 0) {
+    return await askQuestion("Enter your custom project slug: ");
+  }
+
+  if (isNaN(index) || index < 1 || index > projects.length) {
+    console.log("❌ Invalid selection.");
+    return null;
+  }
+
+  return projects[index - 1].slug;
+}
+
+async function runInteractiveMenu() {
+  console.log(`\n===========================================`);
+  console.log(`      StudioFlow CLI Command Center        `);
+  console.log(`===========================================`);
+  console.log(` 1. Run Background Daemon (Queue Watcher)  `);
+  console.log(` 2. Initialize a Manual Project Scaffold   `);
+  console.log(` 3. Push Updates to Existing GitHub Repo   `);
+  console.log(` 4. Exit Engine                            `);
+  console.log(`===========================================\n`);
+
+  const answer = await askQuestion("Select an operation target [1-4]: ");
+
+  if (answer === "1") {
+    rl.close();
+    const workerInstance = new EngineDaemonWorker(process.env.DATABASE_URL);
+    await workerInstance.startupEngine();
+  } else if (answer === "2") {
+    const slug = await projectSelectionWizard("scaffold");
+    if (!slug) {
+      rl.close();
+      return;
+    }
+
+    console.log(
+      `\n[i] Bypassing TiDB queue to manually initialize apps/${slug}...`,
+    );
+    const scaffolder = new HighFidelityScaffolder(slug, {
+      slug,
+      projectName: slug,
+      infrastructure: {},
+    });
+
+    const isClear = await scaffolder.verifyClearance();
+    if (!isClear) {
+      console.log(
+        `❌ Target directory /apps/${slug} already exists. Aborting manual initialization.`,
+      );
+      rl.close();
+      return;
+    }
+
+    console.log(` -> Writing boilerplate matrices...`);
+    try {
+      await scaffolder.writeBoilerplateFiles();
+    } catch (err) {
+      console.error(`❌ Template Injection Failed:\n`, err.stack);
+      rl.close();
+      return;
+    }
+
+    console.log(` -> Running dependency installation...\n`);
+    const installResult = await ProcessExecutor.runCommand(
+      "pnpm install --no-frozen-lockfile --ignore-scripts",
+      scaffolder.targetPath,
+    );
+
+    if (!installResult.success) {
+      console.log(`❌ Dependency install failed:\n${installResult.output}`);
+      await scaffolder.cleanupFailedRun();
+    } else {
+      try {
+        await scaffolder.setupGitRepository();
+        console.log(`✅ System allocation completed manually for ${slug}.`);
+      } catch (err) {
+        console.error(`❌ Git Setup Failed:\n`, err.stack);
+      }
+    }
+    rl.close();
+  } else if (answer === "3") {
+    const slug = await projectSelectionWizard("push to GitHub");
+    if (!slug) {
+      rl.close();
+      return;
+    }
+
+    const commitMsg = await askQuestion("\nEnter your commit message: ");
+    const baseWorkspace =
+      process.env.TARGET_OUTPUT_DIR || "/Users/luna/Sites/work";
+    const targetPath = path.join(baseWorkspace, slug);
+
+    console.log(
+      ` -> Pushing updates to https://github.com/madoyakimberley/${slug}.git...`,
+    );
+    await ProcessExecutor.runCommand("git add .", targetPath);
+    await ProcessExecutor.runCommand(
+      `git commit -m "${commitMsg}"`,
+      targetPath,
+    );
+    const result = await ProcessExecutor.runCommand(
+      "git push -u origin main",
+      targetPath,
+    );
+
+    if (result.success) {
+      console.log(`✅ Update cleanly pushed to GitHub registry.`);
+    } else {
+      console.log(
+        `❌ Failed to push. (Ensure the repository exists on your GitHub account first)\nOutput: ${result.output}`,
+      );
+    }
+    rl.close();
+  } else {
+    console.log("Shutting down core engine node.");
+    rl.close();
+  }
+}
+
 async function main() {
   const argumentInputs = process.argv.slice(2);
   const coreCommand = argumentInputs[0];
 
+  if (!process.env.DATABASE_URL) {
+    console.error(
+      "❌ Error: DATABASE_URL variable missing in current environment scope. Please check root .env.",
+    );
+    process.exit(1);
+  }
+
   if (coreCommand === "watch") {
-    if (!process.env.DATABASE_URL) {
-      console.error(
-        "❌ Error: DATABASE_URL variable missing in current environment scope.",
-      );
-      process.exit(1);
-    }
     const workerInstance = new EngineDaemonWorker(process.env.DATABASE_URL);
     await workerInstance.startupEngine();
   } else {
-    console.log(`
-    StudioFlow Orchestration Engine
-    
-    Usage:
-      studioflow watch      - Activates local OOP worker daemon monitoring TiDB jobs.
-    `);
+    await runInteractiveMenu();
   }
 }
 

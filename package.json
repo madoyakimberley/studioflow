@@ -3,11 +3,13 @@
   "private": true,
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev",
+    "dev": "echo \"\\n\\n🟢 ADMIN MAGIC LINK: http://localhost:3000/?token=studioflow-admin-key\\n⚪ NORMAL PUBLIC LINK: http://localhost:3000/\\n\\n\" && turbo run dev",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
-    "daemon": "pnpm --filter studioflow-cli exec node -r dotenv/config index.js watch"
+    "predaemon": "brew services start redis",
+    "daemon": "pnpm --filter studioflow-cli exec node -r dotenv/config index.js watch",
+    "db:reset": "node -r dotenv/config wipe.js && pnpm --filter @studioflow/db db:push"
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.10",

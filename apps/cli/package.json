@@ -2,10 +2,14 @@
   "name": "studioflow-cli",
   "version": "1.0.0",
   "private": true,
-  "bin": {
-    "studioflow": "./index.js"
-  },
+  "main": "./index.js",
+  "type": "module",
   "scripts": {
-    "dev": "echo 'CLI dev mode'"
+    "start": "node index.js watch"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "ioredis": "^5.11.1",
+    "mysql2": "^3.11.0"
   }
 }
