@@ -1,184 +1,152 @@
-import { db, projects, provisioningJobs } from "@studioflow/db";
-import { desc, inArray } from "drizzle-orm";
-import ProjectWizard from "../components/ProjectWizard";
-import {
-  Terminal,
-  Database,
-  Server,
-  Cpu,
-  RefreshCw,
-  Layers,
-} from "lucide-react";
+"use client";
 
-export const dynamic = "force-dynamic";
+import React, { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
+import { Sparkles, Shield, Loader2 } from "lucide-react";
 
-export default async function DashboardPage() {
-  // 1. Fetch all projects first using standard SQL select (Safe for TiDB)
-  const fetchedProjects = await db
-    .select()
-    .from(projects)
-    .orderBy(desc(projects.id));
+function SecurityScanner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [scanStatus, setScanStatus] = useState<
+    "initializing" | "analyzing" | "redirecting" | "failed"
+  >("initializing");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  let activeProjectsList: any[] = [];
-  // 2. Fetch jobs only if there are active projects present
-  if (fetchedProjects.length > 0) {
-    const projectIds = fetchedProjects.map((p) => p.id);
+  useEffect(() => {
+    const runSecurityProtocol = async () => {
+      const token = searchParams.get("token");
 
-    // Fetch related provisioning jobs in one clean query
-    const allJobs = await db
-      .select()
-      .from(provisioningJobs)
-      .where(inArray(provisioningJobs.projectId, projectIds))
-      .orderBy(desc(provisioningJobs.id));
+      // 1. Silent redirect to philosophy if no token is present (Normal Link)
+      if (!token) {
+        router.push("/philosophy");
+        return;
+      }
 
-    // 3. Map jobs to their respective projects in memory to mimic relational output
-    activeProjectsList = fetchedProjects.map((project) => ({
-      ...project,
-      jobs: allJobs.filter((job) => job.projectId === project.id),
-    }));
-  }
+      setScanStatus("analyzing");
 
-  // Calculate high-level health indicators
-  const totalInjectedSystems = activeProjectsList.length;
-  const operationalSprintsCount = activeProjectsList.filter(
-    (p) => p.status === "active",
-  ).length;
-  const engineeringSuccessRate = totalInjectedSystems > 0 ? 100 : 0;
+      try {
+        // 2. The Backend Handoff -> Ping the Python API Core
+        const response = await fetch(
+          "http://localhost:8000/api/v1/verify-auth",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token }),
+          },
+        );
+
+        // Artificial delay to allow visual feedback of the "scan" effect
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+
+        if (response.ok) {
+          // 3. Identity Confirmed by Python backend
+          setScanStatus("redirecting");
+          localStorage.setItem("studioflow_role", "admin");
+
+          // Brief pause to show the green shield success state before navigating
+          setTimeout(() => {
+            router.push("/dashboard");
+          }, 800);
+        } else {
+          // 4. Python rejected the token or telemetry (Show Diagnostic Error)
+          const errorData = await response
+            .json()
+            .catch(() => ({ detail: `HTTP ${response.status}` }));
+          setScanStatus("failed");
+          setErrorMessage(`Python API Rejected Token: ${errorData.detail}`);
+        }
+      } catch (error: any) {
+        // 5. Fail securely on network errors (e.g., Python API is offline or CORS issue)
+        setScanStatus("failed");
+        setErrorMessage(
+          `Network Error: Cannot reach http://localhost:8000. Is the FastAPI server running? (${error.message})`,
+        );
+      }
+    };
+
+    runSecurityProtocol();
+  }, [router, searchParams]);
 
   return (
-    <div className="min-h-screen bg-[#07080c] font-sans text-slate-300 antialiased p-8 selection:bg-cyan-500/20">
-      <div className="max-w-7xl mx-auto space-y-10">
-        {/* Dynamic Context Header */}
-        <header className="flex justify-between items-start border-b border-slate-900 pb-8">
-          <div>
-            <h1 className="text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
-              Systems Overview
-            </h1>
-            <p className="text-slate-400 text-sm mt-1.5">
-              Welcome back. Your active infrastructure deployments are executing
-              on schedule.
-            </p>
-          </div>
-          <div className="bg-[#111420] border border-slate-800 rounded-xl px-4 py-2.5 flex items-center gap-3 text-xs font-mono font-bold text-cyan-400 shadow-md">
-            <RefreshCw className="w-3.5 h-3.5 animate-spin-slow" /> Synchronized
-            with Local Daemon Loop
-          </div>
-        </header>
-
-        {/* System Metric Indicator Cards */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-[#0b0d14] border border-slate-900 rounded-xl p-6 relative overflow-hidden">
-            <div className="text-xs font-bold uppercase tracking-widest text-slate-500">
-              Projects Managed
-            </div>
-            <div className="text-4xl font-extrabold text-white mt-2 font-mono">
-              {totalInjectedSystems}
-            </div>
-            <div className="text-[11px] text-cyan-400 font-medium mt-2 flex items-center gap-1">
-              ↳ Active pipeline configuration instances
-            </div>
-          </div>
-          <div className="bg-[#0b0d14] border border-slate-900 rounded-xl p-6 relative overflow-hidden">
-            <div className="text-xs font-bold uppercase tracking-widest text-slate-500">
-              Success Rate
-            </div>
-            <div className="text-4xl font-extrabold text-white mt-2 font-mono">
-              {engineeringSuccessRate}%
-            </div>
-            <div className="text-[11px] text-emerald-400 font-medium mt-2 flex items-center gap-1">
-              ↳ 0 deployment disruptions recorded
-            </div>
-          </div>
-          <div className="bg-[#0b0d14] border border-slate-900 rounded-xl p-6 relative overflow-hidden">
-            <div className="text-xs font-bold uppercase tracking-widest text-slate-500">
-              Active Build Sessions
-            </div>
-            <div className="text-4xl font-extrabold text-white mt-2 font-mono">
-              {operationalSprintsCount}
-            </div>
-            <div className="text-[11px] text-fuchsia-400 font-medium mt-2 flex items-center gap-1">
-              ↳ Dynamic container clusters provisioned
-            </div>
-          </div>
-        </section>
-
-        {/* Dynamic Setup Wizard Target Section */}
-        <section className="bg-[#0b0d14] border border-slate-900 rounded-2xl p-2 shadow-xl">
-          <ProjectWizard />
-        </section>
-
-        {/* Infrastructure Deployment Activity Logs */}
-        <section className="space-y-4">
-          <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-            <Terminal className="w-5 h-5 text-cyan-400" /> Active Tracking
-            Telemetry Registry
-          </h2>
-          <div className="bg-[#0b0d14] border border-slate-900 rounded-xl overflow-hidden shadow-lg">
-            {activeProjectsList.length === 0 ? (
-              <div className="p-8 text-center text-xs font-medium text-slate-500">
-                No project configurations recorded inside this cluster
-                workspace.
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-900">
-                {activeProjectsList.map((project) => {
-                  const currentJob = project.jobs?.[0];
-                  return (
-                    <div
-                      key={project.id}
-                      className="p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:bg-[#10131d]/30 transition"
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-bold text-white tracking-tight">
-                            {project.name}
-                          </span>
-                          <span className="bg-slate-900 text-slate-400 border border-slate-800 font-mono text-[10px] px-2 py-0.5 rounded-md">
-                            apps/{project.slug}
-                          </span>
-                        </div>
-                        <div className="text-xs text-slate-400 max-w-md truncate">
-                          Pipeline State Status Indicator:{" "}
-                          <span className="text-slate-200 capitalize font-medium">
-                            {project.status}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end">
-                        <div className="text-left md:text-right space-y-1">
-                          <div className="text-[11px] font-bold tracking-wider uppercase text-slate-500">
-                            Local Daemon Execution
-                          </div>
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border tracking-wider ${
-                              currentJob?.status === "completed"
-                                ? "bg-emerald-500/5 text-emerald-400 border-emerald-500/20"
-                                : currentJob?.status === "in-progress"
-                                  ? "bg-cyan-500/5 text-cyan-400 border-cyan-500/20 animate-pulse"
-                                  : currentJob?.status === "failed"
-                                    ? "bg-red-500/5 text-red-400 border-red-500/20"
-                                    : "bg-amber-500/5 text-amber-400 border-amber-500/20"
-                            }`}
-                          >
-                            ● {currentJob?.status || "Queued"}
-                          </span>
-                        </div>
-                        <div className="w-28 bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-900">
-                          <div
-                            className="bg-gradient-to-r from-cyan-400 to-fuchsia-500 h-full transition-all duration-500"
-                            style={{ width: `${project.progressPercentage}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </section>
+    <main className="z-10 text-center space-y-8 flex flex-col items-center max-w-md w-full px-6">
+      <div
+        className={`relative w-32 h-32 rounded-full overflow-hidden border-2 ${scanStatus === "failed" ? "border-rose-500" : "border-slate-800"} shadow-2xl mb-4`}
+      >
+        <Image
+          src="/images/admin_pfp.jpg"
+          alt="Admin Profile"
+          fill
+          priority
+          loading="eager"
+          sizes="128px"
+          className={`object-cover ${scanStatus === "redirecting" ? "grayscale-0" : "grayscale"}`}
+        />
+        {/* Scanning overlay effect */}
+        {scanStatus === "analyzing" && (
+          <div className="absolute inset-0 bg-cyan-500/20 mix-blend-overlay animate-pulse" />
+        )}
+        {/* Failed overlay effect */}
+        {scanStatus === "failed" && (
+          <div className="absolute inset-0 bg-rose-500/30 mix-blend-overlay" />
+        )}
       </div>
+
+      <div className="space-y-3">
+        <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">
+          {scanStatus === "initializing" && "Initializing..."}
+          {scanStatus === "analyzing" && "Analyzing Context..."}
+          {scanStatus === "redirecting" && "Identity Confirmed."}
+          {scanStatus === "failed" && "Access Denied."}
+        </h1>
+
+        {/* Error Output Box */}
+        {scanStatus === "failed" ? (
+          <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-3 rounded-lg text-xs font-mono text-left w-full mt-4 break-words">
+            &gt;_ ERROR TRACE:
+            <br />
+            {errorMessage}
+          </div>
+        ) : (
+          <p className="text-slate-400 italic text-sm h-6">
+            {scanStatus === "analyzing" &&
+              "Verifying cryptographic token and environmental telemetry..."}
+            {scanStatus === "redirecting" && "Establishing secure session..."}
+          </p>
+        )}
+      </div>
+
+      <div className="h-12 flex items-center justify-center mt-4">
+        {scanStatus === "analyzing" && (
+          <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
+        )}
+        {scanStatus === "redirecting" && (
+          <Shield className="w-8 h-8 text-fuchsia-500" />
+        )}
+      </div>
+
+      <div className="inline-flex items-center gap-2 border border-slate-800 bg-[#0b0e14] px-4 py-1.5 rounded-full text-xs text-slate-500 font-medium tracking-wide mt-8">
+        <Sparkles className="w-3.5 h-3.5 text-cyan-400" /> Zero-Touch
+        Authentication Active
+      </div>
+    </main>
+  );
+}
+
+// Main page component wrapping the Suspense boundary required for client-side routing params
+export default function StudioFlowAuthGate() {
+  return (
+    <div className="min-h-screen bg-[#06070b] flex flex-col items-center justify-center font-serif text-slate-300 relative overflow-hidden">
+      {/* Background Radial Glow */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[500px] bg-gradient-to-b from-cyan-500/5 to-transparent blur-3xl pointer-events-none" />
+
+      <Suspense
+        fallback={
+          <div className="z-10 text-white">Loading secure environment...</div>
+        }
+      >
+        <SecurityScanner />
+      </Suspense>
     </div>
   );
 }

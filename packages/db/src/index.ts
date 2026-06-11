@@ -12,6 +12,9 @@ const connectionPool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0,
   ssl: { rejectUnauthorized: true },
+  // FIX: Protects against silent database engine drop-offs and ETIMEDOUT socket exceptions
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 10000,
 });
 
 export const db = drizzle(connectionPool, { schema, mode: "default" });
