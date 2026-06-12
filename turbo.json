@@ -18,6 +18,10 @@
       "cache": false,
       "persistent": true,
       "env": ["NEXT_PUBLIC_ADMIN_EMAILS", "DATABASE_URL"]
+    },
+    "start": {
+      "cache": false,
+      "persistent": true
     }
   }
 }
