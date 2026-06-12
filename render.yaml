@@ -26,9 +26,10 @@ services:
     plan: free
     autoDeploy: true
     rootDir: apps/api-core
-    buildCommand: pip install uv && uv pip install --system -r requirements.txt
-    # FIX: Using 'python -m' ensures the system finds the uvicorn binary
-    startCommand: python -m uvicorn main:app --host 0.0.0.0 --port $PORT
+    # We install gunicorn here so the system has the application server ready
+    buildCommand: pip install uv && uv pip install --system -r requirements.txt && pip install gunicorn
+    # We use Gunicorn to manage the Uvicorn worker. This bypasses the pathing issues.
+    startCommand: gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
