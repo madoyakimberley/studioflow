@@ -26,11 +26,10 @@ services:
     plan: free
     autoDeploy: true
     rootDir: apps/api-core
-    # Use standard pip install; --system is often safer on Render for simple builds
     buildCommand: pip install -r requirements.txt
-    # This calls Gunicorn via Python, bypassing the "command not found" error
     startCommand: python -m gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
-    healthCheckPath: /health
+    # FIX: Updated to match main.py route
+    healthCheckPath: /api/v1/health
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.0
