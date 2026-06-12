@@ -1,0 +1,27 @@
+services:
+  # 1. The Next.js Client Dashboard
+  - type: web
+    name: studioflow-dashboard
+    env: node
+    plan: free
+    autoDeploy: false
+    buildCommand: pnpm install && pnpm build --filter client-dashboard
+    startCommand: cd apps/client-dashboard && pnpm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20.x
+      - key: PNPM_VERSION
+        value: 9.x
+
+  # 2. The Python FastAPI Core Engine
+  - type: web
+    name: studioflow-api
+    env: python
+    plan: free
+    autoDeploy: false
+    rootDir: apps/api-core
+    buildCommand: pip install uv && uv pip install --system -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
