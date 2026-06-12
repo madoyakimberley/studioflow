@@ -26,9 +26,9 @@ services:
     plan: free
     autoDeploy: true
     rootDir: apps/api-core
-    # We install gunicorn here so the system has the application server ready
-    buildCommand: pip install uv && uv pip install --system -r requirements.txt && pip install gunicorn
-    # We use Gunicorn to manage the Uvicorn worker. This bypasses the pathing issues.
+    # REMOVED --system so it installs into the .venv
+    buildCommand: pip install uv && uv pip install -r requirements.txt
+    # This remains the same
     startCommand: gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
     healthCheckPath: /health
     envVars:
