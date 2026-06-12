@@ -1,9 +1,10 @@
 import React from "react";
 import Link from "next/link";
 import { db, projects, provisioningJobs } from "@studioflow/db";
-import { desc, inArray } from "drizzle-orm";
+import { desc, inArray, eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import SidebarConsole from "../../components/SidebarConsole";
-import { Terminal, Radio } from "lucide-react";
+import { Terminal, Radio, Play, Pause, RefreshCw, Trash2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,39 @@ export default async function SystemsOverviewDashboard() {
       ...project,
       jobs: allJobs.filter((job) => job.projectId === project.id),
     }));
+  }
+
+  // --- SERVER ACTIONS FOR DB MUTATIONS ---
+  async function deleteProjectAction(formData: FormData) {
+    "use server";
+    const id = Number(formData.get("id"));
+    await db.delete(provisioningJobs).where(eq(provisioningJobs.projectId, id));
+    await db.delete(projects).where(eq(projects.id, id));
+    revalidatePath("/dashboard");
+  }
+
+  async function pauseProjectAction(formData: FormData) {
+    "use server";
+    const id = Number(formData.get("id"));
+    await db
+      .update(projects)
+      .set({ status: "paused" })
+      .where(eq(projects.id, id));
+    revalidatePath("/dashboard");
+  }
+
+  async function updateProjectAction(formData: FormData) {
+    "use server";
+    const id = Number(formData.get("id"));
+    await db
+      .update(projects)
+      .set({ status: "pending", progressPercentage: 0 })
+      .where(eq(projects.id, id));
+    await db
+      .update(provisioningJobs)
+      .set({ status: "pending" })
+      .where(eq(provisioningJobs.projectId, id));
+    revalidatePath("/dashboard");
   }
 
   return (
@@ -104,7 +138,7 @@ export default async function SystemsOverviewDashboard() {
                   return (
                     <div
                       key={project.id}
-                      className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:bg-[#11131f]/20 transition"
+                      className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:bg-[#11131f]/20 transition group"
                     >
                       <div className="space-y-1">
                         <div className="flex items-center gap-2.5">
@@ -120,13 +154,15 @@ export default async function SystemsOverviewDashboard() {
                         </div>
                         <div className="text-xs text-slate-400">
                           State Matrix Assessment Flag:{" "}
-                          <span className="text-slate-300 uppercase font-mono text-[11px]">
+                          <span
+                            className={`uppercase font-mono text-[11px] ${project.status === "paused" ? "text-amber-500" : "text-slate-300"}`}
+                          >
                             {project.status}
                           </span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end">
+                      <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
                         <div className="text-left md:text-right space-y-0.5">
                           <div className="text-[9px] font-bold tracking-wider uppercase text-slate-500">
                             Daemon Pipeline Execution
@@ -146,9 +182,55 @@ export default async function SystemsOverviewDashboard() {
 
                         <div className="w-24 bg-slate-900 h-1.5 rounded-full overflow-hidden border border-slate-900">
                           <div
-                            className="bg-gradient-to-r from-cyan-400 to-fuchsia-500 h-full transition-all duration-500"
+                            className={`h-full transition-all duration-500 ${project.status === "paused" ? "bg-amber-500" : "bg-gradient-to-r from-cyan-400 to-fuchsia-500"}`}
                             style={{ width: `${project.progressPercentage}%` }}
                           />
+                        </div>
+
+                        {/* Action Control Panel */}
+                        <div className="flex items-center gap-1.5 pl-3 ml-2 border-l border-slate-800/80 opacity-40 group-hover:opacity-100 transition-opacity">
+                          <form
+                            action={
+                              project.status === "paused"
+                                ? updateProjectAction
+                                : pauseProjectAction
+                            }
+                          >
+                            <input type="hidden" name="id" value={project.id} />
+                            <button
+                              type="submit"
+                              title={
+                                project.status === "paused" ? "Resume" : "Pause"
+                              }
+                              className="p-1.5 text-slate-500 hover:text-amber-400 hover:bg-slate-800 rounded transition"
+                            >
+                              {project.status === "paused" ? (
+                                <Play className="w-3.5 h-3.5" />
+                              ) : (
+                                <Pause className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </form>
+                          <form action={updateProjectAction}>
+                            <input type="hidden" name="id" value={project.id} />
+                            <button
+                              type="submit"
+                              title="Re-provision System"
+                              className="p-1.5 text-slate-500 hover:text-cyan-400 hover:bg-slate-800 rounded transition"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5" />
+                            </button>
+                          </form>
+                          <form action={deleteProjectAction}>
+                            <input type="hidden" name="id" value={project.id} />
+                            <button
+                              type="submit"
+                              title="Purge from DB"
+                              className="p-1.5 text-slate-500 hover:text-red-500 hover:bg-red-500/10 rounded transition"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </form>
                         </div>
                       </div>
                     </div>

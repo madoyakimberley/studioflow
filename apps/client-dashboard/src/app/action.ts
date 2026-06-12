@@ -12,6 +12,7 @@ export interface ProjectManifestPayload {
   storage: string;
   features: string[];
   priority: "STANDARD" | "PRIORITY" | "CRITICAL";
+  apiIntegration?: boolean;
 }
 
 export async function queueProjectProvisioning(
@@ -65,6 +66,7 @@ export async function queueProjectProvisioning(
         projectName: payload.name,
         slug: projectSlug,
         techStack: "nextjs",
+        apiIntegration: payload.apiIntegration || false,
         infrastructure: {
           database: payload.database,
           auth: payload.auth,
