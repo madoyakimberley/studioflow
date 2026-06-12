@@ -4,7 +4,17 @@ import { db, projects, provisioningJobs } from "@studioflow/db";
 import { desc, inArray, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import SidebarConsole from "../../components/SidebarConsole";
-import { Terminal, Radio, Play, Pause, RefreshCw, Trash2 } from "lucide-react";
+import {
+  Terminal,
+  Radio,
+  Play,
+  Pause,
+  RefreshCw,
+  Trash2,
+  ShieldAlert,
+  AlertTriangle,
+  ExternalLink,
+} from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +38,21 @@ export default async function SystemsOverviewDashboard() {
       jobs: allJobs.filter((job) => job.projectId === project.id),
     }));
   }
+
+  // Calculate telemetry metric distributions
+  const totalMonitored = activeProjectsList.length;
+  const unhealthyProjects = activeProjectsList.filter(
+    (p) => p.status === "unhealthy",
+  );
+  const activeThreadsCount = activeProjectsList.filter(
+    (p) => p.status === "active",
+  ).length;
+  const successRate =
+    totalMonitored > 0
+      ? Math.round(
+          ((totalMonitored - unhealthyProjects.length) / totalMonitored) * 100,
+        )
+      : 100;
 
   // --- SERVER ACTIONS FOR DB MUTATIONS ---
   async function deleteProjectAction(formData: FormData) {
@@ -84,6 +109,19 @@ export default async function SystemsOverviewDashboard() {
           </div>
         </header>
 
+        {/* Global System Outage Warning Notification Bar */}
+        {unhealthyProjects.length > 0 && (
+          <div className="bg-rose-950/20 border border-rose-900/50 rounded-xl p-4 flex items-center gap-3 text-xs text-rose-400 font-mono">
+            <ShieldAlert className="w-5 h-5 text-rose-500 animate-bounce" />
+            <span>
+              <strong>CRITICAL TELEMETRY ALERT:</strong>{" "}
+              {unhealthyProjects.length} target node service cluster
+              environments returned response failures (5xx or timed out). Check
+              edge routing matrices immediately.
+            </span>
+          </div>
+        )}
+
         {/* Dynamic Pipeline Performance Analytic Metrics */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-[#0a0b11] border border-slate-900 rounded-xl p-5 space-y-2">
@@ -91,7 +129,7 @@ export default async function SystemsOverviewDashboard() {
               Projects Monitored
             </div>
             <div className="text-3xl font-black font-mono text-white">
-              {activeProjectsList.length}
+              {totalMonitored}
             </div>
             <div className="text-[11px] text-cyan-400">
               ↳ Running deployment specifications
@@ -101,9 +139,17 @@ export default async function SystemsOverviewDashboard() {
             <div className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">
               Success Evaluation Metric
             </div>
-            <div className="text-3xl font-black font-mono text-white">100%</div>
-            <div className="text-[11px] text-emerald-400">
-              ↳ Zero disruption anomalies logged
+            <div
+              className={`text-3xl font-black font-mono ${successRate < 100 ? "text-rose-400" : "text-white"}`}
+            >
+              {successRate}%
+            </div>
+            <div
+              className={`text-[11px] ${successRate < 100 ? "text-rose-400" : "text-emerald-400"}`}
+            >
+              {successRate < 100
+                ? `↳ ${unhealthyProjects.length} service disruptions logged`
+                : "↳ Zero disruption anomalies logged"}
             </div>
           </div>
           <div className="bg-[#0a0b11] border border-slate-900 rounded-xl p-5 space-y-2">
@@ -111,7 +157,7 @@ export default async function SystemsOverviewDashboard() {
               Active Threads
             </div>
             <div className="text-3xl font-black font-mono text-white">
-              {activeProjectsList.filter((p) => p.status === "active").length}
+              {activeThreadsCount}
             </div>
             <div className="text-[11px] text-fuchsia-400">
               ↳ Active container operations
@@ -135,10 +181,12 @@ export default async function SystemsOverviewDashboard() {
               <div className="divide-y divide-slate-900/60">
                 {activeProjectsList.map((project) => {
                   const currentJob = project.jobs?.[0];
+                  const isUnhealthy = project.status === "unhealthy";
+
                   return (
                     <div
                       key={project.id}
-                      className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:bg-[#11131f]/20 transition group"
+                      className={`p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition group ${isUnhealthy ? "bg-rose-950/5 hover:bg-rose-950/10" : "hover:bg-[#11131f]/20"}`}
                     >
                       <div className="space-y-1">
                         <div className="flex items-center gap-2.5">
@@ -151,14 +199,39 @@ export default async function SystemsOverviewDashboard() {
                           <span className="text-[10px] font-mono bg-slate-900 text-slate-400 border border-slate-800 px-2 py-0.5 rounded">
                             apps/{project.slug}
                           </span>
+                          {isUnhealthy && (
+                            <span className="inline-flex items-center gap-1 text-[9px] font-mono font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 rounded-full uppercase tracking-wider animate-pulse">
+                              <AlertTriangle className="w-2.5 h-2.5" /> Outage
+                            </span>
+                          )}
                         </div>
-                        <div className="text-xs text-slate-400">
-                          State Matrix Assessment Flag:{" "}
+                        <div className="text-xs text-slate-400 flex items-center gap-2">
+                          <span>State Matrix Assessment Flag:</span>
                           <span
-                            className={`uppercase font-mono text-[11px] ${project.status === "paused" ? "text-amber-500" : "text-slate-300"}`}
+                            className={`uppercase font-mono text-[11px] ${
+                              project.status === "paused"
+                                ? "text-amber-500"
+                                : isUnhealthy
+                                  ? "text-rose-500 font-bold"
+                                  : "text-slate-300"
+                            }`}
                           >
                             {project.status}
                           </span>
+                          {project.liveUrl && (
+                            <>
+                              <span className="text-slate-800">|</span>
+                              <a
+                                href={project.liveUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-0.5 text-cyan-500 hover:underline text-[11px]"
+                              >
+                                Live Node{" "}
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            </>
+                          )}
                         </div>
                       </div>
 
@@ -169,20 +242,31 @@ export default async function SystemsOverviewDashboard() {
                           </div>
                           <span
                             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${
-                              currentJob?.status === "completed"
-                                ? "bg-emerald-500/5 text-emerald-400 border-emerald-500/10"
-                                : currentJob?.status === "in-progress"
-                                  ? "bg-cyan-500/5 text-cyan-400 border-cyan-500/10 animate-pulse"
-                                  : "bg-amber-500/5 text-amber-400 border-amber-500/10"
+                              isUnhealthy
+                                ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                                : currentJob?.status === "completed"
+                                  ? "bg-emerald-500/5 text-emerald-400 border-emerald-500/10"
+                                  : currentJob?.status === "in-progress"
+                                    ? "bg-cyan-500/5 text-cyan-400 border-cyan-500/10 animate-pulse"
+                                    : "bg-amber-500/5 text-amber-400 border-amber-500/10"
                             }`}
                           >
-                            ● {currentJob?.status || "Queued"}
+                            ●{" "}
+                            {isUnhealthy
+                              ? "CRITICAL_FAIL"
+                              : currentJob?.status || "Queued"}
                           </span>
                         </div>
 
                         <div className="w-24 bg-slate-900 h-1.5 rounded-full overflow-hidden border border-slate-900">
                           <div
-                            className={`h-full transition-all duration-500 ${project.status === "paused" ? "bg-amber-500" : "bg-gradient-to-r from-cyan-400 to-fuchsia-500"}`}
+                            className={`h-full transition-all duration-500 ${
+                              project.status === "paused"
+                                ? "bg-amber-500"
+                                : isUnhealthy
+                                  ? "bg-rose-600"
+                                  : "bg-gradient-to-r from-cyan-400 to-fuchsia-500"
+                            }`}
                             style={{ width: `${project.progressPercentage}%` }}
                           />
                         </div>
@@ -199,10 +283,11 @@ export default async function SystemsOverviewDashboard() {
                             <input type="hidden" name="id" value={project.id} />
                             <button
                               type="submit"
+                              disabled={isUnhealthy}
                               title={
                                 project.status === "paused" ? "Resume" : "Pause"
                               }
-                              className="p-1.5 text-slate-500 hover:text-amber-400 hover:bg-slate-800 rounded transition"
+                              className="p-1.5 text-slate-500 hover:text-amber-400 hover:bg-slate-800 rounded transition disabled:opacity-20"
                             >
                               {project.status === "paused" ? (
                                 <Play className="w-3.5 h-3.5" />

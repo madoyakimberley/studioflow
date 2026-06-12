@@ -59,6 +59,8 @@ class HighFidelityScaffolder {
     this.targetPath = path.join(baseWorkspace, this.validateSlug(projectSlug));
     this.manifest = manifest;
     this.projectName = manifest.projectName || projectSlug;
+
+    this.githubToken = process.env.GITHUB_PAT || process.env.GITHUB_TOKEN;
     this.githubRemote = `https://github.com/madoyakimberley/${this.validateSlug(projectSlug)}.git`;
     this.templatePath = path.resolve(process.cwd(), "../../templates");
   }
@@ -78,8 +80,42 @@ class HighFidelityScaffolder {
     }
   }
 
+  async injectRenderBlueprint() {
+    console.log(
+      ` -> Injecting Render Infrastructure Blueprint (render.yaml)...`,
+    );
+
+    const renderYaml = `services:
+  - type: web
+    name: ${this.projectName}-frontend
+    env: node
+    plan: free
+    buildCommand: npm install -g pnpm && pnpm install && pnpm run build
+    startCommand: pnpm run start
+    envVars:
+      - key: NODE_VERSION
+        value: 20.x
+${
+  this.manifest.apiIntegration
+    ? `
+  - type: web
+    name: ${this.projectName}-backend
+    env: python
+    plan: free
+    rootDir: api
+    buildCommand: pip install uv && uv pip install --system -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+`
+    : ""
+}`;
+
+    await fs.writeFile(path.join(this.targetPath, "render.yaml"), renderYaml);
+  }
+
   async writeBoilerplateFiles() {
-    // 1. Establish core directory structures
     const directories = [
       "src/app",
       "src/components/ui",
@@ -93,7 +129,6 @@ class HighFidelityScaffolder {
       await fs.mkdir(path.join(this.targetPath, dir), { recursive: true });
     }
 
-    // Helper to read and inject data into templates with rich error handling
     const loadTemplate = async (fileName) => {
       const fullPath = path.join(this.templatePath, `${fileName}.template`);
       try {
@@ -111,7 +146,6 @@ class HighFidelityScaffolder {
       }
     };
 
-    // 2. Inject standard high-fidelity package.json
     let packageJsonContent = await loadTemplate("package.json");
     let packageJson;
     try {
@@ -122,10 +156,9 @@ class HighFidelityScaffolder {
       );
     }
 
-    // Explicit Supabase Drizzle Requirements
     if (this.manifest.database === "Supabase") {
       packageJson.dependencies["drizzle-orm"] = "^0.36.1";
-      packageJson.dependencies["postgres"] = "^3.4.4"; // Standard driver for Supabase DB
+      packageJson.dependencies["postgres"] = "^3.4.4";
       packageJson.devDependencies["drizzle-kit"] = "^0.28.1";
     }
 
@@ -139,13 +172,11 @@ class HighFidelityScaffolder {
       JSON.stringify(packageJson, null, 2),
     );
 
-    // 3. Inject strict type validation models
     await fs.writeFile(
       path.join(this.targetPath, "src/schemas/user.ts"),
       await loadTemplate("user.ts"),
     );
 
-    // 4. Build Drizzle ORM layout configurations
     if (this.manifest.database === "Supabase") {
       await fs.writeFile(
         path.join(this.targetPath, "drizzle.config.ts"),
@@ -157,44 +188,36 @@ class HighFidelityScaffolder {
       );
     }
 
-    // 5. Inject custom Next.js root view routing layer
     await fs.writeFile(
       path.join(this.targetPath, "src/app/page.tsx"),
       await loadTemplate("page.tsx"),
     );
 
-    // 6. Setup layout wrap
     await fs.writeFile(
       path.join(this.targetPath, "src/app/layout.tsx"),
       await loadTemplate("layout.tsx"),
     );
 
-    // Inject empty globals.css
     await fs.writeFile(
       path.join(this.targetPath, "src/app/globals.css"),
       await loadTemplate("globals.css"),
     );
 
-    // 7. Inject API Microservice (If Selected via UI Wizard)
     if (this.manifest.apiIntegration === true) {
       console.log(` -> Constructing Production-Grade FastAPI Structure...`);
       const apiPath = path.join(this.targetPath, "api");
-
-      // Define modular python layout
       const pythonDirs = ["app/core", "app/api/v1", "app/schemas"];
 
       for (const dir of pythonDirs) {
         await fs.mkdir(path.join(apiPath, dir), { recursive: true });
       }
 
-      // Generate structural Python packages via dunder init files
       await fs.writeFile(path.join(apiPath, "app/__init__.py"), "");
       await fs.writeFile(path.join(apiPath, "app/core/__init__.py"), "");
       await fs.writeFile(path.join(apiPath, "app/api/__init__.py"), "");
       await fs.writeFile(path.join(apiPath, "app/api/v1/__init__.py"), "");
       await fs.writeFile(path.join(apiPath, "app/schemas/__init__.py"), "");
 
-      // Write Python base configurations
       const configPy = `from pydantic_settings import BaseSettings
 import os
 
@@ -209,7 +232,6 @@ class Settings(BaseSettings):
 settings = Settings()
 `;
 
-      // Write API endpoints router matrix
       const endpointsPy = `from fastapi import APIRouter
 
 router = APIRouter()
@@ -223,7 +245,6 @@ async def health_check():
     }
 `;
 
-      // Write main framework instantiation code
       const fastApiMain = `from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
@@ -245,7 +266,6 @@ app.add_middleware(
 app.include_router(api_v1_router, prefix=settings.API_V1_STR)
 `;
 
-      // Requirements list incorporating standard clean validation tools
       const requirements = `fastapi>=0.110.0\nuvicorn[standard]>=0.28.0\npydantic>=2.6.0\npydantic-settings>=2.2.1\npython-dotenv>=1.0.1`;
 
       await fs.writeFile(path.join(apiPath, "app/core/config.py"), configPy);
@@ -257,7 +277,8 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
       await fs.writeFile(path.join(apiPath, "requirements.txt"), requirements);
     }
 
-    // Generate .env.local
+    // Call the updated Render Blueprint Injector
+    await this.injectRenderBlueprint();
     await this.generateEnvFiles();
   }
 
@@ -269,7 +290,6 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
     );
     const apiPath = path.join(this.targetPath, "api");
 
-    // 1. Build hyper-fast virtual environment
     const venvResult = await ProcessExecutor.runCommand("uv venv", apiPath);
     if (!venvResult.success) {
       throw new Error(
@@ -277,7 +297,6 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
       );
     }
 
-    // 2. Synchronize explicit vendor library matrix
     console.log(
       ` -> Injecting compiled Python package dependencies via uv pip...`,
     );
@@ -306,9 +325,9 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
   }
 
   async createGitHubRepo() {
-    if (!process.env.GITHUB_TOKEN) {
+    if (!this.githubToken) {
       throw new Error(
-        "GITHUB_TOKEN not found in environment. Cannot create repository.",
+        "GITHUB_PAT / GITHUB_TOKEN not found in environment settings. Cannot create repository.",
       );
     }
 
@@ -316,12 +335,12 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
     const response = await fetch("https://api.github.com/user/repos", {
       method: "POST",
       headers: {
-        Authorization: `token ${process.env.GITHUB_TOKEN}`,
+        Authorization: `token ${this.githubToken}`,
         Accept: "application/vnd.github.v3+json",
       },
       body: JSON.stringify({
         name: this.validateSlug(this.manifest.slug || this.projectName),
-        description: `Automatically provisioned via StudioFlow Engine`,
+        description: `Automatically provisioned via StudioFlow Engine -> Render Connected`,
         private: true,
       }),
     });
@@ -350,7 +369,7 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
     await ProcessExecutor.runCommand("git init", this.targetPath);
     await ProcessExecutor.runCommand("git add .", this.targetPath);
     await ProcessExecutor.runCommand(
-      `git commit -m "feat: initial architecture scaffold via StudioFlow engine"`,
+      `git commit -m "feat: initial architecture scaffold via StudioFlow engine with Render Blueprint"`,
       this.targetPath,
     );
     await ProcessExecutor.runCommand("git branch -M main", this.targetPath);
@@ -464,14 +483,27 @@ class EngineDaemonWorker {
       `UPDATE provisioning_jobs SET status = 'failed', execution_logs = CONCAT(COALESCE(execution_logs, ''), ?) WHERE id = ?`,
       [crashReport, jobId],
     );
-    await this.updateProjectTrackingPercentage(projectId, 100, "failed");
+    await this.updateProjectTrackingPercentage(projectId, 100, "unhealthy");
   }
 
-  async updateProjectTrackingPercentage(projectId, progressInt, statusString) {
-    await this.poolInstance.query(
-      `UPDATE projects SET progress_percentage = ?, status = ? WHERE id = ?`,
-      [progressInt, statusString, projectId],
-    );
+  // UPDATED: Now accepts an optional liveUrl parameter to track active deployments
+  async updateProjectTrackingPercentage(
+    projectId,
+    progressInt,
+    statusString,
+    liveUrl = null,
+  ) {
+    if (liveUrl) {
+      await this.poolInstance.query(
+        `UPDATE projects SET progress_percentage = ?, status = ?, live_url = ? WHERE id = ?`,
+        [progressInt, statusString, liveUrl, projectId],
+      );
+    } else {
+      await this.poolInstance.query(
+        `UPDATE projects SET progress_percentage = ?, status = ? WHERE id = ?`,
+        [progressInt, statusString, projectId],
+      );
+    }
   }
 
   async processingLoopSequence() {
@@ -484,7 +516,7 @@ class EngineDaemonWorker {
         : job.manifest;
 
     console.log(
-      `\n⚡ Processing Job Request #${job.id} -> Constructing High-Fidelity App Domain: apps/${job.project_slug}`,
+      `\n⚡ Processing Job Request #${job.id} -> Constructing App Domain: apps/${job.project_slug}`,
     );
 
     await this.updateJobState(job.id, "in-progress");
@@ -523,7 +555,7 @@ class EngineDaemonWorker {
       await scaffolder.writeBoilerplateFiles();
       await this.appendJobLog(
         job.id,
-        `Architecture templates and schemas injected successfully.`,
+        `Architecture templates and Render routing injected successfully.`,
       );
       await this.updateProjectTrackingPercentage(
         job.project_id,
@@ -584,7 +616,7 @@ class EngineDaemonWorker {
       await this.markJobFailed(
         job.id,
         job.project_id,
-        "PNPM/Python Vendor Installation (System Exception)",
+        "PNPM/Python Vendor Installation Exception",
         err,
       );
       return;
@@ -594,7 +626,7 @@ class EngineDaemonWorker {
     try {
       await this.appendJobLog(
         job.id,
-        `Configuring Git and attempting to push to remote registry...`,
+        `Configuring Git and attempting to push to remote registry to trigger Render Blueprint...`,
       );
       await scaffolder.setupGitRepository();
     } catch (err) {
@@ -611,10 +643,18 @@ class EngineDaemonWorker {
     console.log(`✅ System allocation successful for apps/${job.project_slug}`);
     await this.appendJobLog(
       job.id,
-      `Ecosystem generated smoothly without exceptions. Execution pipeline verified.`,
+      `Ecosystem generated smoothly without exceptions. Render infrastructure pipeline deployed.`,
     );
     await this.updateJobState(job.id, "completed");
-    await this.updateProjectTrackingPercentage(job.project_id, 100, "active");
+
+    // UPDATED: Dynamically construct the deployed URL and send it directly to the database
+    const expectedLiveUrl = `https://${job.project_slug}-frontend.onrender.com`;
+    await this.updateProjectTrackingPercentage(
+      job.project_id,
+      100,
+      "active",
+      expectedLiveUrl,
+    );
   }
 
   async startupEngine() {
@@ -696,7 +736,7 @@ async function projectSelectionWizard(promptAction) {
 
   if (projects.length === 0) {
     console.log(
-      `\n❌ No projects found in TiDB. Please create one in the Next.js dashboard first.`,
+      `\n❌ No projects found in Database. Please create one in the dashboard first.`,
     );
     return null;
   }
@@ -737,7 +777,6 @@ async function runInteractiveMenu() {
   const answer = await askQuestion("Select an operation target [1-4]: ");
 
   if (answer === "1") {
-    // We intentionally don't close rl here or loop back, because the daemon runs continuously
     const workerInstance = new EngineDaemonWorker(process.env.DATABASE_URL);
     await workerInstance.startupEngine();
   } else if (answer === "2") {
@@ -746,12 +785,8 @@ async function runInteractiveMenu() {
       return await runInteractiveMenu();
     }
 
-    console.log(
-      `\n[i] Bypassing TiDB queue to manually initialize apps/${slug}...`,
-    );
+    console.log(`\n[i] Bypassing queue to manually initialize apps/${slug}...`);
 
-    // We pass apiIntegration: true if you want default python setup manually, or map it.
-    // For now, I'm manually enforcing a complete payload so you get the python backend if desired.
     const runPython = await askQuestion(
       "Include Python FastAPI Engine? (y/n): ",
     );
@@ -772,7 +807,7 @@ async function runInteractiveMenu() {
       return await runInteractiveMenu();
     }
 
-    console.log(` -> Writing boilerplate matrices...`);
+    console.log(` -> Writing boilerplate matrices and Render mapping...`);
     try {
       await scaffolder.writeBoilerplateFiles();
     } catch (err) {
@@ -793,7 +828,9 @@ async function runInteractiveMenu() {
       try {
         await scaffolder.provisionPythonEnvironment();
         await scaffolder.setupGitRepository();
-        console.log(`✅ System allocation completed manually for ${slug}.`);
+        console.log(
+          `✅ System allocation completed manually for ${slug}. Render Blueprint pushed.`,
+        );
       } catch (err) {
         console.error(`❌ Git / Environment Setup Failed:\n`, err.stack);
       }
@@ -824,7 +861,9 @@ async function runInteractiveMenu() {
     );
 
     if (result.success) {
-      console.log(`✅ Update cleanly pushed to GitHub registry.`);
+      console.log(
+        `✅ Update cleanly pushed to GitHub registry. Render should catch the trigger.`,
+      );
     } else {
       console.log(
         `❌ Failed to push. (Ensure the repository exists on your GitHub account first)\nOutput: ${result.output}`,

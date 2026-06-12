@@ -2,6 +2,10 @@
 
 import { db, projects, provisioningJobs, clients } from "@studioflow/db";
 import { revalidatePath } from "next/cache";
+import Redis from "ioredis";
+
+// Initialize Redis client to signal the daemon
+const redis = new Redis(process.env.REDIS_URL || "redis://127.0.0.1:6379");
 
 export interface ProjectManifestPayload {
   name: string;
@@ -76,6 +80,12 @@ export async function queueProjectProvisioning(
         priority: payload.priority,
       },
     });
+
+    // 5. TRIGGER THE DAEMON: Publish to Redis so index.js wakes up
+    await redis.publish(
+      "provisioning_queue",
+      JSON.stringify({ event: "NEW_JOB", slug: projectSlug }),
+    );
 
     revalidatePath("/");
     return { success: true, slug: projectSlug };

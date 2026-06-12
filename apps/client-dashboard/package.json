@@ -9,18 +9,19 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@hookform/resolvers": "latest",
     "@studioflow/db": "workspace:*",
+    "clsx": "latest",
+    "framer-motion": "latest",
+    "ioredis": "^5.11.1",
+    "lucide-react": "latest",
     "next": "16.2.9",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "lucide-react": "latest",
-    "framer-motion": "latest",
-    "zod": "latest",
     "react-hook-form": "latest",
-    "@hookform/resolvers": "latest",
-    "clsx": "latest",
+    "sonner": "latest",
     "tailwind-merge": "latest",
-    "sonner": "latest"
+    "zod": "latest"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

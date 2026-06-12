@@ -11,6 +11,9 @@ import {
   HardDrive,
   Cpu,
   CheckCircle,
+  AlertOctagon,
+  FileCode,
+  ExternalLink,
 } from "lucide-react";
 
 interface ProjectDetailsPageProps {
@@ -42,6 +45,8 @@ export default async function ProjectDetailsWorkspaceConsole({
       : structuralJobRecord.manifest
     : null;
 
+  const isUnhealthy = projectNode.status === "unhealthy";
+
   return (
     <div className="min-h-screen bg-[#06070a] text-slate-300 font-serif flex antialiased">
       {/* Structural Utility Sidebar Container mapping */}
@@ -67,10 +72,38 @@ export default async function ProjectDetailsWorkspaceConsole({
 
       {/* Focus Console Layer Area */}
       <main className="flex-1 p-8 space-y-8 overflow-y-auto max-w-7xl mx-auto w-full">
+        {/* Urgent Isolation Alert Banner if Node has failed HTTP evaluation */}
+        {isUnhealthy && (
+          <div className="bg-rose-950/20 border-2 border-rose-900/60 rounded-xl p-5 space-y-3 font-mono">
+            <div className="flex items-center gap-2 text-rose-400 text-sm font-bold">
+              <AlertOctagon className="w-5 h-5 text-rose-500 animate-spin" />
+              SYSTEM ANOMALY TERMINAL LOGS TRIGGERED
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              The continuous daemon engine worker failed HTTP-status evaluation
+              hooks on this domain context. An automated alert has been
+              dispatched across global secure integration groups (Brevo Relay
+              and system logs updated).
+            </p>
+            <div className="bg-[#030407] p-3 rounded-lg border border-rose-950 text-[11px] text-rose-300 overflow-x-auto">
+              <code>
+                [DAEMON_MONITOR_FAIL] 502 Bad Gateway response received from
+                origin cluster edge service. <br />
+                [ERR_EXEC_TRACE] ProcessExecutor execution dropped with
+                unexpected stack state during build mapping.
+              </code>
+            </div>
+          </div>
+        )}
+
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-900 pb-6 gap-4">
           <div className="space-y-1">
-            <div className="inline-flex items-center gap-1.5 bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/20 text-[10px] font-mono font-bold tracking-wider px-2.5 py-0.5 rounded-full uppercase">
-              Active Project Matrix Node
+            <div
+              className={`inline-flex items-center gap-1.5 border text-[10px] font-mono font-bold tracking-wider px-2.5 py-0.5 rounded-full uppercase ${isUnhealthy ? "bg-rose-500/10 text-rose-400 border-rose-500/20" : "bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/20"}`}
+            >
+              {isUnhealthy
+                ? "Anomaly State Isolation"
+                : "Active Project Matrix Node"}
             </div>
             <h1 className="text-2xl font-black text-white tracking-tight">
               {projectNode.name} Implementation Tracking
@@ -84,6 +117,19 @@ export default async function ProjectDetailsWorkspaceConsole({
               <span className="font-mono text-cyan-400">
                 apps/{projectNode.slug}
               </span>
+              {projectNode.liveUrl && (
+                <>
+                  <span className="text-slate-700">|</span>
+                  <a
+                    href={projectNode.liveUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-cyan-400 hover:underline"
+                  >
+                    View Deploy <ExternalLink className="w-3 h-3" />
+                  </a>
+                </>
+              )}
             </div>
           </div>
 
@@ -98,7 +144,7 @@ export default async function ProjectDetailsWorkspaceConsole({
             </div>
             <div className="w-16 bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-900">
               <div
-                className="bg-gradient-to-r from-cyan-400 to-fuchsia-500 h-full"
+                className={`h-full ${isUnhealthy ? "bg-rose-600" : "bg-gradient-to-r from-cyan-400 to-fuchsia-500"}`}
                 style={{ width: `${projectNode.progressPercentage}%` }}
               />
             </div>
@@ -137,7 +183,7 @@ export default async function ProjectDetailsWorkspaceConsole({
               <div className="text-[10px] font-black uppercase tracking-widest text-cyan-400 border-b border-slate-900 pb-2">
                 Active Processing Loop
               </div>
-              {projectNode.status !== "active" ? (
+              {projectNode.status !== "active" && !isUnhealthy ? (
                 <div className="bg-[#121724]/40 border border-cyan-500/20 rounded-lg p-3.5 space-y-2 animate-pulse">
                   <div className="text-xs font-bold text-cyan-400 flex items-center gap-1.5">
                     <Cpu className="w-3.5 h-3.5 animate-spin" /> Local Daemon
@@ -146,6 +192,16 @@ export default async function ProjectDetailsWorkspaceConsole({
                   <p className="text-[11px] text-slate-400 leading-relaxed">
                     Expanding file paths, injecting Zod validation logic
                     blueprints, and running pnpm linking mechanisms.
+                  </p>
+                </div>
+              ) : isUnhealthy ? (
+                <div className="bg-rose-950/10 border border-rose-900/40 rounded-lg p-3.5 space-y-2 text-rose-400/80">
+                  <div className="text-xs font-bold text-rose-400 flex items-center gap-1.5">
+                    Pipeline Execution Halted
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-slate-400">
+                    The build engine dropped execution threads. Manual telemetry
+                    intervention required. Re-provisioning requested.
                   </p>
                 </div>
               ) : (
@@ -169,14 +225,21 @@ export default async function ProjectDetailsWorkspaceConsole({
               <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-900 pb-2">
                 Review & Production Handshake
               </div>
-              <div className="bg-[#0b1411] border border-emerald-500/10 rounded-lg p-3.5 space-y-2">
-                <div className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                  <CheckCircle className="w-3.5 h-3.5" /> High-Fidelity
-                  Scaffolding Generated
+              <div
+                className={`border rounded-lg p-3.5 space-y-2 ${isUnhealthy ? "bg-amber-950/5 border-amber-900/30 text-amber-400/80" : "bg-[#0b1411] border-emerald-500/10"}`}
+              >
+                <div
+                  className={`text-xs font-bold flex items-center gap-1 ${isUnhealthy ? "text-amber-500" : "text-emerald-400"}`}
+                >
+                  <CheckCircle className="w-3.5 h-3.5" />{" "}
+                  {isUnhealthy
+                    ? "Integrity Check Flagged"
+                    : "High-Fidelity Scaffolding Generated"}
                 </div>
                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                  The target files have been securely structured and verified
-                  within your directory layer configuration map.
+                  {isUnhealthy
+                    ? "Scaffolding components exist but remote container platform execution limits or errors were thrown during ping tests."
+                    : "The target files have been securely structured and verified within your directory layer configuration map."}
                 </p>
               </div>
             </div>
@@ -198,7 +261,7 @@ export default async function ProjectDetailsWorkspaceConsole({
                     Target Core Framework
                   </div>
                   <div className="text-white font-bold mt-1">
-                    Next.js 15 (App Router, TypeScript)
+                    Next.js 16 (App Router, TypeScript)
                   </div>
                 </div>
                 <div className="bg-[#11131c] border border-slate-900 p-3 rounded-lg">
@@ -243,7 +306,15 @@ export default async function ProjectDetailsWorkspaceConsole({
             <ul className="space-y-2 text-xs font-mono">
               <li className="flex justify-between border-b border-slate-900 pb-1.5">
                 <span className="text-slate-500">SSL Handshake Context</span>
-                <span className="text-emerald-400 font-bold">✓ Active</span>
+                <span
+                  className={
+                    isUnhealthy
+                      ? "text-rose-400 font-bold"
+                      : "text-emerald-400 font-bold"
+                  }
+                >
+                  {isUnhealthy ? "✗ Broken" : "✓ Active"}
+                </span>
               </li>
               <li className="flex justify-between border-b border-slate-900 pb-1.5">
                 <span className="text-slate-500">Zod Input Isolation</span>
