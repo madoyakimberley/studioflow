@@ -4,24 +4,35 @@ services:
     name: studioflow-dashboard
     env: node
     plan: free
-    autoDeploy: false
+    autoDeploy: true # Set to true for auto-deploys on push
     buildCommand: pnpm install && pnpm build --filter client-dashboard
     startCommand: cd apps/client-dashboard && pnpm start
+    healthCheckPath: /api/health # Ensure you have a simple health endpoint
     envVars:
       - key: NODE_VERSION
         value: 20.x
       - key: PNPM_VERSION
         value: 9.x
+      - key: API_BASE_URL # So the dashboard knows where the backend is
+        fromService:
+          type: web
+          name: studioflow-api
+          property: host
 
   # 2. The Python FastAPI Core Engine
   - type: web
     name: studioflow-api
     env: python
     plan: free
-    autoDeploy: false
+    autoDeploy: true
     rootDir: apps/api-core
     buildCommand: pip install uv && uv pip install --system -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health # Your FastAPI should have an @app.get("/health")
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.0
+      - key: DATABASE_URL # Needed because your index.js expects this
+        sync: false
+      - key: REDIS_URL
+        sync: false
