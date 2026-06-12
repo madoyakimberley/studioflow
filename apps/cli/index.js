@@ -122,15 +122,14 @@ class HighFidelityScaffolder {
       );
     }
 
-    if (
-      this.manifest.infrastructure?.database === "Supabase" ||
-      this.manifest.infrastructure?.database === "PostgreSQL"
-    ) {
+    // Explicit Supabase Drizzle Requirements
+    if (this.manifest.database === "Supabase") {
       packageJson.dependencies["drizzle-orm"] = "^0.36.1";
-      packageJson.dependencies["@postgres/postgres"] = "^1.0.0";
+      packageJson.dependencies["postgres"] = "^3.4.4"; // Standard driver for Supabase DB
+      packageJson.devDependencies["drizzle-kit"] = "^0.28.1";
     }
 
-    if (this.manifest.infrastructure?.storage === "UploadThing") {
+    if (this.manifest.storage === "UploadThing") {
       packageJson.dependencies["@uploadthing/react"] = "^7.1.1";
       packageJson.dependencies["uploadthing"] = "^7.3.0";
     }
@@ -147,7 +146,7 @@ class HighFidelityScaffolder {
     );
 
     // 4. Build Drizzle ORM layout configurations
-    if (this.manifest.infrastructure?.database) {
+    if (this.manifest.database === "Supabase") {
       await fs.writeFile(
         path.join(this.targetPath, "drizzle.config.ts"),
         await loadTemplate("drizzle.config.ts"),
@@ -158,7 +157,7 @@ class HighFidelityScaffolder {
       );
     }
 
-    // 5. Inject custom Next.js 15 root view routing layer
+    // 5. Inject custom Next.js root view routing layer
     await fs.writeFile(
       path.join(this.targetPath, "src/app/page.tsx"),
       await loadTemplate("page.tsx"),
@@ -176,8 +175,125 @@ class HighFidelityScaffolder {
       await loadTemplate("globals.css"),
     );
 
+    // 7. Inject API Microservice (If Selected via UI Wizard)
+    if (this.manifest.apiIntegration === true) {
+      console.log(` -> Constructing Production-Grade FastAPI Structure...`);
+      const apiPath = path.join(this.targetPath, "api");
+
+      // Define modular python layout
+      const pythonDirs = ["app/core", "app/api/v1", "app/schemas"];
+
+      for (const dir of pythonDirs) {
+        await fs.mkdir(path.join(apiPath, dir), { recursive: true });
+      }
+
+      // Generate structural Python packages via dunder init files
+      await fs.writeFile(path.join(apiPath, "app/__init__.py"), "");
+      await fs.writeFile(path.join(apiPath, "app/core/__init__.py"), "");
+      await fs.writeFile(path.join(apiPath, "app/api/__init__.py"), "");
+      await fs.writeFile(path.join(apiPath, "app/api/v1/__init__.py"), "");
+      await fs.writeFile(path.join(apiPath, "app/schemas/__init__.py"), "");
+
+      // Write Python base configurations
+      const configPy = `from pydantic_settings import BaseSettings
+import os
+
+class Settings(BaseSettings):
+    PROJECT_NAME: str = "${this.projectName} Engine API"
+    API_V1_STR: str = "/api/v1"
+    ENVIRONMENT: str = os.getenv("NODE_ENV", "development")
+
+    class Config:
+        case_sensitive = True
+
+settings = Settings()
+`;
+
+      // Write API endpoints router matrix
+      const endpointsPy = `from fastapi import APIRouter
+
+router = APIRouter()
+
+@router.get("/health", status_code=200)
+async def health_check():
+    return {
+        "status": "operational",
+        "project": "${this.projectName}",
+        "message": "Python microservice orchestration core online."
+    }
+`;
+
+      // Write main framework instantiation code
+      const fastApiMain = `from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.core.config import settings
+from app.api.v1.endpoints import router as api_v1_router
+
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(api_v1_router, prefix=settings.API_V1_STR)
+`;
+
+      // Requirements list incorporating standard clean validation tools
+      const requirements = `fastapi>=0.110.0\nuvicorn[standard]>=0.28.0\npydantic>=2.6.0\npydantic-settings>=2.2.1\npython-dotenv>=1.0.1`;
+
+      await fs.writeFile(path.join(apiPath, "app/core/config.py"), configPy);
+      await fs.writeFile(
+        path.join(apiPath, "app/api/v1/endpoints.py"),
+        endpointsPy,
+      );
+      await fs.writeFile(path.join(apiPath, "app/main.py"), fastApiMain);
+      await fs.writeFile(path.join(apiPath, "requirements.txt"), requirements);
+    }
+
     // Generate .env.local
     await this.generateEnvFiles();
+  }
+
+  async provisionPythonEnvironment() {
+    if (this.manifest.apiIntegration !== true) return;
+
+    console.log(
+      `\n -> Initializing isolated Python architecture environment via uv...`,
+    );
+    const apiPath = path.join(this.targetPath, "api");
+
+    // 1. Build hyper-fast virtual environment
+    const venvResult = await ProcessExecutor.runCommand("uv venv", apiPath);
+    if (!venvResult.success) {
+      throw new Error(
+        `uv venv orchestration layer failed: ${venvResult.output}`,
+      );
+    }
+
+    // 2. Synchronize explicit vendor library matrix
+    console.log(
+      ` -> Injecting compiled Python package dependencies via uv pip...`,
+    );
+    const pipResult = await ProcessExecutor.runCommand(
+      "uv pip install -r requirements.txt",
+      apiPath,
+    );
+    if (!pipResult.success) {
+      throw new Error(
+        `uv pip package optimization dropped: ${pipResult.output}`,
+      );
+    }
+
+    console.log(
+      `✅ Automated Python microservice micro-layer cleanly provisioned.`,
+    );
   }
 
   async generateEnvFiles() {
@@ -223,7 +339,7 @@ class HighFidelityScaffolder {
       `\n -> Initializing Git tracking and mapping to remote origin...`,
     );
     const gitignoreContent =
-      "node_modules\n.next\n.env\n.env.local\n.DS_Store\n";
+      "node_modules\n.next\n.env\n.env.local\n.DS_Store\napi/.venv\napi/__pycache__\n";
     await fs.writeFile(
       path.join(this.targetPath, ".gitignore"),
       gitignoreContent,
@@ -302,7 +418,6 @@ class EngineDaemonWorker {
     return rows.length > 0 ? rows[0] : null;
   }
 
-  // STANDARD LOGGING: Appends a clean step message to the DB
   async appendJobLog(jobId, message) {
     const timestamp = new Date().toISOString();
     const formattedLog = `[INFO] [${timestamp}] ${message}\n`;
@@ -312,7 +427,6 @@ class EngineDaemonWorker {
     );
   }
 
-  // STATUS UPDATER: Changes state and optionally sets timestamps
   async updateJobState(jobId, targetStatus) {
     const timeColumnUpdate =
       targetStatus === "in-progress"
@@ -327,7 +441,6 @@ class EngineDaemonWorker {
     );
   }
 
-  // ERROR LOGGING: Formats a massive, readable crash report into the DB
   async markJobFailed(jobId, projectId, phase, error, outputBuffer = "") {
     const timestamp = new Date().toISOString();
     const stackTrace = error?.stack || error?.message || String(error);
@@ -425,7 +538,7 @@ class EngineDaemonWorker {
         "Template Injection",
         err,
       );
-      return; // Stop execution on failure
+      return;
     }
 
     // PHASE 3: Dependency Installation
@@ -457,12 +570,21 @@ class EngineDaemonWorker {
 
       console.log(`\n✅ Dependencies synchronized successfully.`);
       await this.appendJobLog(job.id, `Dependencies installed successfully.`);
+
+      // Inject Python Environment Provisioner Node
+      if (manifestPayload.apiIntegration === true) {
+        await this.appendJobLog(
+          job.id,
+          `Provisioning decoupled Python microservice engine via uv context...`,
+        );
+        await scaffolder.provisionPythonEnvironment();
+      }
     } catch (err) {
       await scaffolder.cleanupFailedRun();
       await this.markJobFailed(
         job.id,
         job.project_id,
-        "PNPM Vendor Installation (System Exception)",
+        "PNPM/Python Vendor Installation (System Exception)",
         err,
       );
       return;
@@ -476,7 +598,6 @@ class EngineDaemonWorker {
       );
       await scaffolder.setupGitRepository();
     } catch (err) {
-      // We don't necessarily cleanup the files here because the app is built, it just failed to upload to GitHub.
       await this.markJobFailed(
         job.id,
         job.project_id,
@@ -541,8 +662,6 @@ class EngineDaemonWorker {
   }
 }
 
-// --- INTERACTIVE CLI MENU ---
-// (Menu code remains unchanged)
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
@@ -618,22 +737,30 @@ async function runInteractiveMenu() {
   const answer = await askQuestion("Select an operation target [1-4]: ");
 
   if (answer === "1") {
-    rl.close();
+    // We intentionally don't close rl here or loop back, because the daemon runs continuously
     const workerInstance = new EngineDaemonWorker(process.env.DATABASE_URL);
     await workerInstance.startupEngine();
   } else if (answer === "2") {
     const slug = await projectSelectionWizard("scaffold");
     if (!slug) {
-      rl.close();
-      return;
+      return await runInteractiveMenu();
     }
 
     console.log(
       `\n[i] Bypassing TiDB queue to manually initialize apps/${slug}...`,
     );
+
+    // We pass apiIntegration: true if you want default python setup manually, or map it.
+    // For now, I'm manually enforcing a complete payload so you get the python backend if desired.
+    const runPython = await askQuestion(
+      "Include Python FastAPI Engine? (y/n): ",
+    );
+
     const scaffolder = new HighFidelityScaffolder(slug, {
       slug,
       projectName: slug,
+      database: "Supabase",
+      apiIntegration: runPython.toLowerCase() === "y",
       infrastructure: {},
     });
 
@@ -642,8 +769,7 @@ async function runInteractiveMenu() {
       console.log(
         `❌ Target directory /apps/${slug} already exists. Aborting manual initialization.`,
       );
-      rl.close();
-      return;
+      return await runInteractiveMenu();
     }
 
     console.log(` -> Writing boilerplate matrices...`);
@@ -651,8 +777,7 @@ async function runInteractiveMenu() {
       await scaffolder.writeBoilerplateFiles();
     } catch (err) {
       console.error(`❌ Template Injection Failed:\n`, err.stack);
-      rl.close();
-      return;
+      return await runInteractiveMenu();
     }
 
     console.log(` -> Running dependency installation...\n`);
@@ -666,18 +791,18 @@ async function runInteractiveMenu() {
       await scaffolder.cleanupFailedRun();
     } else {
       try {
+        await scaffolder.provisionPythonEnvironment();
         await scaffolder.setupGitRepository();
         console.log(`✅ System allocation completed manually for ${slug}.`);
       } catch (err) {
-        console.error(`❌ Git Setup Failed:\n`, err.stack);
+        console.error(`❌ Git / Environment Setup Failed:\n`, err.stack);
       }
     }
-    rl.close();
+    return await runInteractiveMenu();
   } else if (answer === "3") {
     const slug = await projectSelectionWizard("push to GitHub");
     if (!slug) {
-      rl.close();
-      return;
+      return await runInteractiveMenu();
     }
 
     const commitMsg = await askQuestion("\nEnter your commit message: ");
@@ -705,10 +830,11 @@ async function runInteractiveMenu() {
         `❌ Failed to push. (Ensure the repository exists on your GitHub account first)\nOutput: ${result.output}`,
       );
     }
-    rl.close();
+    return await runInteractiveMenu();
   } else {
     console.log("Shutting down core engine node.");
     rl.close();
+    process.exit(0);
   }
 }
 

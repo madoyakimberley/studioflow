@@ -13,6 +13,7 @@ import {
   Zap,
   Radio,
   Database,
+  Terminal,
   X,
 } from "lucide-react";
 import {
@@ -20,6 +21,10 @@ import {
   ProjectManifestPayload,
 } from "../app/action";
 import { toast } from "sonner";
+
+export interface ExtendedManifestPayload extends ProjectManifestPayload {
+  apiIntegration?: boolean;
+}
 
 interface ProjectWizardProps {
   onClose?: () => void;
@@ -29,7 +34,7 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
   const [step, setStep] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [formData, setFormData] = useState<ProjectManifestPayload>({
+  const [formData, setFormData] = useState<ExtendedManifestPayload>({
     name: "",
     clientName: "",
     brief: "",
@@ -38,6 +43,7 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
     storage: "UploadThing",
     features: ["User Dashboard", "Payment Integration", "Email Notifications"],
     priority: "PRIORITY",
+    apiIntegration: false,
   });
 
   const toggleFeature = (feature: string) => {
@@ -72,8 +78,8 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
           "Email Notifications",
         ],
         priority: "PRIORITY",
+        apiIntegration: false,
       });
-      // Auto close down structural layer container
       onClose?.();
     } else {
       toast.error(`Infrastructure setup dropped: ${result.error}`);
@@ -82,7 +88,6 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
 
   return (
     <div className="w-full max-w-6xl mx-auto min-h-[75vh] flex flex-col font-sans text-slate-200 select-none bg-[#090a0f] p-8 rounded-2xl border border-slate-900 shadow-2xl relative">
-      {/* Escaping Context Trigger Vector */}
       {onClose && (
         <button
           onClick={onClose}
@@ -92,7 +97,6 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
         </button>
       )}
 
-      {/* Dynamic Navigation Progress Bar */}
       <div className="flex items-center justify-between border-b border-slate-900 pb-6 mb-8 text-xs font-semibold uppercase tracking-wider text-slate-500 pr-8">
         <div className="flex items-center gap-8">
           <span
@@ -130,7 +134,6 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
         </div>
       </div>
 
-      {/* Dynamic Form Router */}
       <div className="flex-1 flex flex-col justify-center">
         <AnimatePresence mode="wait">
           {step === 1 && (
@@ -142,7 +145,7 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
               className="space-y-6 max-w-xl"
             >
               <div>
-                <h1 className="text-4xl font-['Playfair_Display',_serif]  text-white tracking-tight">
+                <h1 className="text-4xl font-['Playfair_Display',_serif] text-white tracking-tight">
                   Project Identity
                 </h1>
                 <p className="text-slate-400 mt-2 text-sm">
@@ -152,7 +155,7 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
               </div>
               <div className="space-y-4 pt-4">
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold  tracking-wider text-slate-400">
+                  <label className="text-xs font-bold tracking-wider text-slate-400">
                     Project Name
                   </label>
                   <input
@@ -166,7 +169,7 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
                   />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold  tracking-wider text-slate-400">
+                  <label className="text-xs font-bold tracking-wider text-slate-400">
                     Client / Organization
                   </label>
                   <input
@@ -180,7 +183,7 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
                   />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold  tracking-wider text-slate-400">
+                  <label className="text-xs font-bold tracking-wider text-slate-400">
                     Project Brief{" "}
                     <span className="text-slate-600">(Optional)</span>
                   </label>
@@ -219,27 +222,75 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
 
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-fuchsia-400">
-                    <Database className="w-4 h-4" /> Database
+                    <Database className="w-4 h-4" /> Database Engine
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    {["Supabase", "PostgreSQL", "MySQL"].map((dbOpt) => (
-                      <div
-                        key={dbOpt}
-                        onClick={() =>
-                          setFormData({ ...formData, database: dbOpt })
-                        }
-                        className={`p-4 rounded-xl border text-left cursor-pointer transition ${formData.database === dbOpt ? "bg-[#121b24] border-cyan-500/50 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]" : "bg-[#11131c] border-slate-800 hover:border-slate-700"}`}
-                      >
-                        <div className="text-sm font-bold text-white">
-                          {dbOpt}
-                        </div>
-                        <div className="text-[11px] text-slate-400 mt-1">
-                          {dbOpt === "Supabase"
-                            ? "PostgreSQL & Auth"
-                            : "Classic Engine"}
-                        </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div
+                      onClick={() =>
+                        setFormData({ ...formData, database: "Supabase" })
+                      }
+                      className={`p-4 rounded-xl border text-left cursor-pointer transition ${
+                        formData.database === "Supabase"
+                          ? "bg-[#121b24] border-cyan-500/50 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]"
+                          : "bg-[#11131c] border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="text-sm font-bold text-white">
+                        Supabase
                       </div>
-                    ))}
+                      <div className="text-[11px] text-slate-400 mt-1">
+                        Managed Postgres + Drizzle ORM
+                      </div>
+                    </div>
+                    <div
+                      onClick={() =>
+                        setFormData({ ...formData, database: "MySQL" })
+                      }
+                      className={`p-4 rounded-xl border text-left cursor-pointer transition ${
+                        formData.database === "MySQL"
+                          ? "bg-[#121b24] border-cyan-500/50 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]"
+                          : "bg-[#11131c] border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="text-sm font-bold text-white">MySQL</div>
+                      <div className="text-[11px] text-slate-400 mt-1">
+                        TiDB / Self-Hosted MySQL
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-fuchsia-400">
+                    <Terminal className="w-4 h-4" /> Backend Computation
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div
+                      onClick={() =>
+                        setFormData({ ...formData, apiIntegration: true })
+                      }
+                      className={`p-4 rounded-xl border text-left cursor-pointer transition ${formData.apiIntegration ? "bg-[#1b1424] border-fuchsia-500/50 text-white shadow-[0_0_15px_rgba(217,70,239,0.1)]" : "bg-[#11131c] border-slate-800 hover:border-slate-700"}`}
+                    >
+                      <div className="text-sm font-bold text-white">
+                        Python FastAPI
+                      </div>
+                      <div className="text-[11px] text-slate-400 mt-1">
+                        Provision API Microservice
+                      </div>
+                    </div>
+                    <div
+                      onClick={() =>
+                        setFormData({ ...formData, apiIntegration: false })
+                      }
+                      className={`p-4 rounded-xl border text-left cursor-pointer transition ${!formData.apiIntegration ? "bg-[#1b1424] border-fuchsia-500/50 text-white shadow-[0_0_15px_rgba(217,70,239,0.1)]" : "bg-[#11131c] border-slate-800 hover:border-slate-700"}`}
+                    >
+                      <div className="text-sm font-bold text-white">
+                        Standard Next.js
+                      </div>
+                      <div className="text-[11px] text-slate-400 mt-1">
+                        Server Actions Only
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -318,6 +369,20 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
                       </div>
                     </div>
                   </div>
+                  {formData.apiIntegration && (
+                    <div className="flex items-start gap-3">
+                      <Terminal className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <div className="font-bold text-slate-200">
+                          Microservice Topology
+                        </div>
+                        <div className="text-slate-400 mt-0.5">
+                          Monorepo configured with separate Python FastAPI
+                          engine.
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -492,9 +557,11 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
                         {[
                           "Next.js 15",
                           "TypeScript",
-                          "Tailwind",
                           formData.database,
                           formData.auth,
+                          ...(formData.apiIntegration
+                            ? ["Python FastAPI"]
+                            : []),
                         ].map((t) => (
                           <span
                             key={t}
@@ -537,7 +604,6 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
         </AnimatePresence>
       </div>
 
-      {/* Control Actions Frame */}
       {step < 4 && (
         <div className="flex justify-between border-t border-slate-900 pt-6 mt-8">
           <button
