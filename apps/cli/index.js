@@ -87,7 +87,6 @@ class HighFidelityScaffolder {
 
     const slug = this.validateSlug(this.manifest.slug || this.projectName);
 
-    // Corrected rootDir paths and optimized build/start commands
     const renderYaml = `services:
   - type: web
     name: ${this.projectName}-frontend
@@ -109,8 +108,8 @@ ${
     env: python
     plan: free
     rootDir: api
-    buildCommand: pip install uv && uv pip install -r requirements.txt
-    startCommand: gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+    buildCommand: pip install uv && uv venv && uv pip install -r requirements.txt
+    startCommand: .venv/bin/gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
     healthCheckPath: /api/v1/health
     envVars:
       - key: PYTHON_VERSION
@@ -166,7 +165,6 @@ ${
     packageJson.dependencies = packageJson.dependencies || {};
     packageJson.devDependencies = packageJson.devDependencies || {};
 
-    // Inject required TypeScript dependencies to prevent Next.js build crash
     packageJson.devDependencies["typescript"] = "^5";
     packageJson.devDependencies["@types/react"] = "^19";
     packageJson.devDependencies["@types/node"] = "^20";
@@ -229,12 +227,16 @@ ${
       );
     }
 
+    // FRONTEND FIX: Inject default exports for page.tsx and layout.tsx
+    let pageContent = await loadTemplate("page.tsx");
+    if (!pageContent.includes("export")) {
+      pageContent = `export default function Page() {\n  return (\n    <main>\n      <h1>${this.projectName}</h1>\n    </main>\n  );\n}`;
+    }
     await fs.writeFile(
       path.join(this.targetPath, "src/app/page.tsx"),
-      await loadTemplate("page.tsx"),
+      pageContent,
     );
 
-    // Safeguard to ensure layout.tsx is always a valid React module
     let layoutContent = await loadTemplate("layout.tsx");
     if (!layoutContent.includes("export")) {
       layoutContent = `export default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang="en">\n      <body>{children}</body>\n    </html>\n  );\n}`;
@@ -479,9 +481,9 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
               healthCheckPath: "/api/v1/health",
               envSpecificDetails: {
                 buildCommand:
-                  "pip install uv && uv pip install -r requirements.txt",
+                  "pip install uv && uv venv && uv pip install -r requirements.txt",
                 startCommand:
-                  "gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT",
+                  ".venv/bin/gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT",
               },
               envVars: [
                 { key: "PYTHON_VERSION", value: "3.12.0" },
