@@ -163,6 +163,21 @@ ${
       );
     }
 
+    // FIX: Initialize the objects if they are missing to prevent 'undefined' assignment errors
+    packageJson.dependencies = packageJson.dependencies || {};
+    packageJson.devDependencies = packageJson.devDependencies || {};
+
+    if (this.manifest.database === "Supabase") {
+      packageJson.dependencies["drizzle-orm"] = "^0.36.1";
+      packageJson.dependencies["postgres"] = "^3.4.4";
+      packageJson.devDependencies["drizzle-kit"] = "^0.28.1";
+    }
+
+    if (this.manifest.storage === "UploadThing") {
+      packageJson.dependencies["@uploadthing/react"] = "^7.1.1";
+      packageJson.dependencies["uploadthing"] = "^7.3.0";
+    }
+
     if (this.manifest.database === "Supabase") {
       packageJson.dependencies["drizzle-orm"] = "^0.36.1";
       packageJson.dependencies["postgres"] = "^3.4.4";
