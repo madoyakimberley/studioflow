@@ -87,7 +87,7 @@ class HighFidelityScaffolder {
 
     const slug = this.validateSlug(this.manifest.slug || this.projectName);
 
-    // Corrected rootDir paths: Next.js is at root (.), Python is in api/
+    // Corrected rootDir paths and optimized build/start commands
     const renderYaml = `services:
   - type: web
     name: ${this.projectName}-frontend
@@ -109,8 +109,8 @@ ${
     env: python
     plan: free
     rootDir: api
-    buildCommand: pip install uv && uv pip install --system -r requirements.txt
-    startCommand: python -m gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+    buildCommand: pip install uv && uv pip install -r requirements.txt
+    startCommand: gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
     healthCheckPath: /api/v1/health
     envVars:
       - key: PYTHON_VERSION
@@ -163,9 +163,13 @@ ${
       );
     }
 
-    // FIX: Initialize the objects if they are missing to prevent 'undefined' assignment errors
     packageJson.dependencies = packageJson.dependencies || {};
     packageJson.devDependencies = packageJson.devDependencies || {};
+
+    // Inject required TypeScript dependencies to prevent Next.js build crash
+    packageJson.devDependencies["typescript"] = "^5";
+    packageJson.devDependencies["@types/react"] = "^19";
+    packageJson.devDependencies["@types/node"] = "^20";
 
     if (this.manifest.database === "Supabase") {
       packageJson.dependencies["drizzle-orm"] = "^0.36.1";
@@ -183,7 +187,6 @@ ${
       JSON.stringify(packageJson, null, 2),
     );
 
-    // FIX: Pre-generate tsconfig.json to prevent Next.js build-time race conditions
     const tsconfig = {
       compilerOptions: {
         target: "es5",
@@ -231,9 +234,14 @@ ${
       await loadTemplate("page.tsx"),
     );
 
+    // Safeguard to ensure layout.tsx is always a valid React module
+    let layoutContent = await loadTemplate("layout.tsx");
+    if (!layoutContent.includes("export")) {
+      layoutContent = `export default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang="en">\n      <body>{children}</body>\n    </html>\n  );\n}`;
+    }
     await fs.writeFile(
       path.join(this.targetPath, "src/app/layout.tsx"),
-      await loadTemplate("layout.tsx"),
+      layoutContent,
     );
 
     await fs.writeFile(
@@ -304,7 +312,6 @@ app.add_middleware(
 app.include_router(api_v1_router, prefix=settings.API_V1_STR)
 `;
 
-      // FIX: Added gunicorn to the requirements payload
       const requirements = `fastapi>=0.110.0\nuvicorn[standard]>=0.28.0\ngunicorn>=21.2.0\npydantic>=2.6.0\npydantic-settings>=2.2.1\npython-dotenv>=1.0.1`;
 
       await fs.writeFile(path.join(apiPath, "app/core/config.py"), configPy);
@@ -427,7 +434,6 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
     return { success: true };
   }
 
-  // NEW PHASE: Automated Render API provisioning sequence
   async deployToRenderAPI() {
     const renderApiKey = process.env.RENDER_API_KEY;
     const renderOwnerId = process.env.RENDER_OWNER_ID;
@@ -448,7 +454,6 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
     let apiUrl = null;
 
     try {
-      // 1. Provision Python Backend (If required)
       if (this.manifest.apiIntegration) {
         console.log(
           ` -> Instructing Render to build Python API microservice...`,
@@ -474,10 +479,9 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
               healthCheckPath: "/api/v1/health",
               envSpecificDetails: {
                 buildCommand:
-                  "pip install uv && uv pip install --system -r requirements.txt",
-                // FIX: Updated module path from main:app to app.main:app
+                  "pip install uv && uv pip install -r requirements.txt",
                 startCommand:
-                  "python -m gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT",
+                  "gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT",
               },
               envVars: [
                 { key: "PYTHON_VERSION", value: "3.12.0" },
@@ -494,14 +498,12 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
           console.error("    ❌ Backend API Creation Failed:", err);
         } else {
           const backendData = await apiRes.json();
-          // Fix for API URL extraction
           apiUrl =
             backendData.service.serviceDetails?.url || backendData.service.url;
           console.log(`    ✅ Backend deployment initiated at: ${apiUrl}`);
         }
       }
 
-      // 2. Provision Next.js Frontend
       console.log(
         ` -> Instructing Render to build Next.js Frontend dashboard...`,
       );
@@ -539,9 +541,7 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
             env: "node",
             plan: "free",
             envSpecificDetails: {
-              // FIX: Force TS dependency injection before standard installation & build
-              buildCommand:
-                "pnpm add typescript @types/react @types/node && pnpm install && pnpm run build",
+              buildCommand: "pnpm install && pnpm run build",
               startCommand: "pnpm run start",
             },
             envVars: frontendEnvVars,
@@ -557,7 +557,6 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
 
       const webData = await webRes.json();
 
-      // FIX: Target the nested URL location specific to Render Web Services
       const frontendUrl =
         webData.service.serviceDetails?.url ||
         webData.service.url ||
@@ -716,7 +715,6 @@ class EngineDaemonWorker {
       manifestPayload,
     );
 
-    // PHASE 1: Workspace Allocation
     const spaceIsClear = await scaffolder.verifyClearance();
     if (!spaceIsClear) {
       await this.markJobFailed(
@@ -730,7 +728,6 @@ class EngineDaemonWorker {
       return;
     }
 
-    // PHASE 2: Template Injection
     try {
       console.log(` -> Injecting system layout architecture templates...`);
       await scaffolder.writeBoilerplateFiles();
@@ -754,7 +751,6 @@ class EngineDaemonWorker {
       return;
     }
 
-    // PHASE 3: Dependency Installation
     try {
       console.log(
         ` -> Executing background pnpm system asset validation tree synchronization...\n`,
@@ -784,7 +780,6 @@ class EngineDaemonWorker {
       console.log(`\n✅ Dependencies synchronized successfully.`);
       await this.appendJobLog(job.id, `Dependencies installed successfully.`);
 
-      // Inject Python Environment Provisioner Node
       if (manifestPayload.apiIntegration === true) {
         await this.appendJobLog(
           job.id,
@@ -803,7 +798,6 @@ class EngineDaemonWorker {
       return;
     }
 
-    // PHASE 4: Git Setup and Remote Push
     try {
       await this.appendJobLog(
         job.id,
@@ -820,7 +814,6 @@ class EngineDaemonWorker {
       return;
     }
 
-    // PHASE 5: Render API Zero-Touch Deployment
     try {
       await this.appendJobLog(
         job.id,
@@ -836,7 +829,6 @@ class EngineDaemonWorker {
       );
       await this.updateJobState(job.id, "completed");
 
-      // Save the precise Render URL to the database for your dashboard's "View Deploy" button
       const finalUrl =
         actualLiveUrl || `https://${job.project_slug}-frontend.onrender.com`;
       await this.updateProjectTrackingPercentage(
@@ -1028,7 +1020,6 @@ async function runInteractiveMenu() {
         await scaffolder.provisionPythonEnvironment();
         await scaffolder.setupGitRepository();
 
-        // Manual trigger deploy
         await scaffolder.deployToRenderAPI();
 
         console.log(
