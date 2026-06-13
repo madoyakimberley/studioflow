@@ -57,6 +57,13 @@ export default function SidebarConsole() {
             >
               <Settings className="w-4 h-4" /> Core Configs
             </Link>
+            <Link
+              href="/dashboard/clients-requests"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#131b2e] text-[#cbc3d7] hover:text-[#dae2fd] text-xs font-semibold transition"
+            >
+              <AlertTriangle className="w-4 h-4 text-amber-400" /> Client
+              Requests Queue
+            </Link>
           </nav>
         </div>
 

@@ -43,6 +43,34 @@ export const tasks = mysqlTable("tasks", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// --- PORTAL LIVE MESSAGES ---
+export const portalMessages = mysqlTable("portal_messages", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("project_id").notNull(),
+  sender: varchar("sender", { length: 50 }).notNull(), // 'client' or 'admin'
+  content: text("content").notNull(),
+  isRead: boolean("is_read").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// --- NEW: CHAT PRESENCE (For Typing Indicators) ---
+export const chatPresence = mysqlTable("chat_presence", {
+  projectId: int("project_id").primaryKey(),
+  clientTyping: boolean("client_typing").default(false),
+  adminTyping: boolean("admin_typing").default(false),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+});
+
+// --- CLIENT PROJECT REQUESTS / CHANGE ORDERS ---
+export const clientRequests = mysqlTable("client_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("project_id").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description").notNull(),
+  status: varchar("status", { length: 50 }).default("pending"), // pending, reviewing, accepted, completed
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // --- AUTOMATED PROVISIONING JOBS ---
 export const provisioningJobs = mysqlTable("provisioning_jobs", {
   id: int("id").autoincrement().primaryKey(),
@@ -75,7 +103,9 @@ export const siteMonitoring = mysqlTable("site_monitoring", {
   checkedAt: timestamp("checked_at").defaultNow(),
 });
 
-// --- RELATIONSHIPS ---
+// ==========================================
+// ---          RELATIONSHIPS             ---
+// ==========================================
 
 export const clientsRelations = relations(clients, ({ many }) => ({
   projects: many(projects),
@@ -89,6 +119,8 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   tasks: many(tasks),
   jobs: many(provisioningJobs),
   monitoringLogs: many(siteMonitoring),
+  clientRequests: many(clientRequests), // Connected pipeline
+  portalMessages: many(portalMessages), // Connected messenger
 }));
 
 export const tasksRelations = relations(tasks, ({ one }) => ({
@@ -108,10 +140,23 @@ export const provisioningJobsRelations = relations(
   }),
 );
 
-// Added missing inverse relationship for siteMonitoring
 export const siteMonitoringRelations = relations(siteMonitoring, ({ one }) => ({
   project: one(projects, {
     fields: [siteMonitoring.projectId],
+    references: [projects.id],
+  }),
+}));
+
+export const clientRequestsRelations = relations(clientRequests, ({ one }) => ({
+  project: one(projects, {
+    fields: [clientRequests.projectId],
+    references: [projects.id],
+  }),
+}));
+
+export const portalMessagesRelations = relations(portalMessages, ({ one }) => ({
+  project: one(projects, {
+    fields: [portalMessages.projectId],
     references: [projects.id],
   }),
 }));

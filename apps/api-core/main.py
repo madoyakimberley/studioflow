@@ -72,7 +72,9 @@ async def verify_auth(payload: TokenPayload, request: Request):
     if payload.token == "studioflow-admin-key":
         return {"success": True, "status": "authorized", "admin_pool": len(allowed_emails)}
     
-    raise HTTPException(status_code=403, detail="Unauthorized environmental telemetry or invalid token.")
+    # FIX: We return a clean JSON response instead of a hard HTTP 403 Exception.
+    # This prevents the browser from throwing a console error when we are just checking a client token.
+    return {"success": False, "status": "unauthorized"}
 
 @app.post("/api/v1/audit-nodes", response_model=AuditSummaryResponse)
 async def audit_nodes():
@@ -81,7 +83,6 @@ async def audit_nodes():
     syncing directly with the dashboard container layout profiles.
     """
     try:
-        # Simulates runtime node sweep matrix matching the dashboard tracker
         await asyncio.sleep(0.4) 
         return {
             "success": True,

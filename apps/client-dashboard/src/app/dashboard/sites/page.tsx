@@ -1,6 +1,5 @@
 import React from "react";
 import { db, siteMonitoring, projects } from "@studioflow/db";
-// FIX: Imported isNotNull from drizzle-orm
 import { desc, eq, isNotNull } from "drizzle-orm";
 import {
   Globe2,
@@ -8,6 +7,7 @@ import {
   Zap,
   AlertCircle,
   ChevronLeft,
+  Activity,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -25,11 +25,13 @@ export default async function LiveSitesManagementScreen() {
       checkedAt: siteMonitoring.checkedAt,
     })
     .from(projects)
-    .innerJoin(siteMonitoring, eq(projects.id, siteMonitoring.projectId))
-    // FIX: Using Drizzle's isNotNull operator
+    // FIX: Swapped innerJoin for leftJoin so sites appear even before their first uptime audit
+    .leftJoin(siteMonitoring, eq(projects.id, siteMonitoring.projectId))
     .where(isNotNull(projects.liveUrl))
+    // Most recent telemetry logs bubble to the top
     .orderBy(desc(siteMonitoring.checkedAt));
 
+  // Deduplicate rows to ensure we only evaluate the newest check for each unique project
   const uniqueSites = deployedSites.filter(
     (site, index, self) =>
       index === self.findIndex((t) => t.projectId === site.projectId),
@@ -54,8 +56,12 @@ export default async function LiveSitesManagementScreen() {
               Real-time telemetry and domain routing status.
             </p>
           </div>
-          <div className="text-xs bg-[#131b2e] border border-[#2d3449] px-4 py-2 rounded-xl text-[#adc6ff] flex items-center gap-2">
-            <Globe2 className="w-4 h-4" /> Routing Engine Active
+          <div className="text-xs bg-[#131b2e] border border-[#2d3449] px-4 py-2 rounded-xl text-[#adc6ff] flex items-center gap-2 font-mono">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+            </span>
+            Routing Engine Active
           </div>
         </header>
 
@@ -97,12 +103,18 @@ export default async function LiveSitesManagementScreen() {
                     >
                       <td className="p-4">
                         <div className="font-bold text-white">{site.name}</div>
-                        <div className="text-[10px] text-[#adc6ff] font-mono mt-0.5">
+                        <div className="text-[10px] text-[#adc6ff] font-mono mt-0.5 break-all">
                           {site.liveUrl}
                         </div>
                       </td>
                       <td className="p-4">
-                        {site.isUp ? (
+                        {/* FIX: Handle null gracefully when monitoring record doesn't exist yet */}
+                        {site.isUp === null ? (
+                          <span className="inline-flex items-center gap-1.5 bg-[#171f33] border border-[#2d3449] text-[#948f9a] px-2.5 py-1 rounded-full text-[10px] font-bold font-mono tracking-wider">
+                            <Activity className="w-3 h-3 animate-pulse" />{" "}
+                            AWAITING_PING
+                          </span>
+                        ) : site.isUp ? (
                           <span className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2.5 py-1 rounded-full text-[10px] font-bold font-mono tracking-wider">
                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />{" "}
                             200_OK
@@ -116,13 +128,21 @@ export default async function LiveSitesManagementScreen() {
                       <td className="p-4">
                         <div className="flex items-center gap-2 font-mono text-xs text-[#cac4d0]">
                           <Zap
-                            className={`w-3.5 h-3.5 ${site.responseTime! < 300 ? "text-[#a078ff]" : "text-amber-400"}`}
+                            className={`w-3.5 h-3.5 ${
+                              site.responseTime && site.responseTime < 300
+                                ? "text-[#a078ff]"
+                                : "text-amber-400"
+                            }`}
                           />
-                          {site.responseTime || "---"} ms
+                          {site.responseTime
+                            ? `${site.responseTime} ms`
+                            : "---"}
                         </div>
                       </td>
                       <td className="p-4 text-xs font-mono text-[#948f9a]">
-                        {new Date(site.checkedAt!).toLocaleTimeString()}
+                        {site.checkedAt
+                          ? new Date(site.checkedAt).toLocaleTimeString()
+                          : "PENDING"}
                       </td>
                       <td className="p-4 text-right">
                         <a

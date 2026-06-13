@@ -12,6 +12,7 @@
     "@hookform/resolvers": "latest",
     "@studioflow/db": "workspace:*",
     "clsx": "latest",
+    "date-fns": "^4.4.0",
     "framer-motion": "latest",
     "ioredis": "^5.11.1",
     "lucide-react": "latest",
