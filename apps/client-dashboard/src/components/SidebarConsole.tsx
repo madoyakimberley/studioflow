@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   LayoutGrid,
   FolderGit2,
+  Globe2,
   BarChart3,
   Settings,
   Plus,
@@ -21,7 +22,6 @@ export default function SidebarConsole() {
       <aside className="w-64 bg-[#0b1326] border-r border-[#171f33] p-6 flex flex-col justify-between shrink-0">
         {/* Top Section: Logo and Navigation */}
         <div className="space-y-8">
-          {/* Logo with Playfair Display font and design doc colors */}
           <div className="text-[#dae2fd] font-black font-['Playfair_Display',_serif] tracking-wider text-xl px-2">
             Studio<span className="text-[#adc6ff]">Flow</span>
           </div>
@@ -29,33 +29,30 @@ export default function SidebarConsole() {
           <nav className="space-y-1">
             <Link
               href="/dashboard"
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#131b2e] text-[#d0bcff] text-xs font-bold transition"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#131b2e] text-[#cbc3d7] hover:text-[#dae2fd] text-xs font-semibold transition"
             >
-              <LayoutGrid className="w-4 h-4" /> Dashboard Overview
+              <LayoutGrid className="w-4 h-4" /> Overview
             </Link>
             <Link
-              href="/dashboard"
+              href="/dashboard/projects"
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#131b2e] text-[#cbc3d7] hover:text-[#dae2fd] text-xs font-semibold transition"
             >
               <FolderGit2 className="w-4 h-4" /> Active Systems
             </Link>
             <Link
-              href="/dashboard"
+              href="/dashboard/sites"
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#131b2e] text-[#cbc3d7] hover:text-[#dae2fd] text-xs font-semibold transition"
             >
-              <BarChart3 className="w-4 h-4" /> Telemetry Statistics
+              <Globe2 className="w-4 h-4" /> Live Nodes
             </Link>
-
-            {/* NEW: Telemetry Alerts & SMTP Link */}
             <Link
               href="/dashboard/alerts"
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#131b2e] text-[#cbc3d7] hover:text-[#dae2fd] text-xs font-semibold transition"
             >
               <AlertTriangle className="w-4 h-4" /> System Alerts
             </Link>
-
             <Link
-              href="/dashboard"
+              href="/dashboard/settings"
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#131b2e] text-[#cbc3d7] hover:text-[#dae2fd] text-xs font-semibold transition"
             >
               <Settings className="w-4 h-4" /> Core Configs
@@ -63,13 +60,12 @@ export default function SidebarConsole() {
           </nav>
         </div>
 
-        {/* Bottom Section: Action Button and Version Info */}
+        {/* Bottom Section */}
         <div className="space-y-6">
-          {/* Action Trigger Vector - Mutated Pink to Purple Gradient */}
           <div className="px-2">
             <button
               onClick={() => setWizardOpen(true)}
-              className="w-full bg-gradient-to-r from-[#e364a7] via-[#d050c2] to-[#9d4edd] hover:brightness-110 active:scale-[0.98] text-white text-xs font-bold  tracking-wider font-['Playfair_Display',_serif] py-3 px-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-[#d050c2]/25 transition-all"
+              className="w-full bg-gradient-to-r from-[#e364a7] via-[#d050c2] to-[#9d4edd] hover:brightness-110 active:scale-[0.98] text-white text-xs font-bold tracking-wider font-['Playfair_Display',_serif] py-3 px-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-[#d050c2]/25 transition-all"
             >
               <Plus className="w-4 h-4 stroke-[3]" /> New Project
             </button>
@@ -81,7 +77,6 @@ export default function SidebarConsole() {
         </div>
       </aside>
 
-      {/* Global Framer Motion Overlay Layer */}
       <AnimatePresence>
         {wizardOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-[#060e20]/80 backdrop-blur-sm overflow-y-auto">
