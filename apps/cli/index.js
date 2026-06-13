@@ -87,6 +87,7 @@ class HighFidelityScaffolder {
 
     const slug = this.validateSlug(this.manifest.slug || this.projectName);
 
+    // Standardized to match the physical folders created by writeBoilerplateFiles
     const renderYaml = `services:
   - type: web
     name: ${this.projectName}-frontend
@@ -95,6 +96,7 @@ class HighFidelityScaffolder {
     rootDir: .
     buildCommand: pnpm install && pnpm run build
     startCommand: pnpm run start
+    healthCheckPath: /
     envVars:
       - key: NODE_VERSION
         value: 20.x
@@ -107,7 +109,7 @@ ${
     name: ${this.projectName}-backend
     env: python
     plan: free
-    rootDir: apps/api-core
+    rootDir: api
     buildCommand: pip install -r requirements.txt
     startCommand: python -m gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
     healthCheckPath: /api/v1/health
@@ -475,18 +477,17 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
             repo: repoUrl,
             branch: "main",
             autoDeploy: "yes",
-            // Align with the production monorepo path
+            // THE FIX: Standardized rootDir to match script scaffold output
             rootDir: "api",
             serviceDetails: {
               env: "python",
               plan: "free",
               healthCheckPath: "/api/v1/health",
               envSpecificDetails: {
-                // Standardize to pip for simplicity unless uv is specifically configured in the remote environment
                 buildCommand: "pip install -r requirements.txt",
-                // Ensure this matches the app.main:app structure
+                // THE FIX: Permanently removed the broken .venv mapping
                 startCommand:
-                  "api/.venv/bin/gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT",
+                  "python -m gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT",
               },
               envVars: [
                 { key: "PYTHON_VERSION", value: "3.12.0" },
@@ -557,15 +558,14 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
           repo: repoUrl,
           branch: "main",
           autoDeploy: "yes",
-          // Pointing to the specific monorepo workspace for frontend builds
+          // THE FIX: Standardized frontend root to correctly find Next.js
           rootDir: ".",
           serviceDetails: {
             env: "node",
             plan: "free",
             envSpecificDetails: {
-              buildCommand:
-                "pnpm install && pnpm build --filter client-dashboard",
-              startCommand: "cd apps/client-dashboard && pnpm start",
+              buildCommand: "pnpm install && pnpm run build",
+              startCommand: "pnpm run start",
             },
             envVars: frontendEnvVars,
           },
