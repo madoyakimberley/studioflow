@@ -3,7 +3,6 @@ import Link from "next/link";
 import { db, projects, tasks, provisioningJobs } from "@studioflow/db";
 import { eq, desc } from "drizzle-orm";
 import { notFound } from "next/navigation";
-// FIX: Swapped Github for Code to avoid icon import errors
 import {
   ChevronLeft,
   ExternalLink,
@@ -18,15 +17,17 @@ export const dynamic = "force-dynamic";
 export default async function ProjectDetailScreen({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>; // 1. Update the type to a Promise
 }) {
-  const { slug } = params;
+  // 2. Await the params before destructuring
+  const { slug } = await params;
 
   const projectData = await db
     .select()
     .from(projects)
     .where(eq(projects.slug, slug))
     .limit(1);
+
   if (!projectData.length) return notFound();
   const project = projectData[0];
 
@@ -34,6 +35,7 @@ export default async function ProjectDetailScreen({
     .select()
     .from(tasks)
     .where(eq(tasks.projectId, project.id));
+
   const recentJobs = await db
     .select()
     .from(provisioningJobs)
@@ -73,7 +75,6 @@ export default async function ProjectDetailScreen({
                   target="_blank"
                   className="flex items-center gap-2 px-4 py-2 bg-[#131b2e] border border-[#2d3449] rounded-xl text-xs hover:bg-[#222a3e] transition"
                 >
-                  {/* FIX: Using the Code icon here */}
                   <Code className="w-4 h-4" /> Source Array
                 </a>
               )}
@@ -143,7 +144,6 @@ export default async function ProjectDetailScreen({
                   ? "> No pipeline execution data found..."
                   : recentJobs.map((job) => (
                       <div key={job.id}>
-                        {/* FIX: Handled null job.status gracefully */}
                         <div className="text-[#a078ff] mb-1">
                           === JOB #{job.id} | STATUS:{" "}
                           {(job.status || "UNKNOWN").toUpperCase()} |{" "}

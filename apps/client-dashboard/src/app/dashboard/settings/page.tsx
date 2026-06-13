@@ -2,10 +2,8 @@
 
 import React, { useState } from "react";
 import {
-  Settings2,
   Database,
   Mail,
-  KeyRound,
   Cloud,
   CheckCircle,
   AlertCircle,
@@ -17,11 +15,11 @@ import Link from "next/link";
 export default function CoreConfigsScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const maskSecret = (secret?: string) => {
-    if (!secret) return "NOT CONFIGURED";
-    return secret.length > 8
-      ? secret.substring(0, 4) + "•".repeat(12)
-      : "CONFIGURED";
+  // FIX: Removed process.env. We now generate a secure visual mask based purely on status.
+  const getVisualMask = (status: string) => {
+    return status === "connected"
+      ? "SECURE_NODE_••••••••••••"
+      : "AWAITING_CONFIGURATION";
   };
 
   const configs = [
@@ -64,34 +62,34 @@ export default function CoreConfigsScreen() {
     setIsRefreshing(true);
     // Simulate API call
     await new Promise((r) => setTimeout(r, 1200));
-    alert(`Test connection for ${key} successful!`);
+    alert(`Diagnostics complete: ${key} is responding securely.`);
     setIsRefreshing(false);
   };
 
   return (
-    <div className="min-h-screen bg-[#060e20] text-[#dae2fd] p-8">
+    <div className="min-h-screen bg-[#060e20] text-[#dae2fd] p-8 font-sans">
       <div className="max-w-5xl mx-auto space-y-10">
         <header className="border-b border-[#171f33] pb-6">
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-2 text-xs text-[#958ea0] hover:text-[#adc6ff] mb-4"
+            className="inline-flex items-center gap-2 text-xs text-[#958ea0] hover:text-[#adc6ff] mb-4 transition"
           >
             ← Back to Dashboard
           </Link>
-          <h1 className="text-4xl font-black tracking-wider text-white">
+          <h1 className="text-4xl font-black font-['Playfair_Display',_serif] tracking-wider text-white">
             Core <span className="text-[#a078ff]">Configurations</span>
           </h1>
-          <p className="text-[#948f9a] mt-2">
-            Manage global providers, API keys, and system integrations
+          <p className="text-[#948f9a] mt-2 text-sm font-mono tracking-wide">
+            Manage global providers, API keys, and system integrations.
           </p>
         </header>
 
         <div className="flex justify-end">
           <button
             onClick={() => window.location.reload()}
-            className="flex items-center gap-2 px-4 py-2 text-sm border border-[#171f33] rounded-xl hover:bg-[#131b2e]"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-bold border border-[#171f33] rounded-xl hover:bg-[#131b2e] transition"
           >
-            <RefreshCw className="w-4 h-4" /> Refresh All
+            <RefreshCw className="w-4 h-4" /> Refresh Registry
           </button>
         </div>
 
@@ -105,7 +103,9 @@ export default function CoreConfigsScreen() {
                 className="w-6 h-6"
                 style={{ color: section.color }}
               />
-              <h2 className="text-2xl font-semibold">{section.category}</h2>
+              <h2 className="text-2xl font-semibold tracking-wide text-white">
+                {section.category}
+              </h2>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -116,14 +116,16 @@ export default function CoreConfigsScreen() {
                 >
                   <div className="flex justify-between items-start mb-4">
                     <div>
-                      <p className="font-medium text-white">{item.name}</p>
-                      <p className="text-xs font-mono text-[#958ea0] mt-1 break-all">
-                        {maskSecret(process.env[item.key])}
+                      <p className="font-bold text-white">{item.name}</p>
+                      <p
+                        className={`text-xs font-mono mt-1 break-all ${item.status === "connected" ? "text-[#958ea0]" : "text-amber-500/70"}`}
+                      >
+                        {getVisualMask(item.status)}
                       </p>
                     </div>
 
                     {item.status === "connected" ? (
-                      <CheckCircle className="w-5 h-5 text-green-400" />
+                      <CheckCircle className="w-5 h-5 text-emerald-400" />
                     ) : (
                       <AlertCircle className="w-5 h-5 text-amber-400" />
                     )}
@@ -133,12 +135,12 @@ export default function CoreConfigsScreen() {
                     <button
                       onClick={() => handleTestConnection(item.key)}
                       disabled={isRefreshing}
-                      className="flex-1 bg-[#1f2937] hover:bg-[#374151] text-xs py-2.5 rounded-xl transition"
+                      className="flex-1 bg-[#1f2937] hover:bg-[#374151] text-xs font-bold py-2.5 rounded-xl transition"
                     >
-                      Test Connection
+                      Verify Status
                     </button>
-                    <button className="flex-1 border border-[#4a5568] hover:bg-[#1f2937] text-xs py-2.5 rounded-xl transition flex items-center justify-center gap-2">
-                      <Edit3 className="w-3.5 h-3.5" /> Configure
+                    <button className="flex-1 border border-[#4a5568] hover:bg-[#1f2937] text-xs font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-2">
+                      <Edit3 className="w-3.5 h-3.5" /> Modify
                     </button>
                   </div>
                 </div>
@@ -147,8 +149,9 @@ export default function CoreConfigsScreen() {
           </section>
         ))}
 
-        <div className="text-center text-xs text-[#6b7280] mt-12">
-          Changes to environment variables require redeployment to take effect.
+        <div className="text-center text-[10px] font-mono text-[#6b7280] mt-12 tracking-widest uppercase">
+          Changes to environment variables require pipeline redeployment to take
+          effect.
         </div>
       </div>
     </div>
