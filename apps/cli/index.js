@@ -85,11 +85,14 @@ class HighFidelityScaffolder {
       ` -> Injecting Render Infrastructure Blueprint (render.yaml)...`,
     );
 
+    const slug = this.validateSlug(this.manifest.slug || this.projectName);
+
     const renderYaml = `services:
   - type: web
     name: ${this.projectName}-frontend
     env: node
     plan: free
+    rootDir: apps/${slug}
     buildCommand: npm install -g pnpm && pnpm install && pnpm run build
     startCommand: pnpm run start
     envVars:
