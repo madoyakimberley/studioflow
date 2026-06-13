@@ -8,6 +8,7 @@ import {
   BarChart3,
   Settings,
   Plus,
+  AlertTriangle,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import ProjectWizard from "./ProjectWizard";
@@ -44,6 +45,15 @@ export default function SidebarConsole() {
             >
               <BarChart3 className="w-4 h-4" /> Telemetry Statistics
             </Link>
+
+            {/* NEW: Telemetry Alerts & SMTP Link */}
+            <Link
+              href="/dashboard/alerts"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#131b2e] text-[#cbc3d7] hover:text-[#dae2fd] text-xs font-semibold transition"
+            >
+              <AlertTriangle className="w-4 h-4" /> System Alerts
+            </Link>
+
             <Link
               href="/dashboard"
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#131b2e] text-[#cbc3d7] hover:text-[#dae2fd] text-xs font-semibold transition"
