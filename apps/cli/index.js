@@ -314,8 +314,7 @@ app.add_middleware(
 app.include_router(api_v1_router, prefix=settings.API_V1_STR)
 `;
 
-      const requirements = `fastapi>=0.110.0\nuvicorn[standard]>=0.28.0\ngunicorn>=21.2.0\npydantic>=2.6.0\npydantic-settings>=2.2.1\npython-dotenv>=1.0.1\ngunicorn>=23.0.0`;
-
+      const requirements = `fastapi>=0.110.0\nuvicorn[standard]>=0.28.0\npydantic>=2.6.0\npydantic-settings>=2.2.1\npython-dotenv>=1.0.1\ngunicorn>=23.0.0`;
       await fs.writeFile(path.join(apiPath, "app/core/config.py"), configPy);
       await fs.writeFile(
         path.join(apiPath, "app/api/v1/endpoints.py"),
