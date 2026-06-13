@@ -410,7 +410,7 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
     console.log(
       `\n -> Authenticating with Render REST API to construct cloud nodes...`,
     );
-    // Format the URL properly for the Render API
+
     const repoUrl = this.githubRemote.replace(".git", "");
     const slug = this.validateSlug(this.manifest.slug || this.projectName);
     let apiUrl = null;
@@ -440,7 +440,6 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
               env: "python",
               plan: "free",
               healthCheckPath: "/api/v1/health",
-              // FIX: Wrapped build/start commands in envSpecificDetails
               envSpecificDetails: {
                 buildCommand:
                   "pip install uv && uv pip install --system -r requirements.txt",
@@ -462,7 +461,9 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
           console.error("    ❌ Backend API Creation Failed:", err);
         } else {
           const backendData = await apiRes.json();
-          apiUrl = backendData.service.url;
+          // Fix for API URL extraction
+          apiUrl =
+            backendData.service.serviceDetails?.url || backendData.service.url;
           console.log(`    ✅ Backend deployment initiated at: ${apiUrl}`);
         }
       }
@@ -479,7 +480,6 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
           : []),
       ];
 
-      // Dynamically link the backend URL to the frontend environment variable
       if (apiUrl) {
         frontendEnvVars.push({
           key: "NEXT_PUBLIC_API_BASE_URL",
@@ -505,9 +505,10 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
           serviceDetails: {
             env: "node",
             plan: "free",
-            // FIX: Wrapped build/start commands in envSpecificDetails
             envSpecificDetails: {
-              buildCommand: "pnpm install && pnpm run build",
+              // FIX: Force TS dependency injection before standard installation & build
+              buildCommand:
+                "pnpm add typescript @types/react @types/node && pnpm install && pnpm run build",
               startCommand: "pnpm run start",
             },
             envVars: frontendEnvVars,
@@ -522,10 +523,15 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
       }
 
       const webData = await webRes.json();
-      console.log(
-        `    ✅ Frontend deployment initiated at: ${webData.service.url}`,
-      );
-      return webData.service.url;
+
+      // FIX: Target the nested URL location specific to Render Web Services
+      const frontendUrl =
+        webData.service.serviceDetails?.url ||
+        webData.service.url ||
+        `https://${slug}-dashboard.onrender.com`;
+
+      console.log(`    ✅ Frontend deployment initiated at: ${frontendUrl}`);
+      return frontendUrl;
     } catch (error) {
       console.error("    ❌ Render API Connection Dropped:", error.message);
       return null;
