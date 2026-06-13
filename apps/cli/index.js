@@ -110,7 +110,7 @@ ${
     plan: free
     rootDir: api
     buildCommand: pip install uv && uv pip install --system -r requirements.txt
-    startCommand: python -m gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+    startCommand: python -m gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
     healthCheckPath: /api/v1/health
     envVars:
       - key: PYTHON_VERSION
@@ -178,20 +178,36 @@ ${
       packageJson.dependencies["uploadthing"] = "^7.3.0";
     }
 
-    if (this.manifest.database === "Supabase") {
-      packageJson.dependencies["drizzle-orm"] = "^0.36.1";
-      packageJson.dependencies["postgres"] = "^3.4.4";
-      packageJson.devDependencies["drizzle-kit"] = "^0.28.1";
-    }
-
-    if (this.manifest.storage === "UploadThing") {
-      packageJson.dependencies["@uploadthing/react"] = "^7.1.1";
-      packageJson.dependencies["uploadthing"] = "^7.3.0";
-    }
-
     await fs.writeFile(
       path.join(this.targetPath, "package.json"),
       JSON.stringify(packageJson, null, 2),
+    );
+
+    // FIX: Pre-generate tsconfig.json to prevent Next.js build-time race conditions
+    const tsconfig = {
+      compilerOptions: {
+        target: "es5",
+        lib: ["dom", "dom.iterable", "esnext"],
+        allowJs: true,
+        skipLibCheck: true,
+        strict: true,
+        noEmit: true,
+        esModuleInterop: true,
+        module: "esnext",
+        moduleResolution: "bundler",
+        resolveJsonModule: true,
+        isolatedModules: true,
+        jsx: "preserve",
+        incremental: true,
+        plugins: [{ name: "next" }],
+        paths: { "@/*": ["./src/*"] },
+      },
+      include: ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+      exclude: ["node_modules"],
+    };
+    await fs.writeFile(
+      path.join(this.targetPath, "tsconfig.json"),
+      JSON.stringify(tsconfig, null, 2),
     );
 
     await fs.writeFile(
@@ -288,7 +304,8 @@ app.add_middleware(
 app.include_router(api_v1_router, prefix=settings.API_V1_STR)
 `;
 
-      const requirements = `fastapi>=0.110.0\nuvicorn[standard]>=0.28.0\npydantic>=2.6.0\npydantic-settings>=2.2.1\npython-dotenv>=1.0.1`;
+      // FIX: Added gunicorn to the requirements payload
+      const requirements = `fastapi>=0.110.0\nuvicorn[standard]>=0.28.0\ngunicorn>=21.2.0\npydantic>=2.6.0\npydantic-settings>=2.2.1\npython-dotenv>=1.0.1`;
 
       await fs.writeFile(path.join(apiPath, "app/core/config.py"), configPy);
       await fs.writeFile(
@@ -458,8 +475,9 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
               envSpecificDetails: {
                 buildCommand:
                   "pip install uv && uv pip install --system -r requirements.txt",
+                // FIX: Updated module path from main:app to app.main:app
                 startCommand:
-                  "python -m gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT",
+                  "python -m gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT",
               },
               envVars: [
                 { key: "PYTHON_VERSION", value: "3.12.0" },
