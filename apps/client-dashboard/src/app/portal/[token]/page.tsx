@@ -1,22 +1,23 @@
 import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { verifyPortalAccess } from "../../portal-actions"; // Adjust path to your actions
-import { ShieldCheck, Eye, MessageSquareCode } from "lucide-react";
+import { verifyPortalAccess } from "../../portal-actions"; // Adjust path as needed
+import { ShieldCheck } from "lucide-react"; // Removed unused icons for cleaner code
 
 interface PageProps {
   params: Promise<{ token: string }>;
 }
 
 export default async function PhilosophyPortal({ params }: PageProps) {
+  // Next.js 15 pattern: await the params
   const { token } = await params;
+
+  // Phase 3 Security: Server-side validation before rendering
   const authResult = await verifyPortalAccess(token);
 
   if (!authResult.success || !authResult.project) {
-    notFound();
+    notFound(); // Triggers the 404 page if token is invalid
   }
-
-  const project = authResult.project;
 
   return (
     <main className="bg-[#06070b] text-[#dae2fd] min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
@@ -42,14 +43,15 @@ export default async function PhilosophyPortal({ params }: PageProps) {
 
         <hr className="border-[#171f33]" />
 
-        <div className="pt-4">
+        {/* <div className="pt-4">
+         
           <Link
             href={`/${token}/dashboard`}
             className="inline-block bg-gradient-to-r from-[#4361ee] to-[#3a0ca3] hover:brightness-110 active:scale-[0.99] text-white text-sm font-bold tracking-wider py-3 px-8 rounded-full transition-all shadow-lg shadow-blue-900/20"
           >
             Begin the Journey
           </Link>
-        </div>
+        </div> */}
       </div>
     </main>
   );
