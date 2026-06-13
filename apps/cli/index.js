@@ -476,7 +476,7 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
             branch: "main",
             autoDeploy: "yes",
             // Align with the production monorepo path
-            rootDir: "apps/api-core",
+            rootDir: "api",
             serviceDetails: {
               env: "python",
               plan: "free",
