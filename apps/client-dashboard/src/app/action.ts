@@ -62,7 +62,7 @@ export async function queueProjectProvisioning(
       progressPercentage: 10,
     });
 
-    // 4. Serialize into execution manifest queue
+    // 4. Serialize into execution manifest queue (FLATTENED INFRASTRUCTURE)
     await db.insert(provisioningJobs).values({
       projectId: newProject.insertId,
       status: "pending",
@@ -71,11 +71,9 @@ export async function queueProjectProvisioning(
         slug: projectSlug,
         techStack: "nextjs",
         apiIntegration: payload.apiIntegration || false,
-        infrastructure: {
-          database: payload.database,
-          auth: payload.auth,
-          storage: payload.storage,
-        },
+        database: payload.database, // Moved to root for daemon parity
+        auth: payload.auth, // Moved to root for daemon parity
+        storage: payload.storage, // Moved to root for daemon parity
         features: payload.features,
         priority: payload.priority,
       },

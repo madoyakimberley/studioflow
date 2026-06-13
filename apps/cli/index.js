@@ -87,17 +87,20 @@ class HighFidelityScaffolder {
 
     const slug = this.validateSlug(this.manifest.slug || this.projectName);
 
+    // Corrected rootDir paths: Next.js is at root (.), Python is in api/
     const renderYaml = `services:
   - type: web
     name: ${this.projectName}-frontend
     env: node
     plan: free
-    rootDir: apps/${slug}
-    buildCommand: npm install -g pnpm && pnpm install && pnpm run build
+    rootDir: .
+    buildCommand: pnpm install && pnpm run build
     startCommand: pnpm run start
     envVars:
       - key: NODE_VERSION
         value: 20.x
+      - key: PNPM_VERSION
+        value: 9.x
 ${
   this.manifest.apiIntegration
     ? `
@@ -107,7 +110,8 @@ ${
     plan: free
     rootDir: api
     buildCommand: pip install uv && uv pip install --system -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    startCommand: python -m gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+    healthCheckPath: /api/v1/health
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.0
@@ -280,7 +284,6 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
       await fs.writeFile(path.join(apiPath, "requirements.txt"), requirements);
     }
 
-    // Call the updated Render Blueprint Injector
     await this.injectRenderBlueprint();
     await this.generateEnvFiles();
   }
@@ -392,6 +395,138 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
     return { success: true };
   }
 
+  // NEW PHASE: Automated Render API provisioning sequence
+  async deployToRenderAPI() {
+    const renderApiKey = process.env.RENDER_API_KEY;
+    const renderOwnerId = process.env.RENDER_OWNER_ID;
+
+    if (!renderApiKey || !renderOwnerId) {
+      console.log(
+        `\n⚠️ RENDER_API_KEY or RENDER_OWNER_ID missing from .env. Code pushed to GitHub, but automated Render deployment skipped.`,
+      );
+      return null;
+    }
+
+    console.log(
+      `\n -> Authenticating with Render REST API to construct cloud nodes...`,
+    );
+    // Format the URL properly for the Render API
+    const repoUrl = this.githubRemote.replace(".git", "");
+    const slug = this.validateSlug(this.manifest.slug || this.projectName);
+    let apiUrl = null;
+
+    try {
+      // 1. Provision Python Backend (If required)
+      if (this.manifest.apiIntegration) {
+        console.log(
+          ` -> Instructing Render to build Python API microservice...`,
+        );
+        const apiRes = await fetch("https://api.render.com/v1/services", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${renderApiKey}`,
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            type: "web_service",
+            name: `${slug}-api`,
+            ownerId: renderOwnerId,
+            repo: repoUrl,
+            branch: "main",
+            autoDeploy: "yes",
+            rootDir: "api",
+            serviceDetails: {
+              env: "python",
+              plan: "free",
+              buildCommand:
+                "pip install uv && uv pip install --system -r requirements.txt",
+              startCommand:
+                "python -m gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT",
+              healthCheckPath: "/api/v1/health",
+              envVars: [
+                { key: "PYTHON_VERSION", value: "3.12.0" },
+                // If you are using a shared database, map it here
+                ...(process.env.DATABASE_URL
+                  ? [{ key: "DATABASE_URL", value: process.env.DATABASE_URL }]
+                  : []),
+              ],
+            },
+          }),
+        });
+
+        if (!apiRes.ok) {
+          const err = await apiRes.json();
+          console.error("    ❌ Backend API Creation Failed:", err);
+        } else {
+          const backendData = await apiRes.json();
+          apiUrl = backendData.service.url;
+          console.log(`    ✅ Backend deployment initiated at: ${apiUrl}`);
+        }
+      }
+
+      // 2. Provision Next.js Frontend
+      console.log(
+        ` -> Instructing Render to build Next.js Frontend dashboard...`,
+      );
+      const frontendEnvVars = [
+        { key: "NODE_VERSION", value: "20.x" },
+        { key: "PNPM_VERSION", value: "9.x" },
+        ...(process.env.DATABASE_URL
+          ? [{ key: "DATABASE_URL", value: process.env.DATABASE_URL }]
+          : []),
+      ];
+
+      // Dynamically link the backend URL to the frontend environment variable
+      if (apiUrl) {
+        frontendEnvVars.push({
+          key: "NEXT_PUBLIC_API_BASE_URL",
+          value: apiUrl,
+        });
+      }
+
+      const webRes = await fetch("https://api.render.com/v1/services", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${renderApiKey}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "web_service",
+          name: `${slug}-dashboard`,
+          ownerId: renderOwnerId,
+          repo: repoUrl,
+          branch: "main",
+          autoDeploy: "yes",
+          rootDir: ".",
+          serviceDetails: {
+            env: "node",
+            plan: "free",
+            buildCommand: "pnpm install && pnpm run build",
+            startCommand: "pnpm run start",
+            envVars: frontendEnvVars,
+          },
+        }),
+      });
+
+      if (!webRes.ok) {
+        const err = await webRes.json();
+        console.error("    ❌ Frontend Creation Failed:", err);
+        return null;
+      }
+
+      const webData = await webRes.json();
+      console.log(
+        `    ✅ Frontend deployment initiated at: ${webData.service.url}`,
+      );
+      return webData.service.url;
+    } catch (error) {
+      console.error("    ❌ Render API Connection Dropped:", error.message);
+      return null;
+    }
+  }
+
   async cleanupFailedRun() {
     const timestamp = Date.now();
     const failedPath = `${this.targetPath}.failed-${timestamp}`;
@@ -489,7 +624,6 @@ class EngineDaemonWorker {
     await this.updateProjectTrackingPercentage(projectId, 100, "unhealthy");
   }
 
-  // UPDATED: Now accepts an optional liveUrl parameter to track active deployments
   async updateProjectTrackingPercentage(
     projectId,
     progressInt,
@@ -629,7 +763,7 @@ class EngineDaemonWorker {
     try {
       await this.appendJobLog(
         job.id,
-        `Configuring Git and attempting to push to remote registry to trigger Render Blueprint...`,
+        `Configuring Git and pushing to remote registry...`,
       );
       await scaffolder.setupGitRepository();
     } catch (err) {
@@ -642,22 +776,40 @@ class EngineDaemonWorker {
       return;
     }
 
-    // SUCCESS COMPLETION
-    console.log(`✅ System allocation successful for apps/${job.project_slug}`);
-    await this.appendJobLog(
-      job.id,
-      `Ecosystem generated smoothly without exceptions. Render infrastructure pipeline deployed.`,
-    );
-    await this.updateJobState(job.id, "completed");
+    // PHASE 5: Render API Zero-Touch Deployment
+    try {
+      await this.appendJobLog(
+        job.id,
+        `Triggering Render REST API for Zero-Touch Deployment...`,
+      );
 
-    // UPDATED: Dynamically construct the deployed URL and send it directly to the database
-    const expectedLiveUrl = `https://${job.project_slug}-frontend.onrender.com`;
-    await this.updateProjectTrackingPercentage(
-      job.project_id,
-      100,
-      "active",
-      expectedLiveUrl,
-    );
+      const actualLiveUrl = await scaffolder.deployToRenderAPI();
+
+      console.log(`✅ System allocation successful for ${job.project_slug}`);
+      await this.appendJobLog(
+        job.id,
+        `Ecosystem generated smoothly. Live environment provisioning started on Render.`,
+      );
+      await this.updateJobState(job.id, "completed");
+
+      // Save the precise Render URL to the database for your dashboard's "View Deploy" button
+      const finalUrl =
+        actualLiveUrl || `https://${job.project_slug}-frontend.onrender.com`;
+      await this.updateProjectTrackingPercentage(
+        job.project_id,
+        100,
+        "active",
+        finalUrl,
+      );
+    } catch (err) {
+      await this.markJobFailed(
+        job.id,
+        job.project_id,
+        "Render API Trigger Drop",
+        err,
+      );
+      return;
+    }
   }
 
   async startupEngine() {
@@ -831,8 +983,12 @@ async function runInteractiveMenu() {
       try {
         await scaffolder.provisionPythonEnvironment();
         await scaffolder.setupGitRepository();
+
+        // Manual trigger deploy
+        await scaffolder.deployToRenderAPI();
+
         console.log(
-          `✅ System allocation completed manually for ${slug}. Render Blueprint pushed.`,
+          `✅ System allocation completed manually for ${slug}. Render API pushed.`,
         );
       } catch (err) {
         console.error(`❌ Git / Environment Setup Failed:\n`, err.stack);
@@ -864,9 +1020,7 @@ async function runInteractiveMenu() {
     );
 
     if (result.success) {
-      console.log(
-        `✅ Update cleanly pushed to GitHub registry. Render should catch the trigger.`,
-      );
+      console.log(`✅ Update cleanly pushed to GitHub registry.`);
     } else {
       console.log(
         `❌ Failed to push. (Ensure the repository exists on your GitHub account first)\nOutput: ${result.output}`,
