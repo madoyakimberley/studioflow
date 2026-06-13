@@ -109,7 +109,7 @@ ${
     plan: free
     rootDir: apps/api-core
     buildCommand: pip install -r requirements.txt
-    startCommand: python -m gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:\\$PORT
+    startCommand: python -m gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
     healthCheckPath: /api/v1/health
     envVars:
       - key: PYTHON_VERSION
@@ -483,23 +483,16 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
               plan: "free",
               healthCheckPath: "/api/v1/health",
               envSpecificDetails: {
+                // Standardize to pip for simplicity unless uv is specifically configured in the remote environment
                 buildCommand: "pip install -r requirements.txt",
-                // Changed execution to python module invocation inside the root context folder
+                // Ensure this matches the app.main:app structure
                 startCommand:
-                  "python -m gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT",
+                  "python -m gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT",
               },
               envVars: [
-                {
-                  key: "PYTHON_VERSION",
-                  value: "3.12.0",
-                },
+                { key: "PYTHON_VERSION", value: "3.12.0" },
                 ...(process.env.DATABASE_URL
-                  ? [
-                      {
-                        key: "DATABASE_URL",
-                        value: process.env.DATABASE_URL,
-                      },
-                    ]
+                  ? [{ key: "DATABASE_URL", value: process.env.DATABASE_URL }]
                   : []),
               ],
             },
