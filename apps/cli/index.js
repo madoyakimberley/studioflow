@@ -108,8 +108,8 @@ ${
     env: python
     plan: free
     rootDir: api
-    buildCommand: pip install uv && uv venv && . .venv/bin/activate && uv pip install -r requirements.txt
-    startCommand: .venv/bin/python -m gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+    buildCommand: pip install uv && uv venv .venv && .venv/bin/uv pip install -r requirements.txt
+    startCommand: .venv/bin/gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
     healthCheckPath: /api/v1/health
     envVars:
       - key: PYTHON_VERSION
