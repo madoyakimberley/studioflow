@@ -453,6 +453,7 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
 
     const repoUrl = this.githubRemote.replace(".git", "");
     const slug = this.validateSlug(this.manifest.slug || this.projectName);
+
     let apiUrl = null;
 
     try {
@@ -460,6 +461,7 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
         console.log(
           ` -> Instructing Render to build Python API microservice...`,
         );
+
         const apiRes = await fetch("https://api.render.com/v1/services", {
           method: "POST",
           headers: {
@@ -474,21 +476,30 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
             repo: repoUrl,
             branch: "main",
             autoDeploy: "yes",
-            rootDir: "api",
+            // Align with the production monorepo path
+            rootDir: "apps/api-core",
             serviceDetails: {
               env: "python",
               plan: "free",
               healthCheckPath: "/api/v1/health",
               envSpecificDetails: {
-                buildCommand:
-                  "pip install uv && uv venv && uv pip install -r requirements.txt",
+                buildCommand: "pip install -r requirements.txt",
+                // Changed execution to python module invocation inside the root context folder
                 startCommand:
-                  ".venv/bin/gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT",
+                  "python -m gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT",
               },
               envVars: [
-                { key: "PYTHON_VERSION", value: "3.12.0" },
+                {
+                  key: "PYTHON_VERSION",
+                  value: "3.12.0",
+                },
                 ...(process.env.DATABASE_URL
-                  ? [{ key: "DATABASE_URL", value: process.env.DATABASE_URL }]
+                  ? [
+                      {
+                        key: "DATABASE_URL",
+                        value: process.env.DATABASE_URL,
+                      },
+                    ]
                   : []),
               ],
             },
@@ -500,8 +511,12 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
           console.error("    ❌ Backend API Creation Failed:", err);
         } else {
           const backendData = await apiRes.json();
+
           apiUrl =
-            backendData.service.serviceDetails?.url || backendData.service.url;
+            backendData?.service?.serviceDetails?.url ||
+            backendData?.service?.url ||
+            null;
+
           console.log(`    ✅ Backend deployment initiated at: ${apiUrl}`);
         }
       }
@@ -509,11 +524,23 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
       console.log(
         ` -> Instructing Render to build Next.js Frontend dashboard...`,
       );
+
       const frontendEnvVars = [
-        { key: "NODE_VERSION", value: "20.x" },
-        { key: "PNPM_VERSION", value: "9.x" },
+        {
+          key: "NODE_VERSION",
+          value: "20.x",
+        },
+        {
+          key: "PNPM_VERSION",
+          value: "9.x",
+        },
         ...(process.env.DATABASE_URL
-          ? [{ key: "DATABASE_URL", value: process.env.DATABASE_URL }]
+          ? [
+              {
+                key: "DATABASE_URL",
+                value: process.env.DATABASE_URL,
+              },
+            ]
           : []),
       ];
 
@@ -538,13 +565,15 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
           repo: repoUrl,
           branch: "main",
           autoDeploy: "yes",
+          // Pointing to the specific monorepo workspace for frontend builds
           rootDir: ".",
           serviceDetails: {
             env: "node",
             plan: "free",
             envSpecificDetails: {
-              buildCommand: "pnpm install && pnpm run build",
-              startCommand: "pnpm run start",
+              buildCommand:
+                "pnpm install && pnpm build --filter client-dashboard",
+              startCommand: "cd apps/client-dashboard && pnpm start",
             },
             envVars: frontendEnvVars,
           },
@@ -560,14 +589,18 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
       const webData = await webRes.json();
 
       const frontendUrl =
-        webData.service.serviceDetails?.url ||
-        webData.service.url ||
+        webData?.service?.serviceDetails?.url ||
+        webData?.service?.url ||
         `https://${slug}-dashboard.onrender.com`;
 
       console.log(`    ✅ Frontend deployment initiated at: ${frontendUrl}`);
+
       return frontendUrl;
     } catch (error) {
-      console.error("    ❌ Render API Connection Dropped:", error.message);
+      console.error(
+        "    ❌ Render API Connection Dropped:",
+        error?.message || error,
+      );
       return null;
     }
   }
