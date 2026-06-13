@@ -439,14 +439,16 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
             serviceDetails: {
               env: "python",
               plan: "free",
-              buildCommand:
-                "pip install uv && uv pip install --system -r requirements.txt",
-              startCommand:
-                "python -m gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT",
               healthCheckPath: "/api/v1/health",
+              // FIX: Wrapped build/start commands in envSpecificDetails
+              envSpecificDetails: {
+                buildCommand:
+                  "pip install uv && uv pip install --system -r requirements.txt",
+                startCommand:
+                  "python -m gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT",
+              },
               envVars: [
                 { key: "PYTHON_VERSION", value: "3.12.0" },
-                // If you are using a shared database, map it here
                 ...(process.env.DATABASE_URL
                   ? [{ key: "DATABASE_URL", value: process.env.DATABASE_URL }]
                   : []),
@@ -503,8 +505,11 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
           serviceDetails: {
             env: "node",
             plan: "free",
-            buildCommand: "pnpm install && pnpm run build",
-            startCommand: "pnpm run start",
+            // FIX: Wrapped build/start commands in envSpecificDetails
+            envSpecificDetails: {
+              buildCommand: "pnpm install && pnpm run build",
+              startCommand: "pnpm run start",
+            },
             envVars: frontendEnvVars,
           },
         }),
