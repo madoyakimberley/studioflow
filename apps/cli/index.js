@@ -107,9 +107,9 @@ ${
     name: ${this.projectName}-backend
     env: python
     plan: free
-    rootDir: api
-    buildCommand: pip install uv && uv pip install --system -r requirements.txt
-    startCommand: gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:\\$PORT
+    rootDir: apps/api-core
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:\\$PORT
     healthCheckPath: /api/v1/health
     envVars:
       - key: PYTHON_VERSION
