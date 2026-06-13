@@ -1,4 +1,3 @@
-// app/dashboard/clients-requests/AdminChatWorkspace.tsx
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
@@ -15,6 +14,7 @@ import {
   sendPortalMessage,
   setTypingStatus,
 } from "../../portal-actions";
+// FIX: Corrected import to match actions.ts
 import { updateRequestStatusAction } from "./action";
 
 type ProjectData = {
@@ -34,6 +34,9 @@ export default function AdminChatWorkspace({
   const [inputValue, setInputValue] = useState("");
   const [isPending, setIsPending] = useState(false);
   const [clientIsTyping, setClientIsTyping] = useState(false);
+
+  // NEW: State to track which specific request is currently saving
+  const [savingReqs, setSavingReqs] = useState<Record<number, boolean>>({});
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeProject = projectsData.find((p) => p.id === activeProjectId);
@@ -71,16 +74,13 @@ export default function AdminChatWorkspace({
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (isPending || !inputValue.trim() || !activeProjectId) return;
 
     const newMsgContent = inputValue.trim();
-    setIsPending(true); // Lock the button to show loading and make text gray
+    setIsPending(true);
 
-    // Send to database
     await sendPortalMessage(activeProjectId, "admin", newMsgContent);
 
-    // Update UI after sending
     const sentMessage = {
       id: Date.now(),
       content: newMsgContent,
@@ -91,13 +91,24 @@ export default function AdminChatWorkspace({
 
     setMessages((prev) => [...prev, sentMessage]);
 
-    // Only clear input if the user hasn't changed it while sending
     if (inputValue.trim() === newMsgContent) {
       setInputValue("");
     }
-
-    // Unlock button and restore text color
     setIsPending(false);
+  };
+
+  // NEW: Handler for status updates to show loading spinners
+  const handleStatusUpdate = async (
+    e: React.FormEvent<HTMLFormElement>,
+    reqId: number,
+  ) => {
+    e.preventDefault();
+    setSavingReqs((prev) => ({ ...prev, [reqId]: true }));
+
+    const formData = new FormData(e.currentTarget);
+    await updateRequestStatusAction(formData);
+
+    setSavingReqs((prev) => ({ ...prev, [reqId]: false }));
   };
 
   return (
@@ -287,7 +298,15 @@ export default function AdminChatWorkspace({
                         <h4 className="text-sm font-bold text-white">
                           {req.title}
                         </h4>
-                        <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 uppercase">
+                        <span
+                          className={`text-[9px] font-mono px-2 py-0.5 rounded-full uppercase ${
+                            req.status === "completed"
+                              ? "bg-emerald-500/20 text-emerald-400"
+                              : req.status === "reviewing"
+                                ? "bg-cyan-500/20 text-cyan-400"
+                                : "bg-amber-500/20 text-amber-400"
+                          }`}
+                        >
                           {req.status}
                         </span>
                       </div>
@@ -295,8 +314,9 @@ export default function AdminChatWorkspace({
                         {req.description}
                       </p>
 
+                      {/* FIX: Handled Form Submission smoothly with loading state */}
                       <form
-                        action={updateRequestStatusAction}
+                        onSubmit={(e) => handleStatusUpdate(e, req.id)}
                         className="pt-2 mt-2 border-t border-[#1e2942] flex gap-2"
                       >
                         <input type="hidden" name="requestId" value={req.id} />
@@ -311,9 +331,14 @@ export default function AdminChatWorkspace({
                         </select>
                         <button
                           type="submit"
-                          className="bg-[#1e2942] hover:bg-slate-700 text-[10px] px-3 py-1.5 rounded-lg text-white transition"
+                          disabled={savingReqs[req.id]}
+                          className="bg-[#1e2942] hover:bg-slate-700 disabled:opacity-50 text-[10px] px-3 py-1.5 rounded-lg text-white transition flex items-center justify-center min-w-[50px]"
                         >
-                          Save
+                          {savingReqs[req.id] ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            "Save"
+                          )}
                         </button>
                       </form>
                     </div>
