@@ -486,7 +486,7 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
                 buildCommand: "pip install -r requirements.txt",
                 // Ensure this matches the app.main:app structure
                 startCommand:
-                  "python -m gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT",
+                  "api/.venv/bin/gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT",
               },
               envVars: [
                 { key: "PYTHON_VERSION", value: "3.12.0" },
