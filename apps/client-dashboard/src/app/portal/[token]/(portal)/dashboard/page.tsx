@@ -1,10 +1,18 @@
 import React from "react";
 import { verifyPortalAccess } from "../../../../portal-actions";
-import { db } from "@studioflow/db";
-import { tasks, provisioningJobs } from "@studioflow/db";
+import { db, tasks, provisioningJobs, portalMessages } from "@studioflow/db";
 import { eq, desc } from "drizzle-orm";
-import { formatDistanceToNow } from "date-fns";
-import { notFound } from "next/navigation"; // <-- Fix 1: Import notFound
+import { notFound } from "next/navigation";
+import {
+  Rocket,
+  BadgeCheck,
+  MessageSquareWarning,
+  CloudUpload,
+  RefreshCw,
+  Database,
+  CheckCircle2,
+  AlertTriangle,
+} from "lucide-react";
 
 export default async function DashboardPage({
   params,
@@ -14,131 +22,204 @@ export default async function DashboardPage({
   const { token } = await params;
   const authResult = await verifyPortalAccess(token);
 
-  // <-- Fix 2: TypeScript Guard. This proves to TS that 'project' exists.
   if (!authResult.success || !authResult.project) {
     notFound();
   }
 
   const project = authResult.project;
 
-  // 1. Fetch real tasks for the pipeline (Now TS knows project.id is safe)
+  // 1. Fetch Real Data
   const projectTasks = await db
     .select()
     .from(tasks)
     .where(eq(tasks.projectId, project.id));
 
-  const totalTasks = projectTasks.length;
-  const completedTasks = projectTasks.filter((t) => t.isCompleted).length;
-  const overallProgress =
-    totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
-
-  // 2. Fetch recent activity (Jobs) for the Technical Pulse
   const recentJobs = await db
     .select()
     .from(provisioningJobs)
     .where(eq(provisioningJobs.projectId, project.id))
     .orderBy(desc(provisioningJobs.createdAt))
-    .limit(4);
+    .limit(5);
+
+  const projectMessages = await db
+    .select()
+    .from(portalMessages)
+    .where(eq(portalMessages.projectId, project.id));
+
+  // 2. Compute Dynamic Metrics
+  const totalTasks = projectTasks.length;
+  const completedTasks = projectTasks.filter((t) => t.isCompleted);
+  const activeTasks = projectTasks.filter((t) => !t.isCompleted);
+  const overallProgress =
+    totalTasks === 0
+      ? 0
+      : Math.round((completedTasks.length / totalTasks) * 100);
+
+  // Calculate job success rate based on recent jobs
+  const successfulJobs = recentJobs.filter(
+    (j) => j.status === "success" || j.status === "completed",
+  ).length;
+  const jobSuccessRate =
+    recentJobs.length === 0
+      ? 100
+      : Math.round((successfulJobs / recentJobs.length) * 100);
+
+  // Determine global system health from the latest job
+  const latestJob = recentJobs[0];
+  const isSystemHealthy = !latestJob || latestJob.status !== "failed";
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
+    <div className="max-w-6xl mx-auto space-y-12">
       <div>
-        <h1 className="text-4xl font-serif font-bold text-white mb-2">
-          Dashboard
+        <h1 className="text-5xl font-serif font-bold text-white mb-3 tracking-tight">
+          Overview
         </h1>
-        <p className="text-[#958ea0]">
-          A sophisticated overview of your project's health, timeline, and
-          recent technical activities.
+        <p className="text-[#958ea0] text-lg">
+          Monitor your creative ecosystem and technical pulse.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Project Pipeline */}
-        <div className="lg:col-span-2 bg-[#0b1326] border border-[#171f33] rounded-2xl p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-serif text-white">Project Pipeline</h2>
-            <span className="px-3 py-1 bg-[#9d4edd]/20 text-[#d050c2] text-xs font-semibold rounded-full border border-[#9d4edd]/30">
-              {/* Fix 3: Safe string fallback before uppercase */}
-              Active Phase: {String(project.status || "planning").toUpperCase()}
-            </span>
+      {/* Dynamic Stat Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-[#0e1224] border border-[#1e2338] rounded-2xl p-6 flex flex-col justify-between shadow-xl">
+          <div className="flex justify-between items-start mb-4">
+            <h3 className="text-xs font-bold tracking-widest text-[#7a849c] uppercase">
+              Active Tasks
+            </h3>
+            <Rocket className="text-[#8b5cf6] w-5 h-5" />
           </div>
-
-          <div className="space-y-6">
-            {/* Overall Progress */}
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-[#dae2fd]">Overall Completion</span>
-                <span className="text-white">{overallProgress}%</span>
-              </div>
-              <div className="h-1.5 w-full bg-[#171f33] rounded-full overflow-hidden flex">
-                <div
-                  className="h-full bg-gradient-to-r from-[#e364a7] to-[#9d4edd] transition-all duration-1000"
-                  style={{ width: `${overallProgress}%` }}
-                />
-              </div>
+          <div>
+            <div className="text-4xl font-serif text-white mb-2">
+              {activeTasks.length.toString().padStart(2, "0")}
             </div>
-
-            {/* Dynamic Task List */}
-            <div className="pt-4 border-t border-[#171f33] space-y-3">
-              <h3 className="text-sm font-semibold text-[#958ea0] mb-3">
-                Current Objectives
-              </h3>
-              {projectTasks.length === 0 ? (
-                <p className="text-xs text-[#958ea0]">No tasks defined yet.</p>
-              ) : (
-                projectTasks.slice(0, 4).map((task) => (
-                  <div key={task.id} className="flex items-center gap-3">
-                    <div
-                      className={`w-2 h-2 rounded-full ${task.isCompleted ? "bg-[#9d4edd]" : "bg-[#171f33]"}`}
-                    />
-                    <span
-                      className={`text-sm ${task.isCompleted ? "text-[#958ea0] line-through" : "text-[#dae2fd]"}`}
-                    >
-                      {task.title}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
+            <p className="text-xs text-cyan-400 font-medium flex items-center gap-1">
+              <span className="text-lg leading-none mb-1">↗</span> Pipeline
+              moving
+            </p>
           </div>
         </div>
 
-        {/* Technical Pulse */}
-        <div className="bg-[#0b1326] border border-[#171f33] rounded-2xl p-6">
-          <h2 className="text-xl font-serif text-white mb-6 flex items-center gap-2">
-            <span className="text-[#e364a7]">⑂</span> Technical Pulse
-          </h2>
-          <div className="space-y-6 border-l border-[#171f33] ml-2 pl-4">
-            {recentJobs.length === 0 ? (
-              <p className="text-sm text-[#958ea0]">
-                No recent infrastructure activity.
+        <div className="bg-[#0e1224] border border-[#1e2338] rounded-2xl p-6 flex flex-col justify-between shadow-xl">
+          <div className="flex justify-between items-start mb-4">
+            <h3 className="text-xs font-bold tracking-widest text-[#7a849c] uppercase">
+              Overall Progress
+            </h3>
+            <BadgeCheck className="text-[#ec4899] w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-4xl font-serif text-white mb-2">
+              {overallProgress}%
+            </div>
+            <p className="text-xs text-[#ec4899] font-medium flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5" /> {completedTasks.length}{" "}
+              objectives met
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-[#0e1224] border border-[#1e2338] rounded-2xl p-6 flex flex-col justify-between shadow-xl">
+          <div className="flex justify-between items-start mb-4">
+            <h3 className="text-xs font-bold tracking-widest text-[#7a849c] uppercase">
+              Communication
+            </h3>
+            <MessageSquareWarning className="text-[#8b5cf6] w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-4xl font-serif text-white mb-2">
+              {projectMessages.length.toString().padStart(2, "0")}
+            </div>
+            <p className="text-xs text-[#8b5cf6] font-medium flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full border-2 border-[#8b5cf6]" />{" "}
+              Total threads
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+        {/* Dynamic Project Pipeline */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="flex justify-between items-end mb-4">
+            <h2 className="text-2xl font-serif text-white">Project Pipeline</h2>
+            <span className="text-xs font-bold text-[#8b5cf6] uppercase tracking-widest bg-[#8b5cf6]/10 px-3 py-1 rounded-full">
+              {project.status || "In Progress"}
+            </span>
+          </div>
+
+          <div className="space-y-4">
+            {projectTasks.length === 0 ? (
+              <p className="text-[#7a849c] text-sm bg-[#0e1224] border border-[#1e2338] p-6 rounded-2xl">
+                No tasks have been scheduled for this project yet.
               </p>
             ) : (
-              recentJobs.map((job, i) => {
-                const colors = [
-                  "bg-[#9d4edd]",
-                  "bg-[#e364a7]",
-                  "bg-[#4361ee]",
-                  "bg-cyan-400",
-                ];
-                const dotColor = colors[i % colors.length];
+              projectTasks.slice(0, 4).map((task, i) => {
+                const isActive = !task.isCompleted;
+                // Alternate UI styles purely for visual hierarchy if there are multiple active tasks
+                const useNeonStyle = isActive && i % 2 === 0;
 
                 return (
-                  <div key={job.id} className="relative">
-                    <div
-                      className={`absolute -left-[21px] top-1.5 w-2 h-2 rounded-full ${dotColor}`}
-                    />
-                    <p className="text-xs text-[#958ea0] mb-1">
-                      {job.createdAt
-                        ? formatDistanceToNow(new Date(job.createdAt), {
-                            addSuffix: true,
-                          })
-                        : "Recently"}
-                    </p>
-                    <p className="text-sm text-[#dae2fd]">
-                      Job #{job.id} Status:{" "}
-                      <span className="capitalize">{job.status}</span>
-                    </p>
+                  <div
+                    key={task.id}
+                    className="bg-[#0e1224] border border-[#1e2338] rounded-2xl p-6 transition-all hover:border-[#2a3048]"
+                  >
+                    <div className="flex justify-between items-start mb-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-[#171c30] rounded-xl flex items-center justify-center border border-[#2a3048]">
+                          {isActive ? (
+                            <div className="w-5 h-5 border-2 border-[#7a849c] rounded-full grid grid-cols-2 gap-0.5 p-[1px]">
+                              <div className="bg-[#7a849c] rounded-sm"></div>
+                              <div className="bg-[#7a849c] rounded-sm"></div>
+                              <div className="bg-[#7a849c] rounded-sm"></div>
+                              <div className="bg-[#7a849c] rounded-sm"></div>
+                            </div>
+                          ) : (
+                            <div className="w-5 h-5 bg-[#ec4899]/20 flex items-center justify-center rounded">
+                              <div className="w-3 h-2 border-[1.5px] border-[#ec4899] rounded-[2px]" />
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-serif text-white">
+                            {task.title}
+                          </h3>
+                          <p className="text-xs text-[#7a849c] mt-0.5 truncate max-w-[250px]">
+                            {task.description || "Engineering phase"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {isActive ? (
+                        <span className="bg-[#8b5cf6]/20 text-[#c084fc] text-[10px] font-bold uppercase px-3 py-1.5 rounded-full border border-[#8b5cf6]/30 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 bg-[#c084fc] rounded-full animate-pulse" />{" "}
+                          In Progress
+                        </span>
+                      ) : (
+                        <span className="bg-[#171c30] text-[#7a849c] text-[10px] font-bold uppercase px-3 py-1.5 rounded-full border border-[#2a3048]">
+                          Completed
+                        </span>
+                      )}
+                    </div>
+
+                    <div>
+                      <div className="h-1.5 w-full bg-[#171c30] rounded-full overflow-hidden mb-2">
+                        <div
+                          className={`h-full ${isActive ? (useNeonStyle ? "bg-gradient-to-r from-[#8b5cf6] to-[#ec4899]" : "bg-[#3b82f6]") : "bg-emerald-400"}`}
+                          style={{ width: isActive ? "65%" : "100%" }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-[10px] font-bold text-[#7a849c] uppercase tracking-wider">
+                        <span>
+                          {isActive ? "Active Development" : "Resolved"}
+                        </span>
+                        <span
+                          className={
+                            isActive ? "text-white" : "text-emerald-400"
+                          }
+                        >
+                          {isActive ? "65% Complete" : "100% Complete"}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 );
               })

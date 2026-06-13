@@ -1,11 +1,12 @@
-// app/dashboard/clients-requests/page.tsx
 import React from "react";
-import { db } from "@studioflow/db";
+import { db, clientRequests, projects, clients } from "@studioflow/db";
 import { desc, eq } from "drizzle-orm";
-import { clientRequests, projects, clients } from "@studioflow/db";
 import AdminChatWorkspace from "./AdminChatWorkspace";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
+
+// FIX: Force dynamic rendering so the page never caches stale database data
+export const dynamic = "force-dynamic";
 
 export default async function AdminClientRequestsOverview() {
   // 1. Fetch all projects and their associated clients
@@ -31,7 +32,7 @@ export default async function AdminClientRequestsOverview() {
   }));
 
   return (
-    <main className="flex-1 p-4 lg:p-8 overflow-hidden flex flex-col h-screen">
+    <main className="flex-1 p-4 lg:p-8 overflow-hidden flex flex-col h-screen bg-[#060e20]">
       <div className="mb-6 shrink-0">
         <Link
           href="/dashboard"

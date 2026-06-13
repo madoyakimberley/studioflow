@@ -1,4 +1,4 @@
-import React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { verifyPortalAccess } from "../../portal-actions";
@@ -35,13 +35,18 @@ export default async function PortalLayout({
         <div>
           <div className="p-6">
             <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-              <span className="w-6 h-6 rounded bg-gradient-to-tr from-[#e364a7] to-[#9d4edd] flex items-center justify-center shadow-[0_0_15px_rgba(208,80,194,0.4)]">
-                <span className="w-2 h-2 bg-white rounded-full" />
-              </span>
+              <div className="relative w-7 h-7 overflow-hidden rounded shadow-[0_0_15px_rgba(208,80,194,0.4)]">
+                <Image
+                  src="/images/logo.jpg"
+                  alt="StudioFlow Logo"
+                  fill
+                  className="object-cover"
+                />
+              </div>
               StudioFlow
             </h2>
             <p className="text-xs text-[#e364a7] font-medium mt-1">
-              Premium Portal
+              Track Your Project
             </p>
           </div>
 
