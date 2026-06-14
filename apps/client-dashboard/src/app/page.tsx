@@ -12,7 +12,7 @@ function SecurityScanner() {
   const [scanStatus, setScanStatus] = useState<
     | "initializing"
     | "analyzing"
-    | "admin_confirmed"
+    | "developer_confirmed"
     | "client_confirmed"
     | "failed"
   >("initializing");
@@ -36,8 +36,8 @@ function SecurityScanner() {
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
       try {
-        // --- PHASE 1: Check if it is the Admin (Ping Python Core) ---
-        const adminResponse = await fetch(
+        // --- PHASE 1: Check if it is a Developer (Ping Python Core) ---
+        const devResponse = await fetch(
           "http://localhost:8000/api/v1/verify-auth",
           {
             method: "POST",
@@ -46,11 +46,18 @@ function SecurityScanner() {
           },
         ).catch(() => null);
 
-        if (adminResponse && adminResponse.ok) {
-          const adminData = await adminResponse.json();
-          if (adminData.success) {
-            setScanStatus("admin_confirmed");
-            localStorage.setItem("studioflow_role", "admin");
+        if (devResponse && devResponse.ok) {
+          const devData = await devResponse.json();
+          if (devData.success) {
+            setScanStatus("developer_confirmed");
+            localStorage.setItem("studioflow_role", "developer");
+            // Store their workspace ID for later use
+            if (devData.workspaceId) {
+              localStorage.setItem(
+                "workspace_id",
+                devData.workspaceId.toString(),
+              );
+            }
             setTimeout(() => router.push("/dashboard"), 800);
             return;
           }
@@ -61,8 +68,6 @@ function SecurityScanner() {
 
         if (clientResponse && clientResponse.success) {
           setScanStatus("client_confirmed");
-
-          // FIX: Safely map the nested Drizzle ORM response
           setClientDetails({
             name: clientResponse.project?.client?.name || "Client",
             project: clientResponse.project?.name || "Workspace",
@@ -88,7 +93,6 @@ function SecurityScanner() {
     runSecurityProtocol();
   }, [router, searchParams]);
 
-  // Helper to get client initials safely to prevent undefined crashes
   const getInitials = (name?: string) => {
     if (!name) return "CL";
     const parts = name.trim().split(/\s+/);
@@ -100,7 +104,6 @@ function SecurityScanner() {
       .toUpperCase();
   };
 
-  // Helper to get first name safely
   const getFirstName = (name?: string) => {
     if (!name) return "Client";
     return name.split(" ")[0] || "Client";
@@ -108,7 +111,6 @@ function SecurityScanner() {
 
   return (
     <main className="z-10 text-center space-y-8 flex flex-col items-center max-w-md w-full px-6">
-      {/* DYNAMIC AVATAR / BADGE */}
       {scanStatus === "client_confirmed" && clientDetails ? (
         <div className="relative w-32 h-32 rounded-full border-2 border-[#e364a7] bg-[#0b1326] flex flex-col items-center justify-center shadow-[0_0_40px_rgba(227,100,167,0.2)] animate-in fade-in zoom-in duration-500">
           <FolderLock className="w-6 h-6 text-[#a078ff] mb-2" />
@@ -124,20 +126,20 @@ function SecurityScanner() {
           className={`relative w-32 h-32 rounded-full overflow-hidden border-2 ${
             scanStatus === "failed"
               ? "border-rose-500"
-              : scanStatus === "admin_confirmed"
+              : scanStatus === "developer_confirmed"
                 ? "border-cyan-500"
                 : "border-slate-800"
           } shadow-2xl transition-colors duration-500`}
         >
           <Image
             src="/images/admin_pfp.jpg"
-            alt="Admin Profile"
+            alt="Profile"
             fill
             priority
             loading="eager"
             sizes="128px"
             className={`object-cover ${
-              scanStatus === "admin_confirmed" ? "grayscale-0" : "grayscale"
+              scanStatus === "developer_confirmed" ? "grayscale-0" : "grayscale"
             } transition-all duration-700`}
           />
           {scanStatus === "analyzing" && (
@@ -153,7 +155,7 @@ function SecurityScanner() {
         <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight font-serif">
           {scanStatus === "initializing" && "Initializing..."}
           {scanStatus === "analyzing" && "Analyzing Context..."}
-          {scanStatus === "admin_confirmed" && "Admin Confirmed."}
+          {scanStatus === "developer_confirmed" && "Workspace Verified."}
           {scanStatus === "client_confirmed" &&
             `Welcome, ${getFirstName(clientDetails?.name)}.`}
           {scanStatus === "failed" && "Access Denied."}
@@ -169,8 +171,8 @@ function SecurityScanner() {
           <p className="text-[#948f9a] text-sm font-mono h-6">
             {scanStatus === "analyzing" &&
               "Verifying token against system architectures..."}
-            {scanStatus === "admin_confirmed" &&
-              "Establishing core admin session..."}
+            {scanStatus === "developer_confirmed" &&
+              "Establishing developer session..."}
             {scanStatus === "client_confirmed" &&
               `Decrypting ${clientDetails?.project || "Workspace"} environment...`}
           </p>
@@ -181,7 +183,7 @@ function SecurityScanner() {
         {scanStatus === "analyzing" && (
           <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
         )}
-        {scanStatus === "admin_confirmed" && (
+        {scanStatus === "developer_confirmed" && (
           <Shield className="w-8 h-8 text-cyan-500 animate-in zoom-in" />
         )}
         {scanStatus === "client_confirmed" && (
@@ -190,7 +192,7 @@ function SecurityScanner() {
       </div>
 
       <div className="inline-flex items-center gap-2 border border-[#171f33] bg-[#0b1326] px-4 py-1.5 rounded-full text-[10px] font-mono text-[#948f9a] tracking-widest uppercase mt-8">
-        <Sparkles className="w-3.5 h-3.5 text-[#a078ff]" /> Omni-Auth Routing
+        <Sparkles className="w-3.5 h-3.5 text-[#a078ff]" /> Universal Routing
         Active
       </div>
     </main>
