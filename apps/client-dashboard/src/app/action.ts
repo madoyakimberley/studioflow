@@ -8,6 +8,7 @@ import Redis from "ioredis";
 const redis = new Redis(process.env.REDIS_URL || "redis://127.0.0.1:6379");
 
 export interface ProjectManifestPayload {
+  workspaceId: number; // NEW: Ties the project to the logged-in developer
   name: string;
   clientName: string;
   brief?: string;
@@ -23,13 +24,18 @@ export async function queueProjectProvisioning(
   payload: ProjectManifestPayload,
 ) {
   try {
-    // 1. Ensure a default operating client registry exists
+    // 1. Ensure a default operating client registry exists for this workspace
     let targetClient = await db.query.clients.findFirst({
-      where: (c, { eq }) => eq(c.email, "internal@studioflow.io"),
+      where: (c, { and, eq }) =>
+        and(
+          eq(c.email, "internal@studioflow.io"),
+          eq(c.workspaceId, payload.workspaceId),
+        ),
     });
 
     if (!targetClient) {
       const [insertedClient] = await db.insert(clients).values({
+        workspaceId: payload.workspaceId, // Assign to workspace
         name: payload.clientName || "Internal Studio",
         email: "internal@studioflow.io",
         company: payload.clientName || "StudioFlow Workspace",
@@ -38,6 +44,7 @@ export async function queueProjectProvisioning(
 
       targetClient = {
         id: insertedClient.insertId,
+        workspaceId: payload.workspaceId,
         name: payload.clientName,
         email: "internal@studioflow.io",
         company: payload.clientName,
@@ -54,6 +61,7 @@ export async function queueProjectProvisioning(
 
     // 3. Register tracking metric inside main projects schema
     const [newProject] = await db.insert(projects).values({
+      workspaceId: payload.workspaceId, // Assign to workspace
       clientId: targetClient.id,
       name: payload.name,
       slug: projectSlug,
@@ -62,7 +70,7 @@ export async function queueProjectProvisioning(
       progressPercentage: 10,
     });
 
-    // 4. Serialize into execution manifest queue (FLATTENED INFRASTRUCTURE)
+    // 4. Serialize into execution manifest queue
     await db.insert(provisioningJobs).values({
       projectId: newProject.insertId,
       status: "pending",
@@ -71,15 +79,15 @@ export async function queueProjectProvisioning(
         slug: projectSlug,
         techStack: "nextjs",
         apiIntegration: payload.apiIntegration || false,
-        database: payload.database, // Moved to root for daemon parity
-        auth: payload.auth, // Moved to root for daemon parity
-        storage: payload.storage, // Moved to root for daemon parity
+        database: payload.database,
+        auth: payload.auth,
+        storage: payload.storage,
         features: payload.features,
         priority: payload.priority,
       },
     });
 
-    // 5. TRIGGER THE DAEMON: Publish to Redis so index.js wakes up
+    // 5. TRIGGER THE DAEMON: Publish to Redis
     await redis.publish(
       "provisioning_queue",
       JSON.stringify({ event: "NEW_JOB", slug: projectSlug }),

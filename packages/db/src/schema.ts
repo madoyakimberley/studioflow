@@ -9,9 +9,44 @@ import {
 } from "drizzle-orm/mysql-core";
 import { relations } from "drizzle-orm";
 
+// ==========================================
+// ---          CORE PLATFORM             ---
+// ==========================================
+
+// --- USERS (Synced with Supabase Auth) ---
+export const users = mysqlTable("users", {
+  id: varchar("id", { length: 255 }).primaryKey(), // Matches Supabase User ID
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  name: varchar("name", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// --- WORKSPACES (Each developer gets their own workspace) ---
+export const workspaces = mysqlTable("workspaces", {
+  id: int("id").autoincrement().primaryKey(),
+  ownerId: varchar("owner_id", { length: 255 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 255 }).notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// --- WORKSPACE INTEGRATIONS (Where we save their GitHub connections) ---
+export const workspaceIntegrations = mysqlTable("workspace_integrations", {
+  id: int("id").autoincrement().primaryKey(),
+  workspaceId: int("workspace_id").notNull(),
+  provider: varchar("provider", { length: 50 }).notNull(), // 'github', 'render'
+  encryptedToken: text("encrypted_token").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ==========================================
+// ---          CLIENT RESOURCES          ---
+// ==========================================
+
 // --- CLIENTS ---
 export const clients = mysqlTable("clients", {
   id: int("id").autoincrement().primaryKey(),
+  workspaceId: int("workspace_id").notNull(), // NEW: Linked to workspace
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email", { length: 255 }).notNull().unique(),
   company: varchar("company", { length: 255 }),
@@ -22,6 +57,7 @@ export const clients = mysqlTable("clients", {
 // --- PROJECTS ---
 export const projects = mysqlTable("projects", {
   id: int("id").autoincrement().primaryKey(),
+  workspaceId: int("workspace_id").notNull(), // NEW: Linked to workspace
   clientId: int("client_id").notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   slug: varchar("slug", { length: 255 }).notNull().unique(),
@@ -53,7 +89,7 @@ export const portalMessages = mysqlTable("portal_messages", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// --- NEW: CHAT PRESENCE (For Typing Indicators) ---
+// --- CHAT PRESENCE ---
 export const chatPresence = mysqlTable("chat_presence", {
   projectId: int("project_id").primaryKey(),
   clientTyping: boolean("client_typing").default(false),
@@ -67,7 +103,7 @@ export const clientRequests = mysqlTable("client_requests", {
   projectId: int("project_id").notNull(),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description").notNull(),
-  status: varchar("status", { length: 50 }).default("pending"), // pending, reviewing, accepted, completed
+  status: varchar("status", { length: 50 }).default("pending"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -75,21 +111,21 @@ export const clientRequests = mysqlTable("client_requests", {
 export const provisioningJobs = mysqlTable("provisioning_jobs", {
   id: int("id").autoincrement().primaryKey(),
   projectId: int("project_id").notNull(),
-  status: varchar("status", { length: 50 }).default("pending"), // pending, in-progress, completed, failed
-  manifest: json("manifest").notNull(), // Complete configuration payload
+  status: varchar("status", { length: 50 }).default("pending"),
+  manifest: json("manifest").notNull(),
   executionLogs: text("execution_logs"),
   createdAt: timestamp("created_at").defaultNow(),
   startedAt: timestamp("started_at"),
   completedAt: timestamp("completed_at"),
 });
 
-// --- DEPENDENCY LIBRARY (Registry for the Factory) ---
+// --- DEPENDENCY LIBRARY ---
 export const dependencyLibrary = mysqlTable("dependency_library", {
   id: int("id").autoincrement().primaryKey(),
   name: varchar("name", { length: 255 }).notNull().unique(),
   version: varchar("version", { length: 50 }).notNull(),
-  category: varchar("category", { length: 100 }).notNull(), // database, auth, UI, analytics
-  techStack: varchar("tech_stack", { length: 50 }).notNull(), // nextjs, fastapi
+  category: varchar("category", { length: 100 }).notNull(),
+  techStack: varchar("tech_stack", { length: 50 }).notNull(),
 });
 
 // --- SITE MONITORING LOGS ---
@@ -107,11 +143,30 @@ export const siteMonitoring = mysqlTable("site_monitoring", {
 // ---          RELATIONSHIPS             ---
 // ==========================================
 
-export const clientsRelations = relations(clients, ({ many }) => ({
+export const usersRelations = relations(users, ({ many }) => ({
+  workspaces: many(workspaces),
+}));
+
+export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
+  owner: one(users, { fields: [workspaces.ownerId], references: [users.id] }),
+  integrations: many(workspaceIntegrations),
+  clients: many(clients),
+  projects: many(projects),
+}));
+
+export const clientsRelations = relations(clients, ({ one, many }) => ({
+  workspace: one(workspaces, {
+    fields: [clients.workspaceId],
+    references: [workspaces.id],
+  }),
   projects: many(projects),
 }));
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
+  workspace: one(workspaces, {
+    fields: [projects.workspaceId],
+    references: [workspaces.id],
+  }),
   client: one(clients, {
     fields: [projects.clientId],
     references: [clients.id],
@@ -119,8 +174,8 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   tasks: many(tasks),
   jobs: many(provisioningJobs),
   monitoringLogs: many(siteMonitoring),
-  clientRequests: many(clientRequests), // Connected pipeline
-  portalMessages: many(portalMessages), // Connected messenger
+  clientRequests: many(clientRequests),
+  portalMessages: many(portalMessages),
 }));
 
 export const tasksRelations = relations(tasks, ({ one }) => ({

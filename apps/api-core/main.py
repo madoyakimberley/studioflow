@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from dotenv import load_dotenv
 
-# Load environment variables from the root workspace context (../../.env)
+# Load environment variables
 load_dotenv(dotenv_path="../../.env")
 
 app = FastAPI(
@@ -46,9 +46,6 @@ class AuditSummaryResponse(BaseModel):
 
 @app.get("/api/v1/health", response_model=EngineStatusResponse)
 async def get_health_status():
-    """
-    Evaluates runtime cluster environments and system health statuses.
-    """
     return {
         "status": "operational",
         "node_process_id": os.getpid(),
@@ -59,29 +56,31 @@ async def get_health_status():
 @app.post("/api/v1/verify-auth")
 async def verify_auth(payload: TokenPayload, request: Request):
     """
-    Zero-touch authentication gateway verifying environmental telemetry.
+    Universal authentication gateway.
     """
-    allowed_emails_raw = os.getenv("NEXT_PUBLIC_ADMIN_EMAILS", "")
-    allowed_emails = [email.strip().lower() for email in allowed_emails_raw.split(",") if email.strip()]
-
     client_ip = request.client.host
     user_agent = request.headers.get("user-agent", "Unknown")
     
     print(f"🔒 Auth Attempt -> IP: {client_ip} | Agent: {user_agent}")
 
-    if payload.token == "studioflow-admin-key":
-        return {"success": True, "status": "authorized", "admin_pool": len(allowed_emails)}
+    # Universal Check: In a production app, verify this token against the database.
+    # For now, if they pass a token starting with 'dev_', we let them in and extract the workspace ID.
+    if payload.token.startswith("dev_"):
+        try:
+            workspace_id = int(payload.token.split("_")[1])
+        except ValueError:
+            workspace_id = 1 # Default fallback
+            
+        return {
+            "success": True, 
+            "status": "authorized", 
+            "workspaceId": workspace_id
+        }
     
-    # FIX: We return a clean JSON response instead of a hard HTTP 403 Exception.
-    # This prevents the browser from throwing a console error when we are just checking a client token.
     return {"success": False, "status": "unauthorized"}
 
 @app.post("/api/v1/audit-nodes", response_model=AuditSummaryResponse)
 async def audit_nodes():
-    """
-    Sweeps active target node services to flag connectivity or execution configuration failures,
-    syncing directly with the dashboard container layout profiles.
-    """
     try:
         await asyncio.sleep(0.4) 
         return {
@@ -95,10 +94,6 @@ async def audit_nodes():
 
 @app.post("/api/v1/optimize-blueprint")
 async def optimize_blueprint(payload: ScaffoldingPayload):
-    """
-    Optional AI/Data processing layer to expand user feature briefs into 
-    detailed structural injection maps prior to file system scaffolding.
-    """
     try:
         enhanced_features = [f.upper() for f in payload.features]
         return {
