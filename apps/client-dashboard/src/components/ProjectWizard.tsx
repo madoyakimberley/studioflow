@@ -22,8 +22,12 @@ import {
 } from "../app/action";
 import { toast } from "sonner";
 
-export interface ExtendedManifestPayload extends ProjectManifestPayload {
-  apiIntegration?: boolean;
+// FIX: Explicitly omit workspaceId from the backend type so the client form state can track it as a string safely
+export interface ClientProjectFormData extends Omit<
+  ProjectManifestPayload,
+  "workspaceId"
+> {
+  workspaceId: string;
 }
 
 interface ProjectWizardProps {
@@ -34,7 +38,8 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
   const [step, setStep] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [formData, setFormData] = useState<ExtendedManifestPayload>({
+  const [formData, setFormData] = useState<ClientProjectFormData>({
+    workspaceId: "",
     name: "",
     clientName: "",
     brief: "",
@@ -56,8 +61,22 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
   };
 
   const executeSystemLaunch = async () => {
+    // Validation check for numeric workspace ID
+    const parsedWorkspaceId = parseInt(formData.workspaceId, 10);
+    if (isNaN(parsedWorkspaceId)) {
+      toast.error("Workspace ID must be a valid number.");
+      return;
+    }
+
     setIsSubmitting(true);
-    const result = await queueProjectProvisioning(formData);
+
+    // FIX: Reconstruct payload to safely parse the string input into the number required by your server action
+    const payload: ProjectManifestPayload = {
+      ...formData,
+      workspaceId: parsedWorkspaceId,
+    };
+
+    const result = await queueProjectProvisioning(payload);
     setIsSubmitting(false);
 
     if (result.success) {
@@ -66,6 +85,7 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
       );
       setStep(1);
       setFormData({
+        workspaceId: "",
         name: "",
         clientName: "",
         brief: "",
@@ -154,6 +174,20 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
                 </p>
               </div>
               <div className="space-y-4 pt-4">
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-bold tracking-wider text-slate-400">
+                    Workspace ID (Numeric)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.workspaceId}
+                    onChange={(e) =>
+                      setFormData({ ...formData, workspaceId: e.target.value })
+                    }
+                    placeholder="e.g., 102"
+                    className="bg-[#11131c] border border-slate-800 rounded-lg p-3 text-white focus:outline-none focus:border-cyan-500 font-medium transition"
+                  />
+                </div>
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-bold tracking-wider text-slate-400">
                     Project Name
@@ -547,6 +581,9 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
                       </div>
                       <div className="text-xs text-slate-400 mt-0.5">
                         {formData.clientName || "Default Workspace"}
+                      </div>
+                      <div className="text-xs text-slate-500 mt-1">
+                        Workspace: {formData.workspaceId || "Not Provided"}
                       </div>
                     </div>
                     <div>
