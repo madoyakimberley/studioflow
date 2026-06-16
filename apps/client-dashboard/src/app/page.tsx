@@ -2,215 +2,104 @@
 
 import React, { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Image from "next/image";
-import { Sparkles, Shield, Loader2, UserCheck, FolderLock } from "lucide-react";
-import { verifyPortalAccess } from "./portal-actions";
+import { Loader2, UserCheck, AlertOctagon } from "lucide-react";
+import MotionGraphicStage from "../components/MotionGraphicStage";
 
-function SecurityScanner() {
+function IngressSecurityProtocolScanner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [scanStatus, setScanStatus] = useState<
-    | "initializing"
-    | "analyzing"
-    | "developer_confirmed"
-    | "client_confirmed"
-    | "failed"
-  >("initializing");
+  const [protocolState, setProtocolState] = useState<
+    "evaluating" | "ready" | "failed"
+  >("evaluating");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const [clientDetails, setClientDetails] = useState<{
-    name: string;
-    project: string;
-  } | null>(null);
-
   useEffect(() => {
-    const runSecurityProtocol = async () => {
-      const token = searchParams.get("token");
+    const executeIngressHandshake = async () => {
+      const activeSessionToken = searchParams.get("token");
 
-      if (!token) {
-        router.push("/welcome");
+      // Set to 9500ms to allow the full forward and backward kinetic bounce loop to finish
+      const ANIMATION_DURATION = 9500;
+      const startTime = Date.now();
+
+      // Helper to calculate remaining delay so the redirect doesn't happen too early
+      const delayRedirect = (route: string) => {
+        const elapsedTime = Date.now() - startTime;
+        const remainingTime = Math.max(0, ANIMATION_DURATION - elapsedTime);
+        setTimeout(() => router.push(route), remainingTime);
+      };
+
+      if (!activeSessionToken) {
+        setProtocolState("failed");
+        setErrorMessage("No Session Token Detected. Deflecting to Gate...");
+        delayRedirect("/welcome");
         return;
       }
 
-      setScanStatus("analyzing");
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
       try {
-        // --- PHASE 1: Check if it is a Developer (Ping Python Core) ---
-        const devResponse = await fetch(
+        const networkCoreVerificationResponse = await fetch(
           "http://localhost:8000/api/v1/verify-auth",
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token }),
+            body: JSON.stringify({ token: activeSessionToken }),
           },
-        ).catch(() => null);
-
-        if (devResponse && devResponse.ok) {
-          const devData = await devResponse.json();
-          if (devData.success) {
-            setScanStatus("developer_confirmed");
-            localStorage.setItem("studioflow_role", "developer");
-            // Store their workspace ID for later use
-            if (devData.workspaceId) {
-              localStorage.setItem(
-                "workspace_id",
-                devData.workspaceId.toString(),
-              );
-            }
-            setTimeout(() => router.push("/dashboard"), 800);
-            return;
-          }
-        }
-
-        // --- PHASE 2: Check if it is a Client (Ping Next.js DB Actions) ---
-        const clientResponse = await verifyPortalAccess(token);
-
-        if (clientResponse && clientResponse.success) {
-          setScanStatus("client_confirmed");
-          setClientDetails({
-            name: clientResponse.project?.client?.name || "Client",
-            project: clientResponse.project?.name || "Workspace",
-          });
-
-          localStorage.setItem("studioflow_role", "client");
-          setTimeout(() => router.push(`/portal/${token}`), 1800);
-          return;
-        }
-
-        // --- PHASE 3: Total Failure ---
-        setScanStatus("failed");
-        setErrorMessage(
-          clientResponse?.error ||
-            "Access token unrecognized by Core Engine and Database.",
         );
-      } catch (error: any) {
-        setScanStatus("failed");
-        setErrorMessage(`System Error: ${error.message}`);
+
+        if (!networkCoreVerificationResponse.ok) {
+          throw new Error(
+            "Ingress verification matrix handshake failed configuration boundaries.",
+          );
+        }
+
+        const parsingResultPayload =
+          await networkCoreVerificationResponse.json();
+
+        if (parsingResultPayload.success) {
+          setProtocolState("ready");
+          delayRedirect("/dashboard");
+        } else {
+          setProtocolState("failed");
+          setErrorMessage("Unauthorized Session Token Parameters.");
+          delayRedirect("/welcome");
+        }
+      } catch (err: any) {
+        setProtocolState("failed");
+        setErrorMessage(
+          err.message || "Network Timeout reaching Python Core Telemetry Node.",
+        );
+        delayRedirect("/welcome");
       }
     };
 
-    runSecurityProtocol();
-  }, [router, searchParams]);
-
-  const getInitials = (name?: string) => {
-    if (!name) return "CL";
-    const parts = name.trim().split(/\s+/);
-    if (parts.length === 0 || !parts[0]) return "CL";
-    return parts
-      .map((n) => n[0])
-      .join("")
-      .substring(0, 2)
-      .toUpperCase();
-  };
-
-  const getFirstName = (name?: string) => {
-    if (!name) return "Client";
-    return name.split(" ")[0] || "Client";
-  };
+    executeIngressHandshake();
+  }, [searchParams, router]);
 
   return (
-    <main className="z-10 text-center space-y-8 flex flex-col items-center max-w-md w-full px-6">
-      {scanStatus === "client_confirmed" && clientDetails ? (
-        <div className="relative w-32 h-32 rounded-full border-2 border-[#e364a7] bg-[#0b1326] flex flex-col items-center justify-center shadow-[0_0_40px_rgba(227,100,167,0.2)] animate-in fade-in zoom-in duration-500">
-          <FolderLock className="w-6 h-6 text-[#a078ff] mb-2" />
-          <div className="text-2xl font-black font-serif text-white tracking-wider">
-            {getInitials(clientDetails.name)}
-          </div>
-          <div className="text-[8px] font-mono text-[#e364a7] mt-1 text-center truncate w-24 uppercase tracking-widest">
-            {clientDetails.project}
-          </div>
-        </div>
-      ) : (
-        <div
-          className={`relative w-32 h-32 rounded-full overflow-hidden border-2 ${
-            scanStatus === "failed"
-              ? "border-rose-500"
-              : scanStatus === "developer_confirmed"
-                ? "border-cyan-500"
-                : "border-slate-800"
-          } shadow-2xl transition-colors duration-500`}
-        >
-          <Image
-            src="/images/admin_pfp.jpg"
-            alt="Profile"
-            fill
-            priority
-            loading="eager"
-            sizes="128px"
-            className={`object-cover ${
-              scanStatus === "developer_confirmed" ? "grayscale-0" : "grayscale"
-            } transition-all duration-700`}
-          />
-          {scanStatus === "analyzing" && (
-            <div className="absolute inset-0 bg-cyan-500/20 mix-blend-overlay animate-pulse" />
-          )}
-          {scanStatus === "failed" && (
-            <div className="absolute inset-0 bg-rose-500/30 mix-blend-overlay" />
-          )}
-        </div>
-      )}
-
-      <div className="space-y-3">
-        <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight font-serif">
-          {scanStatus === "initializing" && "Initializing..."}
-          {scanStatus === "analyzing" && "Analyzing Context..."}
-          {scanStatus === "developer_confirmed" && "Workspace Verified."}
-          {scanStatus === "client_confirmed" &&
-            `Welcome, ${getFirstName(clientDetails?.name)}.`}
-          {scanStatus === "failed" && "Access Denied."}
-        </h1>
-
-        {scanStatus === "failed" ? (
-          <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-3 rounded-lg text-xs font-mono text-left w-full mt-4 break-words">
-            &gt;_ ERROR TRACE:
-            <br />
-            {errorMessage}
-          </div>
-        ) : (
-          <p className="text-[#948f9a] text-sm font-mono h-6">
-            {scanStatus === "analyzing" &&
-              "Verifying token against system architectures..."}
-            {scanStatus === "developer_confirmed" &&
-              "Establishing developer session..."}
-            {scanStatus === "client_confirmed" &&
-              `Decrypting ${clientDetails?.project || "Workspace"} environment...`}
-          </p>
-        )}
-      </div>
-
-      <div className="h-12 flex items-center justify-center mt-4">
-        {scanStatus === "analyzing" && (
-          <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
-        )}
-        {scanStatus === "developer_confirmed" && (
-          <Shield className="w-8 h-8 text-cyan-500 animate-in zoom-in" />
-        )}
-        {scanStatus === "client_confirmed" && (
-          <UserCheck className="w-8 h-8 text-[#e364a7] animate-in zoom-in" />
-        )}
-      </div>
-
-      <div className="inline-flex items-center gap-2 border border-[#171f33] bg-[#0b1326] px-4 py-1.5 rounded-full text-[10px] font-mono text-[#948f9a] tracking-widest uppercase mt-8">
-        <Sparkles className="w-3.5 h-3.5 text-[#a078ff]" /> Universal Routing
-        Active
-      </div>
-    </main>
+    <div className="relative z-10 w-full flex flex-col items-center justify-center">
+      {/* Centralized Master Stage without the header/footer window wrappers */}
+      <main className="w-full max-w-5xl flex flex-col items-center justify-center gap-12">
+        <MotionGraphicStage />
+      </main>
+    </div>
   );
 }
 
 export default function StudioFlowAuthGate() {
   return (
-    <div className="min-h-screen bg-[#060e20] flex flex-col items-center justify-center font-sans text-slate-300 relative overflow-hidden">
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[500px] bg-gradient-to-b from-[#a078ff]/10 to-transparent blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-[#070709] text-slate-100 flex flex-col justify-center items-center p-4 font-sans selection:bg-indigo-500/30 selection:text-white relative overflow-hidden">
+      {/* Dynamic ambient background glow specifically centered behind animation */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-500/5 rounded-full blur-[150px]" />
+      </div>
+
       <Suspense
         fallback={
-          <div className="z-10 text-[#948f9a] font-mono text-xs animate-pulse">
-            Loading secure environment...
+          <div className="flex items-center justify-center z-10">
+            <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
           </div>
         }
       >
-        <SecurityScanner />
+        <IngressSecurityProtocolScanner />
       </Suspense>
     </div>
   );

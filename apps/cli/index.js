@@ -1,615 +1,39 @@
 #!/usr/bin/env node
 
-import mysql from "mysql2/promise";
-import { spawn } from "child_process";
-import path from "path";
-import fs from "fs/promises";
 import dotenv from "dotenv";
+import mysql from "mysql2/promise";
+import path from "path";
 import readline from "readline";
 import Redis from "ioredis";
-
-// Look for .env file at the workspace root context
-dotenv.config({ path: path.resolve(process.cwd(), "../../.env") });
-
-class ProcessExecutor {
-  static runCommand(shellStatement, executionDirectory) {
-    return new Promise((resolve) => {
-      const child = spawn(shellStatement, {
-        cwd: executionDirectory,
-        env: { ...process.env },
-        shell: true,
-      });
-
-      let output = "";
-
-      child.stdout.on("data", (data) => {
-        const chunk = data.toString();
-        output += chunk;
-        process.stdout.write(chunk);
-      });
-
-      child.stderr.on("data", (data) => {
-        const chunk = data.toString();
-        output += chunk;
-        process.stderr.write(chunk);
-      });
-
-      child.on("close", (code) => {
-        if (code === 0) {
-          resolve({ success: true, output });
-        } else {
-          resolve({
-            success: false,
-            output: output || `Process exited with code ${code}`,
-          });
-        }
-      });
-
-      child.on("error", (error) => {
-        resolve({ success: false, output: error.stack || error.message });
-      });
-    });
-  }
-}
-
-class HighFidelityScaffolder {
-  constructor(projectSlug, manifest) {
-    const baseWorkspace =
-      process.env.TARGET_OUTPUT_DIR || "/Users/luna/Sites/work";
-    this.targetPath = path.join(baseWorkspace, this.validateSlug(projectSlug));
-    this.manifest = manifest;
-    this.projectName = manifest.projectName || projectSlug;
-
-    this.githubToken = process.env.GITHUB_PAT || process.env.GITHUB_TOKEN;
-    this.githubRemote = `https://github.com/madoyakimberley/${this.validateSlug(projectSlug)}.git`;
-    this.templatePath = path.resolve(process.cwd(), "../../templates");
-  }
-
-  validateSlug(slug) {
-    const safeSlug = slug.toLowerCase().replace(/[^a-z0-9-]/g, "");
-    if (safeSlug !== slug) throw new Error("Invalid slug format.");
-    return safeSlug;
-  }
-
-  async verifyClearance() {
-    try {
-      await fs.access(this.targetPath);
-      return false;
-    } catch {
-      return true;
-    }
-  }
-
-  async injectRenderBlueprint() {
-    console.log(
-      ` -> Injecting Render Infrastructure Blueprint (render.yaml)...`,
-    );
-
-    const slug = this.validateSlug(this.manifest.slug || this.projectName);
-
-    // Standardized to match the physical folders created by writeBoilerplateFiles
-    const renderYaml = `services:
-  - type: web
-    name: ${this.projectName}-frontend
-    env: node
-    plan: free
-    rootDir: .
-    buildCommand: pnpm install && pnpm run build
-    startCommand: pnpm run start
-    healthCheckPath: /
-    envVars:
-      - key: NODE_VERSION
-        value: 20.x
-      - key: PNPM_VERSION
-        value: 9.x
-${
-  this.manifest.apiIntegration
-    ? `
-  - type: web
-    name: ${this.projectName}-backend
-    env: python
-    plan: free
-    rootDir: api
-    buildCommand: pip install -r requirements.txt
-    startCommand: python -m gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
-    healthCheckPath: /api/v1/health
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.12.0
-`
-    : ""
-}`;
-
-    await fs.writeFile(path.join(this.targetPath, "render.yaml"), renderYaml);
-  }
-
-  async writeBoilerplateFiles() {
-    const directories = [
-      "src/app",
-      "src/components/ui",
-      "src/lib",
-      "src/db",
-      "src/schemas",
-      "public",
-    ];
-
-    for (const dir of directories) {
-      await fs.mkdir(path.join(this.targetPath, dir), { recursive: true });
-    }
-
-    const loadTemplate = async (fileName) => {
-      const fullPath = path.join(this.templatePath, `${fileName}.template`);
-      try {
-        let content = await fs.readFile(fullPath, "utf8");
-        content = content.replace(/{{PROJECT_NAME}}/g, this.projectName);
-        content = content.replace(
-          /{{PROJECT_SLUG}}/g,
-          this.manifest.slug || this.projectName,
-        );
-        return content;
-      } catch (err) {
-        throw new Error(
-          `Template Missing or Unreadable: Expected to find file at ${fullPath}\nSystem Error: ${err.message}`,
-        );
-      }
-    };
-
-    let packageJsonContent = await loadTemplate("package.json");
-    let packageJson;
-    try {
-      packageJson = JSON.parse(packageJsonContent);
-    } catch (err) {
-      throw new Error(
-        `JSON Parse Error in package.json.template: ${err.message}`,
-      );
-    }
-
-    packageJson.dependencies = packageJson.dependencies || {};
-    packageJson.devDependencies = packageJson.devDependencies || {};
-
-    packageJson.devDependencies["typescript"] = "^5";
-    packageJson.devDependencies["@types/react"] = "^19";
-    packageJson.devDependencies["@types/node"] = "^20";
-
-    if (this.manifest.database === "Supabase") {
-      packageJson.dependencies["drizzle-orm"] = "^0.36.1";
-      packageJson.dependencies["postgres"] = "^3.4.4";
-      packageJson.devDependencies["drizzle-kit"] = "^0.28.1";
-    }
-
-    if (this.manifest.storage === "UploadThing") {
-      packageJson.dependencies["@uploadthing/react"] = "^7.1.1";
-      packageJson.dependencies["uploadthing"] = "^7.3.0";
-    }
-
-    await fs.writeFile(
-      path.join(this.targetPath, "package.json"),
-      JSON.stringify(packageJson, null, 2),
-    );
-
-    const tsconfig = {
-      compilerOptions: {
-        target: "es5",
-        lib: ["dom", "dom.iterable", "esnext"],
-        allowJs: true,
-        skipLibCheck: true,
-        strict: true,
-        noEmit: true,
-        esModuleInterop: true,
-        module: "esnext",
-        moduleResolution: "bundler",
-        resolveJsonModule: true,
-        isolatedModules: true,
-        jsx: "preserve",
-        incremental: true,
-        plugins: [{ name: "next" }],
-        paths: { "@/*": ["./src/*"] },
-      },
-      include: ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-      exclude: ["node_modules"],
-    };
-    await fs.writeFile(
-      path.join(this.targetPath, "tsconfig.json"),
-      JSON.stringify(tsconfig, null, 2),
-    );
-
-    await fs.writeFile(
-      path.join(this.targetPath, "src/schemas/user.ts"),
-      await loadTemplate("user.ts"),
-    );
-
-    if (this.manifest.database === "Supabase") {
-      await fs.writeFile(
-        path.join(this.targetPath, "drizzle.config.ts"),
-        await loadTemplate("drizzle.config.ts"),
-      );
-      await fs.writeFile(
-        path.join(this.targetPath, "src/db/schema.ts"),
-        await loadTemplate("schema.ts"),
-      );
-    }
-
-    // FRONTEND FIX: Inject default exports for page.tsx and layout.tsx
-    let pageContent = await loadTemplate("page.tsx");
-    if (!pageContent.includes("export")) {
-      pageContent = `export default function Page() {\n  return (\n    <main>\n      <h1>${this.projectName}</h1>\n    </main>\n  );\n}`;
-    }
-    await fs.writeFile(
-      path.join(this.targetPath, "src/app/page.tsx"),
-      pageContent,
-    );
-
-    let layoutContent = await loadTemplate("layout.tsx");
-    if (!layoutContent.includes("export")) {
-      layoutContent = `export default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang="en">\n      <body>{children}</body>\n    </html>\n  );\n}`;
-    }
-    await fs.writeFile(
-      path.join(this.targetPath, "src/app/layout.tsx"),
-      layoutContent,
-    );
-
-    await fs.writeFile(
-      path.join(this.targetPath, "src/app/globals.css"),
-      await loadTemplate("globals.css"),
-    );
-
-    if (this.manifest.apiIntegration === true) {
-      console.log(` -> Constructing Production-Grade FastAPI Structure...`);
-      const apiPath = path.join(this.targetPath, "api");
-      const pythonDirs = ["app/core", "app/api/v1", "app/schemas"];
-
-      for (const dir of pythonDirs) {
-        await fs.mkdir(path.join(apiPath, dir), { recursive: true });
-      }
-
-      await fs.writeFile(path.join(apiPath, "app/__init__.py"), "");
-      await fs.writeFile(path.join(apiPath, "app/core/__init__.py"), "");
-      await fs.writeFile(path.join(apiPath, "app/api/__init__.py"), "");
-      await fs.writeFile(path.join(apiPath, "app/api/v1/__init__.py"), "");
-      await fs.writeFile(path.join(apiPath, "app/schemas/__init__.py"), "");
-
-      const configPy = `from pydantic_settings import BaseSettings
-import os
-
-class Settings(BaseSettings):
-    PROJECT_NAME: str = "${this.projectName} Engine API"
-    API_V1_STR: str = "/api/v1"
-    ENVIRONMENT: str = os.getenv("NODE_ENV", "development")
-
-    class Config:
-        case_sensitive = True
-
-settings = Settings()
-`;
-
-      const endpointsPy = `from fastapi import APIRouter
-
-router = APIRouter()
-
-@router.get("/health", status_code=200)
-async def health_check():
-    return {
-        "status": "operational",
-        "project": "${this.projectName}",
-        "message": "Python microservice orchestration core online."
-    }
-`;
-
-      const fastApiMain = `from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from app.core.config import settings
-from app.api.v1.endpoints import router as api_v1_router
-
-app = FastAPI(
-    title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-app.include_router(api_v1_router, prefix=settings.API_V1_STR)
-`;
-
-      const requirements = `fastapi>=0.110.0\nuvicorn[standard]>=0.28.0\npydantic>=2.6.0\npydantic-settings>=2.2.1\npython-dotenv>=1.0.1\ngunicorn>=23.0.0`;
-      await fs.writeFile(path.join(apiPath, "app/core/config.py"), configPy);
-      await fs.writeFile(
-        path.join(apiPath, "app/api/v1/endpoints.py"),
-        endpointsPy,
-      );
-      await fs.writeFile(path.join(apiPath, "app/main.py"), fastApiMain);
-      await fs.writeFile(path.join(apiPath, "requirements.txt"), requirements);
-    }
-
-    await this.injectRenderBlueprint();
-    await this.generateEnvFiles();
-  }
-
-  async provisionPythonEnvironment() {
-    if (this.manifest.apiIntegration !== true) return;
-
-    console.log(
-      `\n -> Initializing isolated Python architecture environment via uv...`,
-    );
-    const apiPath = path.join(this.targetPath, "api");
-
-    const venvResult = await ProcessExecutor.runCommand("uv venv", apiPath);
-    if (!venvResult.success) {
-      throw new Error(
-        `uv venv orchestration layer failed: ${venvResult.output}`,
-      );
-    }
-
-    console.log(
-      ` -> Injecting compiled Python package dependencies via uv pip...`,
-    );
-    const pipResult = await ProcessExecutor.runCommand(
-      "uv pip install -r requirements.txt",
-      apiPath,
-    );
-    if (!pipResult.success) {
-      throw new Error(
-        `uv pip package optimization dropped: ${pipResult.output}`,
-      );
-    }
-
-    console.log(
-      `✅ Automated Python microservice micro-layer cleanly provisioned.`,
-    );
-  }
-
-  async generateEnvFiles() {
-    console.log(` -> Injecting environment variables...`);
-    let envContent = "";
-    if (process.env.DATABASE_URL) {
-      envContent += `DATABASE_URL="${process.env.DATABASE_URL}"\n`;
-    }
-    await fs.writeFile(path.join(this.targetPath, ".env.local"), envContent);
-  }
-
-  async createGitHubRepo() {
-    if (!this.githubToken) {
-      throw new Error(
-        "GITHUB_PAT / GITHUB_TOKEN not found in environment settings. Cannot create repository.",
-      );
-    }
-
-    console.log(` -> Attempting to create GitHub repository via API...`);
-    const response = await fetch("https://api.github.com/user/repos", {
-      method: "POST",
-      headers: {
-        Authorization: `token ${this.githubToken}`,
-        Accept: "application/vnd.github.v3+json",
-      },
-      body: JSON.stringify({
-        name: this.validateSlug(this.manifest.slug || this.projectName),
-        description: `Automatically provisioned via StudioFlow Engine -> Render Connected`,
-        private: true,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`GitHub API Rejected Request: ${errorData.message}`);
-    }
-    console.log(`✅ GitHub repository created successfully.`);
-    return true;
-  }
-
-  async setupGitRepository() {
-    console.log(
-      `\n -> Initializing Git tracking and mapping to remote origin...`,
-    );
-    const gitignoreContent =
-      "node_modules\n.next\n.env\n.env.local\n.DS_Store\napi/.venv\napi/__pycache__\n";
-    await fs.writeFile(
-      path.join(this.targetPath, ".gitignore"),
-      gitignoreContent,
-    );
-
-    await this.createGitHubRepo();
-
-    await ProcessExecutor.runCommand("git init", this.targetPath);
-    await ProcessExecutor.runCommand("git add .", this.targetPath);
-    await ProcessExecutor.runCommand(
-      `git commit -m "feat: initial architecture scaffold via StudioFlow engine with Render Blueprint"`,
-      this.targetPath,
-    );
-    await ProcessExecutor.runCommand("git branch -M main", this.targetPath);
-    await ProcessExecutor.runCommand(
-      `git remote add origin ${this.githubRemote}`,
-      this.targetPath,
-    );
-
-    const pushResult = await ProcessExecutor.runCommand(
-      `git push -u origin main`,
-      this.targetPath,
-    );
-    if (!pushResult.success) {
-      throw new Error(`Git Push Failed:\n${pushResult.output}`);
-    }
-
-    return { success: true };
-  }
-
-  async deployToRenderAPI() {
-    const renderApiKey = process.env.RENDER_API_KEY;
-    const renderOwnerId = process.env.RENDER_OWNER_ID;
-
-    if (!renderApiKey || !renderOwnerId) {
-      console.log(
-        `\n⚠️ RENDER_API_KEY or RENDER_OWNER_ID missing from .env. Code pushed to GitHub, but automated Render deployment skipped.`,
-      );
-      return null;
-    }
-
-    console.log(
-      `\n -> Authenticating with Render REST API to construct cloud nodes...`,
-    );
-
-    const repoUrl = this.githubRemote.replace(".git", "");
-    const slug = this.validateSlug(this.manifest.slug || this.projectName);
-
-    let apiUrl = null;
-
-    try {
-      if (this.manifest.apiIntegration) {
-        console.log(
-          ` -> Instructing Render to build Python API microservice...`,
-        );
-
-        const apiRes = await fetch("https://api.render.com/v1/services", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${renderApiKey}`,
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            type: "web_service",
-            name: `${slug}-api`,
-            ownerId: renderOwnerId,
-            repo: repoUrl,
-            branch: "main",
-            autoDeploy: "yes",
-            // THE FIX: Standardized rootDir to match script scaffold output
-            rootDir: "api",
-            serviceDetails: {
-              env: "python",
-              plan: "free",
-              healthCheckPath: "/api/v1/health",
-              envSpecificDetails: {
-                buildCommand: "pip install -r requirements.txt",
-                // THE FIX: Permanently removed the broken .venv mapping
-                startCommand:
-                  "python -m gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT",
-              },
-              envVars: [
-                { key: "PYTHON_VERSION", value: "3.12.0" },
-                ...(process.env.DATABASE_URL
-                  ? [{ key: "DATABASE_URL", value: process.env.DATABASE_URL }]
-                  : []),
-              ],
-            },
-          }),
-        });
-
-        if (!apiRes.ok) {
-          const err = await apiRes.json();
-          console.error("    ❌ Backend API Creation Failed:", err);
-        } else {
-          const backendData = await apiRes.json();
-
-          apiUrl =
-            backendData?.service?.serviceDetails?.url ||
-            backendData?.service?.url ||
-            null;
-
-          console.log(`    ✅ Backend deployment initiated at: ${apiUrl}`);
-        }
-      }
-
-      console.log(
-        ` -> Instructing Render to build Next.js Frontend dashboard...`,
-      );
-
-      const frontendEnvVars = [
-        {
-          key: "NODE_VERSION",
-          value: "20.x",
-        },
-        {
-          key: "PNPM_VERSION",
-          value: "9.x",
-        },
-        ...(process.env.DATABASE_URL
-          ? [
-              {
-                key: "DATABASE_URL",
-                value: process.env.DATABASE_URL,
-              },
-            ]
-          : []),
-      ];
-
-      if (apiUrl) {
-        frontendEnvVars.push({
-          key: "NEXT_PUBLIC_API_BASE_URL",
-          value: apiUrl,
-        });
-      }
-
-      const webRes = await fetch("https://api.render.com/v1/services", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${renderApiKey}`,
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          type: "web_service",
-          name: `${slug}-dashboard`,
-          ownerId: renderOwnerId,
-          repo: repoUrl,
-          branch: "main",
-          autoDeploy: "yes",
-          // THE FIX: Standardized frontend root to correctly find Next.js
-          rootDir: ".",
-          serviceDetails: {
-            env: "node",
-            plan: "free",
-            envSpecificDetails: {
-              buildCommand: "pnpm install && pnpm run build",
-              startCommand: "pnpm run start",
-            },
-            envVars: frontendEnvVars,
-          },
-        }),
-      });
-
-      if (!webRes.ok) {
-        const err = await webRes.json();
-        console.error("    ❌ Frontend Creation Failed:", err);
-        return null;
-      }
-
-      const webData = await webRes.json();
-
-      const frontendUrl =
-        webData?.service?.serviceDetails?.url ||
-        webData?.service?.url ||
-        `https://${slug}-dashboard.onrender.com`;
-
-      console.log(`    ✅ Frontend deployment initiated at: ${frontendUrl}`);
-
-      return frontendUrl;
-    } catch (error) {
-      console.error(
-        "    ❌ Render API Connection Dropped:",
-        error?.message || error,
-      );
-      return null;
-    }
-  }
-
-  async cleanupFailedRun() {
-    const timestamp = Date.now();
-    const failedPath = `${this.targetPath}.failed-${timestamp}`;
-    console.log(
-      `\n⚠️ Scaffolding failed. Moving partial files to ${failedPath}`,
-    );
-    try {
-      await fs.rename(this.targetPath, failedPath);
-      console.log(`✅ Cleanup complete.`);
-    } catch (err) {
-      console.error(`❌ Failed to move directory during cleanup:`, err.message);
-    }
-  }
+import fs from "fs";
+import os from "os";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+
+import { CommandProcessExecutor } from "./src/CommandProcessExecutor.js";
+import { SystemCircuitBreaker } from "./src/SystemCircuitBreaker.js";
+import { MultiStackTemplateScaffolder } from "./src/MultiStackTemplateScaffolder.js";
+
+// Ensure compatibility for ES Modules to find the absolute directory of this script
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Advanced Environment Resolution Sequence
+const cliEnvPath = path.resolve(__dirname, ".env");
+const cwdEnvPath = path.resolve(process.cwd(), ".env");
+const monorepoEnvPath = path.resolve(__dirname, "../../.env");
+
+let loadedEnvPath = null;
+
+if (fs.existsSync(cliEnvPath)) {
+  dotenv.config({ path: cliEnvPath });
+  loadedEnvPath = cliEnvPath;
+} else if (fs.existsSync(cwdEnvPath)) {
+  dotenv.config({ path: cwdEnvPath });
+  loadedEnvPath = cwdEnvPath;
+} else if (fs.existsSync(monorepoEnvPath)) {
+  dotenv.config({ path: monorepoEnvPath });
+  loadedEnvPath = monorepoEnvPath;
 }
 
 class EngineDaemonWorker {
@@ -619,6 +43,7 @@ class EngineDaemonWorker {
     this.poolInstance = null;
     this.isProcessing = false;
     this.redis = new Redis(process.env.REDIS_URL || "redis://127.0.0.1:6379");
+    this.breaker = new SystemCircuitBreaker("VCS_Gateway_Node", 3, 5000);
   }
 
   async initializeConnections() {
@@ -737,7 +162,7 @@ class EngineDaemonWorker {
       "provisioning",
     );
 
-    const scaffolder = new HighFidelityScaffolder(
+    const scaffolder = new MultiStackTemplateScaffolder(
       job.project_slug,
       manifestPayload,
     );
@@ -760,7 +185,7 @@ class EngineDaemonWorker {
       await scaffolder.writeBoilerplateFiles();
       await this.appendJobLog(
         job.id,
-        `Architecture templates and Render routing injected successfully.`,
+        `Architecture templates injected successfully matching manifest directives.`,
       );
       await this.updateProjectTrackingPercentage(
         job.project_id,
@@ -787,7 +212,7 @@ class EngineDaemonWorker {
         `Initiating package manager dependency installation (pnpm)...`,
       );
 
-      const installResult = await ProcessExecutor.runCommand(
+      const installResult = await CommandProcessExecutor.runCommand(
         "pnpm install --no-frozen-lockfile --ignore-scripts",
         scaffolder.targetPath,
       );
@@ -807,10 +232,13 @@ class EngineDaemonWorker {
       console.log(`\n✅ Dependencies synchronized successfully.`);
       await this.appendJobLog(job.id, `Dependencies installed successfully.`);
 
-      if (manifestPayload.apiIntegration === true) {
+      if (
+        manifestPayload.backendFramework === "fastapi" ||
+        manifestPayload.backendFramework === "flask"
+      ) {
         await this.appendJobLog(
           job.id,
-          `Provisioning decoupled Python microservice engine via uv context...`,
+          `Provisioning decoupled Python environment via uv context...`,
         );
         await scaffolder.provisionPythonEnvironment();
       }
@@ -842,22 +270,44 @@ class EngineDaemonWorker {
     }
 
     try {
-      await this.appendJobLog(
-        job.id,
-        `Triggering Render REST API for Zero-Touch Deployment...`,
-      );
+      const deployProvider = scaffolder.deploymentTarget;
+      let finalUrl = null;
 
-      const actualLiveUrl = await scaffolder.deployToRenderAPI();
+      if (deployProvider === "render") {
+        await this.appendJobLog(
+          job.id,
+          `Triggering Render REST API for Zero-Touch Deployment...`,
+        );
+        const actualLiveUrl = await scaffolder.deployToRenderAPI();
+        finalUrl =
+          actualLiveUrl || `https://${job.project_slug}-dashboard.onrender.com`;
 
-      console.log(`✅ System allocation successful for ${job.project_slug}`);
-      await this.appendJobLog(
-        job.id,
-        `Ecosystem generated smoothly. Live environment provisioning started on Render.`,
-      );
+        console.log(
+          `✅ System allocation successful for ${job.project_slug} on Render.`,
+        );
+        await this.appendJobLog(
+          job.id,
+          `Ecosystem generated smoothly. Live environment provisioning started on Render.`,
+        );
+      } else if (deployProvider === "railway") {
+        console.log(
+          `✅ System allocation successful for ${job.project_slug} with Railway Blueprint.`,
+        );
+        await this.appendJobLog(
+          job.id,
+          `Ecosystem generated smoothly. Railway layout tracking file injected successfully.`,
+        );
+      } else {
+        console.log(
+          `✅ System allocation successful for ${job.project_slug} (Local Worksite Environment Mode).`,
+        );
+        await this.appendJobLog(
+          job.id,
+          `Ecosystem generated smoothly. Cloud triggers skipped per architectural manifest settings.`,
+        );
+      }
+
       await this.updateJobState(job.id, "completed");
-
-      const finalUrl =
-        actualLiveUrl || `https://${job.project_slug}-frontend.onrender.com`;
       await this.updateProjectTrackingPercentage(
         job.project_id,
         100,
@@ -868,7 +318,7 @@ class EngineDaemonWorker {
       await this.markJobFailed(
         job.id,
         job.project_id,
-        "Render API Trigger Drop",
+        "Cloud Resource Deployment Drop",
         err,
       );
       return;
@@ -877,7 +327,16 @@ class EngineDaemonWorker {
 
   async startupEngine() {
     console.log(
-      "📡 StudioFlow reactive daemon active. Listening for job events...",
+      "\n⚡==========================================================================",
+    );
+    console.log(
+      "🟢 STUDIOFLOW MULTI-TENANT UNIVERSAL DAEMON ENGINE SUITE OPERATIONAL",
+    );
+    console.log(
+      "⚙️  Running deep monitoring sweeps across polymorphic target adapter pipelines...",
+    );
+    console.log(
+      "============================================================================\n",
     );
     this.activeExecutionState = true;
     await this.initializeConnections();
@@ -906,6 +365,24 @@ class EngineDaemonWorker {
         }
       }
     });
+
+    setInterval(async () => {
+      if (!this.isProcessing && this.activeExecutionState) {
+        try {
+          const fallbackJobCheck = await this.fetchOldestPendingJob();
+          if (fallbackJobCheck) {
+            this.isProcessing = true;
+            console.log(
+              `🔔 Database polling sweep detected a new job entry #${fallbackJobCheck.id}, triggering sequence...`,
+            );
+            await this.processingLoopSequence();
+          }
+        } catch (pollError) {
+        } finally {
+          this.isProcessing = false;
+        }
+      }
+    }, 4000);
 
     if (!this.isProcessing) {
       this.isProcessing = true;
@@ -949,6 +426,67 @@ async function fetchProjectsFromTiDB() {
   }
 }
 
+async function fetchLatestJobManifest(projectId) {
+  const pool = mysql.createPool({
+    uri: process.env.DATABASE_URL,
+    waitForConnections: true,
+    connectionLimit: 1,
+    ssl: { rejectUnauthorized: true },
+  });
+
+  try {
+    const [rows] = await pool.query(
+      "SELECT manifest FROM provisioning_jobs WHERE project_id = ? ORDER BY created_at DESC LIMIT 1",
+      [projectId],
+    );
+    if (rows.length > 0) {
+      const manifest = rows[0].manifest;
+      return typeof manifest === "string" ? JSON.parse(manifest) : manifest;
+    }
+    return null;
+  } catch (err) {
+    console.error(
+      "❌ Failed to pull workspace manifest data from DB: ",
+      err.message,
+    );
+    return null;
+  } finally {
+    await pool.end();
+  }
+}
+
+async function insertProvisioningJob(projectId, manifest) {
+  const pool = mysql.createPool({
+    uri: process.env.DATABASE_URL,
+    waitForConnections: true,
+    connectionLimit: 1,
+    ssl: { rejectUnauthorized: true },
+  });
+
+  try {
+    const idempotencyKey = `scaffold-${projectId}-${Date.now()}`;
+    await pool.query(
+      "INSERT INTO provisioning_jobs (project_id, idempotency_key, status, manifest, execution_logs) VALUES (?, ?, 'completed', ?, ?)",
+      [
+        projectId,
+        idempotencyKey,
+        JSON.stringify(manifest),
+        `[INFO] Manually initialized structural workspace sync via interactive CLI.\n`,
+      ],
+    );
+    console.log(
+      `✅ Structural wizard manifest settings successfully saved to provisioning_jobs.`,
+    );
+  } catch (err) {
+    console.error(
+      "⚠️ Database sync failure writing job manifest matrix:",
+      err.message,
+    );
+  } finally {
+    await pool.end();
+  }
+}
+
 async function projectSelectionWizard(promptAction) {
   const projects = await fetchProjectsFromTiDB();
 
@@ -971,7 +509,8 @@ async function projectSelectionWizard(promptAction) {
   const index = parseInt(selection);
 
   if (index === 0) {
-    return await askQuestion("Enter your custom project slug: ");
+    const customSlug = await askQuestion("Enter your custom project slug: ");
+    return { id: null, name: customSlug, slug: customSlug };
   }
 
   if (isNaN(index) || index < 1 || index > projects.length) {
@@ -979,7 +518,7 @@ async function projectSelectionWizard(promptAction) {
     return null;
   }
 
-  return projects[index - 1].slug;
+  return projects[index - 1];
 }
 
 async function runInteractiveMenu() {
@@ -998,24 +537,103 @@ async function runInteractiveMenu() {
     const workerInstance = new EngineDaemonWorker(process.env.DATABASE_URL);
     await workerInstance.startupEngine();
   } else if (answer === "2") {
-    const slug = await projectSelectionWizard("scaffold");
-    if (!slug) {
+    const project = await projectSelectionWizard("scaffold");
+    if (!project) {
       return await runInteractiveMenu();
     }
 
+    const slug = project.slug;
     console.log(`\n[i] Bypassing queue to manually initialize apps/${slug}...`);
 
-    const runPython = await askQuestion(
-      "Include Python FastAPI Engine? (y/n): ",
-    );
+    let manifestPayload = null;
+    if (project.id) {
+      manifestPayload = await fetchLatestJobManifest(project.id);
+    }
 
-    const scaffolder = new HighFidelityScaffolder(slug, {
-      slug,
-      projectName: slug,
-      database: "Supabase",
-      apiIntegration: runPython.toLowerCase() === "y",
-      infrastructure: {},
-    });
+    if (manifestPayload) {
+      console.log(
+        `🟢 Found active design configuration matrix within Cloud Database!`,
+      );
+      console.log(
+        `   - Project Target: ${manifestPayload.projectName || slug}`,
+      );
+      console.log(
+        `   - Frontend Stack: ${manifestPayload.frontendFramework || "None"}`,
+      );
+      console.log(
+        `   - Backend Architecture: ${manifestPayload.backendFramework || "None"}`,
+      );
+      console.log(`   - Core Database:  ${manifestPayload.database}`);
+      console.log(
+        `   - Infrastructure Deployment Host: ${manifestPayload.deploymentTarget || manifestPayload.deploymentProvider || manifestPayload.deployment || "None"}`,
+      );
+
+      const confirmDbManifest = await askQuestion(
+        "\nApply this remote structural profile configuration? (y/n): ",
+      );
+      if (confirmDbManifest.toLowerCase() !== "y") {
+        manifestPayload = null;
+      }
+    }
+
+    if (!manifestPayload) {
+      console.log(`\n--- Interactive Blueprint Matrix Wizard ---`);
+
+      const frontendChoice = await askQuestion(
+        "Select Frontend Framework ([1] Next.js, [2] React SPA): ",
+      );
+      const frontendFramework = frontendChoice === "2" ? "react" : "nextjs";
+
+      const backendChoice = await askQuestion(
+        "Select Backend Architecture ([1] Node.js/Express, [2] Python FastAPI, [3] Python Flask, [4] None): ",
+      );
+      let backendFramework = "none";
+      if (backendChoice === "1") backendFramework = "express";
+      if (backendChoice === "2") backendFramework = "fastapi";
+      if (backendChoice === "3") backendFramework = "flask";
+
+      const dbChoice = await askQuestion(
+        "Select Database Module Architecture ([1] PostgreSQL, [2] MySQL, [3] SQLite, [4] None): ",
+      );
+      let database = "none";
+      if (dbChoice === "1") database = "postgres";
+      if (dbChoice === "2") database = "mysql";
+      if (dbChoice === "3") database = "sqlite";
+
+      const folderChoice = await askQuestion(
+        "Select Topology Structure ([1] Turborepo Monorepo, [2] Flat Client/Server): ",
+      );
+      const folderStructure = folderChoice === "2" ? "src_flat" : "monorepo";
+
+      console.log("\n[!] Select Deployment Automation Provider target:");
+      console.log(" [1] Render (Automated Cloud Nodes Sync)");
+      console.log(" [2] Railway (Nixpacks Blueprint Generation Only)");
+      console.log(" [3] None (Pure Local Workspace Isolation)");
+      const deployChoice = await askQuestion("Select Choice [1-3]: ");
+
+      let deploymentProvider = "none";
+      if (deployChoice === "1") deploymentProvider = "render";
+      if (deployChoice === "2") deploymentProvider = "railway";
+
+      manifestPayload = {
+        slug,
+        projectName: slug,
+        frontendFramework,
+        backendFramework,
+        database,
+        folderStructure,
+        deploymentTarget: deploymentProvider,
+        deploymentProvider,
+        deployment: deploymentProvider,
+        infrastructure: {},
+      };
+
+      if (project.id) {
+        await insertProvisioningJob(project.id, manifestPayload);
+      }
+    }
+
+    const scaffolder = new MultiStackTemplateScaffolder(slug, manifestPayload);
 
     const isClear = await scaffolder.verifyClearance();
     if (!isClear) {
@@ -1025,7 +643,7 @@ async function runInteractiveMenu() {
       return await runInteractiveMenu();
     }
 
-    console.log(` -> Writing boilerplate matrices and Render mapping...`);
+    console.log(` -> Writing boilerplate matrices and target mappings...`);
     try {
       await scaffolder.writeBoilerplateFiles();
     } catch (err) {
@@ -1034,7 +652,7 @@ async function runInteractiveMenu() {
     }
 
     console.log(` -> Running dependency installation...\n`);
-    const installResult = await ProcessExecutor.runCommand(
+    const installResult = await CommandProcessExecutor.runCommand(
       "pnpm install --no-frozen-lockfile --ignore-scripts",
       scaffolder.targetPath,
     );
@@ -1044,39 +662,56 @@ async function runInteractiveMenu() {
       await scaffolder.cleanupFailedRun();
     } else {
       try {
-        await scaffolder.provisionPythonEnvironment();
+        if (
+          manifestPayload.backendFramework === "fastapi" ||
+          manifestPayload.backendFramework === "flask"
+        ) {
+          await scaffolder.provisionPythonEnvironment();
+        }
         await scaffolder.setupGitRepository();
 
-        await scaffolder.deployToRenderAPI();
-
-        console.log(
-          `✅ System allocation completed manually for ${slug}. Render API pushed.`,
-        );
+        const deployProvider = scaffolder.deploymentTarget;
+        if (deployProvider === "render") {
+          await scaffolder.deployToRenderAPI();
+          console.log(
+            `✅ System allocation completed manually for ${slug}. Render API pushed.`,
+          );
+        } else if (deployProvider === "railway") {
+          console.log(
+            `✅ System allocation completed manually for ${slug}. Railway architecture matrix loaded.`,
+          );
+        } else {
+          console.log(
+            `✅ System allocation completed manually for ${slug}. Workspace up in pure Local Mode.`,
+          );
+        }
       } catch (err) {
         console.error(`❌ Git / Environment Setup Failed:\n`, err.stack);
       }
     }
     return await runInteractiveMenu();
   } else if (answer === "3") {
-    const slug = await projectSelectionWizard("push to GitHub");
-    if (!slug) {
+    const project = await projectSelectionWizard("push to GitHub");
+    if (!project) {
       return await runInteractiveMenu();
     }
 
+    const slug = project.slug;
     const commitMsg = await askQuestion("\nEnter your commit message: ");
+
     const baseWorkspace =
-      process.env.TARGET_OUTPUT_DIR || "/Users/luna/Sites/work";
+      process.env.TARGET_OUTPUT_DIR || path.join(os.homedir(), "StudioFlow");
     const targetPath = path.join(baseWorkspace, slug);
 
     console.log(
       ` -> Pushing updates to https://github.com/madoyakimberley/${slug}.git...`,
     );
-    await ProcessExecutor.runCommand("git add .", targetPath);
-    await ProcessExecutor.runCommand(
+    await CommandProcessExecutor.runCommand("git add .", targetPath);
+    await CommandProcessExecutor.runCommand(
       `git commit -m "${commitMsg}"`,
       targetPath,
     );
-    const result = await ProcessExecutor.runCommand(
+    const result = await CommandProcessExecutor.runCommand(
       "git push -u origin main",
       targetPath,
     );
@@ -1100,9 +735,22 @@ async function main() {
   const argumentInputs = process.argv.slice(2);
   const coreCommand = argumentInputs[0];
 
-  if (!process.env.DATABASE_URL) {
+  const missingVars = [];
+  if (!process.env.DATABASE_URL) missingVars.push("DATABASE_URL");
+  if (!process.env.GITHUB_PAT && !process.env.GITHUB_TOKEN)
+    missingVars.push("GITHUB_PAT or GITHUB_TOKEN");
+
+  if (missingVars.length > 0) {
+    console.error("\n❌ CRITICAL BOOT FAILURE: Missing Environment Variables");
+    if (loadedEnvPath) {
+      console.error(`   Loaded configuration from: ${loadedEnvPath}`);
+    } else {
+      console.error(
+        `   Could not locate a .env file locally, or in the monorepo root.`,
+      );
+    }
     console.error(
-      "❌ Error: DATABASE_URL variable missing in current environment scope. Please check root .env.",
+      `\nPlease provide the following keys to execute this module:\n - ${missingVars.join("\n - ")}\n`,
     );
     process.exit(1);
   }

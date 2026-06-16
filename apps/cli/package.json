@@ -1,15 +1,18 @@
 {
   "name": "studioflow-cli",
   "version": "1.0.0",
-  "private": true,
-  "main": "./index.js",
-  "type": "module",
+  "description": "Universal Multi-Tenant Provisioning Engine",
+  "main": "index.js",
+  "bin": {
+    "studioflow": "./index.js"
+  },
   "scripts": {
-    "start": "node index.js watch"
+    "start": "node index.js watch",
+    "daemon": "node index.js watch"
   },
   "dependencies": {
-    "dotenv": "^16.4.5",
+    "dotenv": "^16.6.1",
     "ioredis": "^5.11.1",
-    "mysql2": "^3.11.0"
+    "mysql2": "^3.22.5"
   }
 }
