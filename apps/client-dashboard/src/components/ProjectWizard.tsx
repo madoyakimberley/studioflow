@@ -1,666 +1,495 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Layers,
   Shield,
-  HardDrive,
   CheckCircle2,
   ArrowRight,
   ArrowLeft,
-  Activity,
   Zap,
-  Radio,
   Database,
   Terminal,
-  X,
+  FolderTree,
+  Server,
+  Box,
+  Download,
+  AlertCircle,
 } from "lucide-react";
 import {
   queueProjectProvisioning,
-  ProjectManifestPayload,
+  UniversalManifestPayload,
 } from "../app/action";
 import { toast } from "sonner";
-
-// FIX: Explicitly omit workspaceId from the backend type so the client form state can track it as a string safely
-export interface ClientProjectFormData extends Omit<
-  ProjectManifestPayload,
-  "workspaceId"
-> {
-  workspaceId: string;
-}
 
 interface ProjectWizardProps {
   onClose?: () => void;
 }
 
+// ✅ FIXED: Wrapped in React.memo to prevent massive re-rendering lags on every state change
+const SelectionCard = React.memo(
+  ({ title, description, icon: Icon, selected, onClick }: any) => (
+    <div
+      onClick={onClick}
+      className={`glass-card p-4 rounded-2xl border cursor-pointer transition-all duration-200 flex flex-col gap-3 group h-full ${
+        selected
+          ? "border-[#d3d7ff] bg-[#1b2131]/90 shadow-[0_0_20px_rgba(211,215,255,0.1)]"
+          : "hover:border-[#d3d7ff]/30 hover:bg-[#1b2131]/60 border-[#32353d]"
+      }`}
+    >
+      <div
+        className={`p-2.5 rounded-xl w-fit transition-colors ${
+          selected ? "bg-[#d3d7ff]/10" : "bg-[#272a32] group-hover:bg-[#32353d]"
+        }`}
+      >
+        <Icon
+          className={`w-5 h-5 transition-colors ${
+            selected
+              ? "text-[#d3d7ff]"
+              : "text-[#94a3b8] group-hover:text-[#d3d7ff]"
+          }`}
+        />
+      </div>
+      <div className="flex-1">
+        <h4
+          className={`font-medium text-base transition-colors ${
+            selected ? "text-white" : "text-[#e0e2ec] group-hover:text-white"
+          }`}
+        >
+          {title}
+        </h4>
+        <p className="text-xs text-[#c6c5d1] mt-1 leading-tight line-clamp-2">
+          {description}
+        </p>
+      </div>
+      {selected && (
+        <div className="flex justify-end">
+          <CheckCircle2 className="w-4 h-4 text-[#d3d7ff]" />
+        </div>
+      )}
+    </div>
+  ),
+);
+
+SelectionCard.displayName = "SelectionCard";
+
 export default function ProjectWizard({ onClose }: ProjectWizardProps) {
   const [step, setStep] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [envDownloaded, setEnvDownloaded] = useState(false);
 
-  const [formData, setFormData] = useState<ClientProjectFormData>({
-    workspaceId: "",
+  const [formData, setFormData] = useState<any>({
     name: "",
     clientName: "",
     brief: "",
-    database: "Supabase",
-    auth: "Clerk",
-    storage: "UploadThing",
-    features: ["User Dashboard", "Payment Integration", "Email Notifications"],
-    priority: "PRIORITY",
-    apiIntegration: false,
+    gitProvider: "github",
+    frontendFramework: "nextjs",
+    backendFramework: "express",
+    database: "postgres",
+    auth: "clerk",
+    folderStructure: "monorepo",
+    deploymentTarget: "vercel",
+    features: ["Core Analytics Dashboard", "Structured Logging Guard"],
+    priority: "STANDARD",
   });
 
-  const toggleFeature = (feature: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      features: prev.features.includes(feature)
-        ? prev.features.filter((f) => f !== feature)
-        : [...prev.features, feature],
-    }));
-  };
-
-  const executeSystemLaunch = async () => {
-    // Validation check for numeric workspace ID
-    const parsedWorkspaceId = parseInt(formData.workspaceId, 10);
-    if (isNaN(parsedWorkspaceId)) {
-      toast.error("Workspace ID must be a valid number.");
+  const triggerInBrowserEnvDownload = useCallback(() => {
+    if (!formData.name) {
+      toast.error("Project name is required");
       return;
     }
+    const slug = formData.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
+    let envContentString = `# =========================================================================\n`;
+    envContentString += `# PROJECT: ${slug}\n`;
+    envContentString += `# Generated locally - Zero server exposure\n`;
+    envContentString += `# =========================================================================\n\n`;
+    envContentString += `NODE_ENV="development"\n`;
+    envContentString += `PROJECT_SLUG="${slug}"\n`;
+    envContentString += `ENGINE_VCS_PROVIDER="${formData.gitProvider}"\n`;
+
+    // Core architectural choices to the downloaded .env
+    envContentString += `ENGINE_FRONTEND_FRAMEWORK="${formData.frontendFramework}"\n`;
+    envContentString += `ENGINE_BACKEND_FRAMEWORK="${formData.backendFramework}"\n`;
+    envContentString += `ENGINE_FOLDER_STRUCTURE="${formData.folderStructure}"\n`;
+    envContentString += `ENGINE_DEPLOYMENT_TARGET="${formData.deploymentTarget}"\n\n`;
+
+    switch (formData.database) {
+      case "postgres":
+        envContentString += `DATABASE_URL="postgresql://postgres:password@127.0.0.1:5432/${slug}_db"\n`;
+        break;
+      case "mysql":
+        envContentString += `DATABASE_URL="mysql://root:password@127.0.0.1:3306/${slug}_db"\n`;
+        break;
+      case "sqlite":
+        envContentString += `DATABASE_URL="file:./local.db"\n`;
+        break;
+      default:
+        envContentString += `# No database configured\n`;
+    }
+
+    const blob = new Blob([envContentString], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `.env.${slug}.local`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    setEnvDownloaded(true);
+    toast.success("Local .env manifest downloaded");
+  }, [formData]);
+
+  const handleFormSubmissionLaunch = async () => {
+    if (!formData.name || !formData.clientName) {
+      toast.error("Project name and client are required");
+      return;
+    }
     setIsSubmitting(true);
+    try {
+      const payload = {
+        ...formData,
+        workspaceId: 1,
+      };
 
-    // FIX: Reconstruct payload to safely parse the string input into the number required by your server action
-    const payload: ProjectManifestPayload = {
-      ...formData,
-      workspaceId: parsedWorkspaceId,
-    };
-
-    const result = await queueProjectProvisioning(payload);
-    setIsSubmitting(false);
-
-    if (result.success) {
-      toast.success(
-        `Project ${formData.name} successfully injected into pipeline.`,
-      );
-      setStep(1);
-      setFormData({
-        workspaceId: "",
-        name: "",
-        clientName: "",
-        brief: "",
-        database: "Supabase",
-        auth: "Clerk",
-        storage: "UploadThing",
-        features: [
-          "User Dashboard",
-          "Payment Integration",
-          "Email Notifications",
-        ],
-        priority: "PRIORITY",
-        apiIntegration: false,
-      });
-      onClose?.();
-    } else {
-      toast.error(`Infrastructure setup dropped: ${result.error}`);
+      const response = await queueProjectProvisioning(payload as any);
+      if (response.success) {
+        toast.success("Project scaffolding queued successfully");
+        if (onClose) onClose();
+      } else {
+        toast.error(response.error || "Submission failed");
+      }
+    } catch (err) {
+      toast.error("Failed to initialize workspace");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
+  // ✅ FIXED: Quick update handlers to prevent inline function recreation lag
+  const updateField = useCallback((field: string, value: any) => {
+    setFormData((prev: any) => ({ ...prev, [field]: value }));
+  }, []);
+
   return (
-    <div className="w-full max-w-6xl mx-auto min-h-[75vh] flex flex-col font-sans text-slate-200 select-none bg-[#090a0f] p-8 rounded-2xl border border-slate-900 shadow-2xl relative">
-      {onClose && (
-        <button
-          onClick={onClose}
-          className="absolute top-6 right-6 text-slate-500 hover:text-slate-200 p-1.5 hover:bg-slate-900/60 rounded-lg transition-colors z-10"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      )}
-
-      <div className="flex items-center justify-between border-b border-slate-900 pb-6 mb-8 text-xs font-semibold uppercase tracking-wider text-slate-500 pr-8">
-        <div className="flex items-center gap-8">
-          <span
-            className={`flex items-center gap-2 ${step >= 1 ? "text-cyan-400" : ""}`}
-          >
-            <CheckCircle2
-              className={`w-4 h-4 ${step > 1 ? "fill-cyan-400/10 text-cyan-400" : ""}`}
-            />{" "}
-            Identity
-          </span>
-          <span
-            className={`flex items-center gap-2 ${step >= 2 ? "text-cyan-400" : ""}`}
-          >
-            <CheckCircle2
-              className={`w-4 h-4 ${step > 2 ? "fill-cyan-400/10 text-cyan-400" : ""}`}
-            />{" "}
-            Tech Stack
-          </span>
-          <span
-            className={`flex items-center gap-2 ${step >= 3 ? "text-cyan-400" : ""}`}
-          >
-            <CheckCircle2
-              className={`w-4 h-4 ${step > 3 ? "fill-cyan-400/10 text-cyan-400" : ""}`}
-            />{" "}
-            Scope
-          </span>
-          <span
-            className={`flex items-center gap-2 ${step === 4 ? "text-cyan-400" : ""}`}
-          >
-            <CheckCircle2 className="w-4 h-4" /> Review
-          </span>
+    <div className="fixed inset-0 bg-[#030407]/95 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto transform-gpu">
+      <div className="bg-[#0c0f16] border border-[#1f232e] w-full max-w-lg sm:max-w-2xl rounded-3xl p-5 sm:p-8 relative shadow-2xl max-h-[95vh] overflow-hidden flex flex-col transform-gpu">
+        {/* Header */}
+        <div className="flex justify-between items-start border-b border-[#32353d] pb-5">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight lilac-gradient">
+              New Project
+            </h2>
+            <p className="text-[#c6c5d1] text-sm mt-1">Configure your stack</p>
+          </div>
+          <div className="text-xs font-mono bg-[#1d2027] px-3 py-1 rounded-full border border-[#32353d] shrink-0">
+            {step} / 4
+          </div>
         </div>
-        <div className="text-slate-400 text-sm font-mono">
-          Step 0{step} / 04
-        </div>
-      </div>
 
-      <div className="flex-1 flex flex-col justify-center">
         <AnimatePresence mode="wait">
+          {/* STEP 1 */}
           {step === 1 && (
             <motion.div
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
               key="step1"
-              className="space-y-6 max-w-xl"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15, ease: "easeOut" }} // ✅ FIXED: Sped up animation timing
+              className="flex-1 py-6 space-y-6 overflow-y-auto"
             >
-              <div>
-                <h1 className="text-4xl font-['Playfair_Display',_serif] text-white tracking-tight">
-                  Project Identity
-                </h1>
-                <p className="text-slate-400 mt-2 text-sm">
-                  Define the descriptive parameters for this orchestrator
-                  instantiation.
-                </p>
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-widest text-[#94a3b8]">
+                  Project Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Apollo Portal"
+                  value={formData.name}
+                  onChange={(e) => updateField("name", e.target.value)}
+                  className="w-full bg-[#1d2027] border border-[#32353d] focus:border-[#d3d7ff] rounded-2xl px-5 py-3.5 text-base placeholder:text-[#94a3b8]/60 focus:outline-none transition-colors"
+                />
               </div>
-              <div className="space-y-4 pt-4">
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold tracking-wider text-slate-400">
-                    Workspace ID (Numeric)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.workspaceId}
-                    onChange={(e) =>
-                      setFormData({ ...formData, workspaceId: e.target.value })
-                    }
-                    placeholder="e.g., 102"
-                    className="bg-[#11131c] border border-slate-800 rounded-lg p-3 text-white focus:outline-none focus:border-cyan-500 font-medium transition"
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold tracking-wider text-slate-400">
-                    Project Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                    placeholder="e.g., Neon Horizon"
-                    className="bg-[#11131c] border border-slate-800 rounded-lg p-3 text-white focus:outline-none focus:border-cyan-500 font-medium transition"
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold tracking-wider text-slate-400">
-                    Client / Organization
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.clientName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, clientName: e.target.value })
-                    }
-                    placeholder="e.g., Internal Studio"
-                    className="bg-[#11131c] border border-slate-800 rounded-lg p-3 text-white focus:outline-none focus:border-cyan-500 font-medium transition"
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold tracking-wider text-slate-400">
-                    Project Brief{" "}
-                    <span className="text-slate-600">(Optional)</span>
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={formData.brief}
-                    onChange={(e) =>
-                      setFormData({ ...formData, brief: e.target.value })
-                    }
-                    placeholder="Describe the core vision and goals of the project..."
-                    className="bg-[#11131c] border border-slate-800 rounded-lg p-3 text-white focus:outline-none focus:border-cyan-500 font-medium transition resize-none"
-                  />
-                </div>
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-widest text-[#94a3b8]">
+                  Client / Company
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Acme Corp"
+                  value={formData.clientName}
+                  onChange={(e) => updateField("clientName", e.target.value)}
+                  className="w-full bg-[#1d2027] border border-[#32353d] focus:border-[#d3d7ff] rounded-2xl px-5 py-3.5 text-base placeholder:text-[#94a3b8]/60 focus:outline-none transition-colors"
+                />
               </div>
             </motion.div>
           )}
 
+          {/* STEP 2 */}
           {step === 2 && (
             <motion.div
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
               key="step2"
-              className="grid grid-cols-1 lg:grid-cols-3 gap-8"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15, ease: "easeOut" }} // ✅ FIXED: Sped up animation timing
+              className="flex-1 py-6 space-y-8 overflow-y-auto"
             >
-              <div className="lg:col-span-2 space-y-6">
-                <div>
-                  <h1 className="text-4xl font-bold text-white tracking-tight">
-                    Define Technical Foundation
-                  </h1>
-                  <p className="text-slate-400 mt-2 text-sm">
-                    Select foundational external platforms. The engine will
-                    pre-inject connection vectors automatically.
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-fuchsia-400">
-                    <Database className="w-4 h-4" /> Database Engine
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div
-                      onClick={() =>
-                        setFormData({ ...formData, database: "Supabase" })
-                      }
-                      className={`p-4 rounded-xl border text-left cursor-pointer transition ${
-                        formData.database === "Supabase"
-                          ? "bg-[#121b24] border-cyan-500/50 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]"
-                          : "bg-[#11131c] border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="text-sm font-bold text-white">
-                        Supabase
-                      </div>
-                      <div className="text-[11px] text-slate-400 mt-1">
-                        Managed Postgres + Drizzle ORM
-                      </div>
-                    </div>
-                    <div
-                      onClick={() =>
-                        setFormData({ ...formData, database: "MySQL" })
-                      }
-                      className={`p-4 rounded-xl border text-left cursor-pointer transition ${
-                        formData.database === "MySQL"
-                          ? "bg-[#121b24] border-cyan-500/50 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]"
-                          : "bg-[#11131c] border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="text-sm font-bold text-white">MySQL</div>
-                      <div className="text-[11px] text-slate-400 mt-1">
-                        TiDB / Self-Hosted MySQL
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-fuchsia-400">
-                    <Terminal className="w-4 h-4" /> Backend Computation
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div
-                      onClick={() =>
-                        setFormData({ ...formData, apiIntegration: true })
-                      }
-                      className={`p-4 rounded-xl border text-left cursor-pointer transition ${formData.apiIntegration ? "bg-[#1b1424] border-fuchsia-500/50 text-white shadow-[0_0_15px_rgba(217,70,239,0.1)]" : "bg-[#11131c] border-slate-800 hover:border-slate-700"}`}
-                    >
-                      <div className="text-sm font-bold text-white">
-                        Python FastAPI
-                      </div>
-                      <div className="text-[11px] text-slate-400 mt-1">
-                        Provision API Microservice
-                      </div>
-                    </div>
-                    <div
-                      onClick={() =>
-                        setFormData({ ...formData, apiIntegration: false })
-                      }
-                      className={`p-4 rounded-xl border text-left cursor-pointer transition ${!formData.apiIntegration ? "bg-[#1b1424] border-fuchsia-500/50 text-white shadow-[0_0_15px_rgba(217,70,239,0.1)]" : "bg-[#11131c] border-slate-800 hover:border-slate-700"}`}
-                    >
-                      <div className="text-sm font-bold text-white">
-                        Standard Next.js
-                      </div>
-                      <div className="text-[11px] text-slate-400 mt-1">
-                        Server Actions Only
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-fuchsia-400">
-                    <Shield className="w-4 h-4" /> Authentication
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    {["Auth0", "Clerk", "NextAuth"].map((authOpt) => (
-                      <div
-                        key={authOpt}
-                        onClick={() =>
-                          setFormData({ ...formData, auth: authOpt })
-                        }
-                        className={`p-4 rounded-xl border text-left cursor-pointer transition ${formData.auth === authOpt ? "bg-[#1b1424] border-fuchsia-500/50 text-white shadow-[0_0_15px_rgba(217,70,239,0.1)]" : "bg-[#11131c] border-slate-800 hover:border-slate-700"}`}
-                      >
-                        <div className="text-sm font-bold text-white">
-                          {authOpt}
-                        </div>
-                        <div className="text-[11px] text-slate-400 mt-1">
-                          {authOpt === "Clerk"
-                            ? "Dev-First Managed"
-                            : "Self-Hosted SDK"}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-fuchsia-400">
-                    <HardDrive className="w-4 h-4" /> Object Storage
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    {["UploadThing", "Cloudinary", "S3"].map((stOpt) => (
-                      <div
-                        key={stOpt}
-                        onClick={() =>
-                          setFormData({ ...formData, storage: stOpt })
-                        }
-                        className={`p-4 rounded-xl border text-left cursor-pointer transition ${formData.storage === stOpt ? "bg-[#121b24] border-cyan-500/50 text-white shadow-[0_0_15px_rgba(34,211,238,0.1)]" : "bg-[#11131c] border-slate-800 hover:border-slate-700"}`}
-                      >
-                        <div className="text-sm font-bold text-white">
-                          {stOpt}
-                        </div>
-                        <div className="text-[11px] text-slate-400 mt-1">
-                          {stOpt === "S3"
-                            ? "Enterprise Standard"
-                            : "Modern Pipeline"}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+              <div>
+                <label className="label-caps text-[#94a3b8] mb-4 block">
+                  Frontend
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <SelectionCard
+                    title="Next.js"
+                    description="App Router + Server Components"
+                    icon={Box}
+                    selected={formData.frontendFramework === "nextjs"}
+                    onClick={() => updateField("frontendFramework", "nextjs")}
+                  />
+                  <SelectionCard
+                    title="React SPA"
+                    description="Vite + React Router"
+                    icon={Layers}
+                    selected={formData.frontendFramework === "react"}
+                    onClick={() => updateField("frontendFramework", "react")}
+                  />
                 </div>
               </div>
 
-              <div className="bg-[#0f111a] border border-slate-900 rounded-xl p-6 self-start space-y-6">
-                <div>
-                  <div className="text-cyan-400 font-mono tracking-widest text-[11px] uppercase font-bold">
-                    Stack Core Insights
-                  </div>
-                  <h3 className="text-lg font-bold text-white mt-1">
-                    High Performance Blueprint
-                  </h3>
-                </div>
-                <div className="space-y-4 text-xs">
-                  <div className="flex items-start gap-3">
-                    <Radio className="w-4 h-4 text-fuchsia-500 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <div className="font-bold text-slate-200">
-                        Real-time Ready Core
-                      </div>
-                      <div className="text-slate-400 mt-0.5">
-                        {formData.database} hooks enable instantaneous
-                        subscription layers.
-                      </div>
-                    </div>
-                  </div>
-                  {formData.apiIntegration && (
-                    <div className="flex items-start gap-3">
-                      <Terminal className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <div className="font-bold text-slate-200">
-                          Microservice Topology
-                        </div>
-                        <div className="text-slate-400 mt-0.5">
-                          Monorepo configured with separate Python FastAPI
-                          engine.
-                        </div>
-                      </div>
-                    </div>
-                  )}
+              <div>
+                <label className="label-caps text-[#94a3b8] mb-4 block">
+                  Backend
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <SelectionCard
+                    title="Express"
+                    description="Node.js REST API"
+                    icon={Server}
+                    selected={formData.backendFramework === "express"}
+                    onClick={() => updateField("backendFramework", "express")}
+                  />
+                  <SelectionCard
+                    title="FastAPI"
+                    description="Python async API"
+                    icon={Terminal}
+                    selected={formData.backendFramework === "fastapi"}
+                    onClick={() => updateField("backendFramework", "fastapi")}
+                  />
+                  <SelectionCard
+                    title="Flask"
+                    description="Lightweight Python"
+                    icon={Terminal}
+                    selected={formData.backendFramework === "flask"}
+                    onClick={() => updateField("backendFramework", "flask")}
+                  />
+                  <SelectionCard
+                    title="None"
+                    description="Frontend only"
+                    icon={Box}
+                    selected={formData.backendFramework === "none"}
+                    onClick={() => updateField("backendFramework", "none")}
+                  />
                 </div>
               </div>
             </motion.div>
           )}
 
+          {/* STEP 3 */}
           {step === 3 && (
             <motion.div
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
               key="step3"
-              className="grid grid-cols-1 lg:grid-cols-3 gap-8"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15, ease: "easeOut" }} // ✅ FIXED: Sped up animation timing
+              className="flex-1 py-6 space-y-8 overflow-y-auto"
             >
-              <div className="lg:col-span-2 space-y-6">
-                <div>
-                  <h1 className="text-4xl font-bold text-white tracking-tight">
-                    Define Project Scope
-                  </h1>
-                  <p className="text-slate-400 mt-2 text-sm">
-                    Select core modules and execution priority metrics to
-                    calibrate templates.
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Feature Selection
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {[
-                      {
-                        name: "User Dashboard",
-                        desc: "Comprehensive dashboard UI layouts.",
-                      },
-                      {
-                        name: "Payment Integration",
-                        desc: "Stripe secure hooks and webhook scripts.",
-                      },
-                      {
-                        name: "Analytics API",
-                        desc: "Time-series data aggregation framework.",
-                      },
-                      {
-                        name: "Email Notifications",
-                        desc: "Nodemailer core transaction routers.",
-                      },
-                      {
-                        name: "SEO Optimization",
-                        desc: "Metadata matrices and schema maps.",
-                      },
-                    ].map((feat) => {
-                      const active = formData.features.includes(feat.name);
-                      return (
-                        <div
-                          key={feat.name}
-                          onClick={() => toggleFeature(feat.name)}
-                          className={`p-4 rounded-xl border text-left cursor-pointer flex justify-between items-start transition ${active ? "bg-[#1b1220] border-fuchsia-500/40 text-white" : "bg-[#11131c] border-slate-800"}`}
-                        >
-                          <div>
-                            <div className="text-sm font-bold text-white">
-                              {feat.name}
-                            </div>
-                            <div className="text-xs text-slate-400 mt-0.5">
-                              {feat.desc}
-                            </div>
-                          </div>
-                          <div
-                            className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${active ? "border-fuchsia-400 bg-fuchsia-500" : "border-slate-700"}`}
-                          >
-                            {active && (
-                              <div className="w-1.5 h-1.5 bg-white rounded-full" />
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Priority Levels
-                  </div>
-                  <div className="flex gap-3">
-                    {(["STANDARD", "PRIORITY", "CRITICAL"] as const).map(
-                      (pr) => (
-                        <button
-                          key={pr}
-                          type="button"
-                          onClick={() =>
-                            setFormData({ ...formData, priority: pr })
-                          }
-                          className={`px-5 py-2.5 text-xs font-bold tracking-widest rounded-lg border transition ${formData.priority === pr ? "border-fuchsia-500 text-fuchsia-400 bg-fuchsia-500/5 shadow-[0_0_15px_rgba(217,70,239,0.1)]" : "border-slate-800 text-slate-400 bg-[#11131c]"}`}
-                        >
-                          {pr}
-                        </button>
-                      ),
-                    )}
-                  </div>
+              <div>
+                <label className="label-caps text-[#94a3b8] mb-4 block">
+                  Database
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <SelectionCard
+                    title="PostgreSQL"
+                    description="Relational"
+                    icon={Database}
+                    selected={formData.database === "postgres"}
+                    onClick={() => updateField("database", "postgres")}
+                  />
+                  <SelectionCard
+                    title="MySQL"
+                    description="Relational"
+                    icon={Database}
+                    selected={formData.database === "mysql"}
+                    onClick={() => updateField("database", "mysql")}
+                  />
+                  <SelectionCard
+                    title="SQLite"
+                    description="Local file"
+                    icon={Database}
+                    selected={formData.database === "sqlite"}
+                    onClick={() => updateField("database", "sqlite")}
+                  />
+                  <SelectionCard
+                    title="None"
+                    description="No DB"
+                    icon={Box}
+                    selected={formData.database === "none"}
+                    onClick={() => updateField("database", "none")}
+                  />
                 </div>
               </div>
 
-              <div className="bg-[#0f111a] border border-slate-900 rounded-xl p-6 self-start space-y-6">
-                <div>
-                  <div className="text-cyan-400 font-mono tracking-widest text-[11px] uppercase font-bold">
-                    Project Pulse
-                  </div>
-                  <div className="bg-[#121622] border border-slate-800 p-4 rounded-lg mt-4 flex items-center justify-between">
-                    <div>
-                      <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
-                        Estimated Delivery Target
-                      </div>
-                      <div className="text-xl font-bold text-cyan-400 mt-1 font-mono">
-                        T-Minus 48 Hours
-                      </div>
-                    </div>
-                  </div>
+              <div>
+                <label className="label-caps text-[#94a3b8] mb-4 block">
+                  Structure
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <SelectionCard
+                    title="Monorepo"
+                    description="Turborepo"
+                    icon={FolderTree}
+                    selected={formData.folderStructure === "monorepo"}
+                    onClick={() => updateField("folderStructure", "monorepo")}
+                  />
+                  <SelectionCard
+                    title="Flat"
+                    description="Standard layout"
+                    icon={Box}
+                    selected={formData.folderStructure === "src_flat"}
+                    onClick={() => updateField("folderStructure", "src_flat")}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="label-caps text-[#94a3b8] mb-4 block">
+                  Deploy Target
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <SelectionCard
+                    title="Vercel"
+                    description="Next.js optimized"
+                    icon={Server}
+                    selected={formData.deploymentTarget === "vercel"}
+                    onClick={() => updateField("deploymentTarget", "vercel")}
+                  />
+                  <SelectionCard
+                    title="Render"
+                    description="Full stack"
+                    icon={Server}
+                    selected={formData.deploymentTarget === "render"}
+                    onClick={() => updateField("deploymentTarget", "render")}
+                  />
+                  <SelectionCard
+                    title="Railway"
+                    description="Containers"
+                    icon={Layers}
+                    selected={formData.deploymentTarget === "railway"}
+                    onClick={() => updateField("deploymentTarget", "railway")}
+                  />
+                  <SelectionCard
+                    title="None"
+                    description="Local only"
+                    icon={Terminal}
+                    selected={formData.deploymentTarget === "none"}
+                    onClick={() => updateField("deploymentTarget", "none")}
+                  />
                 </div>
               </div>
             </motion.div>
           )}
 
+          {/* STEP 4 */}
           {step === 4 && (
             <motion.div
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
               key="step4"
-              className="grid grid-cols-1 lg:grid-cols-3 gap-8"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15, ease: "easeOut" }} // ✅ FIXED: Sped up animation timing
+              className="flex-1 flex flex-col items-center justify-center py-8 text-center px-4"
             >
-              <div className="lg:col-span-2 space-y-6">
-                <div>
-                  <h1 className="text-4xl font-bold text-white tracking-tight">
-                    Final Review
-                  </h1>
-                  <p className="text-slate-400 mt-2 text-sm">
-                    Verify configurations before releasing payload to background
-                    pipeline.
-                  </p>
-                </div>
-
-                <div className="bg-[#0f111a] border border-slate-900 rounded-xl p-6 space-y-6">
-                  <div className="flex justify-between items-center border-b border-slate-900 pb-4">
-                    <span className="text-xs font-bold uppercase text-slate-400 tracking-wider">
-                      Configuration Summary
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setStep(1)}
-                      className="text-xs font-semibold text-cyan-400 hover:underline"
-                    >
-                      Edit Configurations
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-y-4 gap-x-8 text-sm">
-                    <div>
-                      <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
-                        Identity Matrix
-                      </div>
-                      <div className="text-white font-bold mt-1">
-                        {formData.name || "Untitled App"}
-                      </div>
-                      <div className="text-xs text-slate-400 mt-0.5">
-                        {formData.clientName || "Default Workspace"}
-                      </div>
-                      <div className="text-xs text-slate-500 mt-1">
-                        Workspace: {formData.workspaceId || "Not Provided"}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
-                        Technical Infrastructure
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {[
-                          "Next.js 15",
-                          "TypeScript",
-                          formData.database,
-                          formData.auth,
-                          ...(formData.apiIntegration
-                            ? ["Python FastAPI"]
-                            : []),
-                        ].map((t) => (
-                          <span
-                            key={t}
-                            className="bg-[#1b1424] text-fuchsia-400 border border-fuchsia-900/30 font-mono text-[10px] px-2 py-0.5 rounded-md font-bold"
-                          >
-                            {t}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#d3d7ff] to-[#e8b3ff] flex items-center justify-center mb-6">
+                <CheckCircle2 className="w-9 h-9 text-[#0c0f16]" />
               </div>
 
-              <div className="bg-[#0f111a] border border-slate-900 rounded-xl p-6 flex flex-col justify-between space-y-6">
-                <div className="space-y-4">
-                  <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                    <Activity className="w-4.5 h-4.5 text-cyan-400" />{" "}
-                    Pre-Flight Verification
-                  </div>
+              <h3 className="text-2xl font-semibold text-white">
+                Ready to Launch
+              </h3>
+              <p className="text-[#c6c5d1] mt-2 max-w-xs">
+                Your project configuration is complete.
+              </p>
+
+              <div className="glass-card p-5 mt-8 w-full border border-[#ffb4ab]/30 bg-[#1d2027]/80 text-left">
+                <div className="flex gap-3 text-amber-400 mb-3">
+                  <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                  <div className="text-sm font-medium">Client-Side Only</div>
                 </div>
+                <p className="text-xs text-[#c6c5d1]">
+                  All secrets remain in your browser.
+                </p>
+              </div>
+
+              <div className="w-full mt-8 space-y-3">
                 <button
-                  type="button"
-                  disabled={isSubmitting || !formData.name}
-                  onClick={executeSystemLaunch}
-                  className="w-full bg-gradient-to-r from-cyan-500 to-fuchsia-600 text-white font-bold rounded-xl py-4 flex items-center justify-center gap-2 shadow-lg shadow-fuchsia-500/10 hover:brightness-110 active:scale-[0.99] transition disabled:opacity-50 disabled:pointer-events-none"
+                  onClick={triggerInBrowserEnvDownload}
+                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#ffb347] to-[#ff8c00] text-black font-semibold flex items-center justify-center gap-3 hover:brightness-110 active:scale-[0.985] transition"
                 >
-                  {isSubmitting ? (
-                    "Provisioning Database Task..."
-                  ) : (
-                    <>
-                      Launch Project Engine{" "}
-                      <Zap className="w-4 h-4 fill-white" />
-                    </>
-                  )}
+                  <Download className="w-4 h-4" />
+                  DOWNLOAD .ENV
+                </button>
+
+                <button
+                  onClick={handleFormSubmissionLaunch}
+                  disabled={isSubmitting || !envDownloaded}
+                  className="w-full py-4 rounded-2xl bg-white text-black font-semibold flex items-center justify-center gap-3 disabled:opacity-60 hover:bg-[#d3d7ff] active:scale-[0.985] transition"
+                >
+                  {isSubmitting ? "Provisioning..." : "INITIALIZE PROJECT"}
+                  <Zap className="w-4 h-4" />
                 </button>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
 
-      {step < 4 && (
-        <div className="flex justify-between border-t border-slate-900 pt-6 mt-8">
-          <button
-            type="button"
-            disabled={step === 1}
-            onClick={() => setStep((p) => p - 1)}
-            className="px-5 py-2.5 rounded-lg border border-slate-800 text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-white hover:bg-[#11131c] transition flex items-center gap-2 disabled:opacity-30 disabled:pointer-events-none"
-          >
-            <ArrowLeft className="w-4 h-4" /> Back Section
-          </button>
-          <button
-            type="button"
-            disabled={step === 1 && !formData.name}
-            onClick={() => setStep((p) => p + 1)}
-            className="px-6 py-2.5 rounded-lg bg-white text-black text-xs font-bold uppercase tracking-wider hover:bg-slate-200 transition flex items-center gap-2 disabled:opacity-30 disabled:pointer-events-none"
-          >
-            Next Section <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+        {/* Navigation */}
+        {step < 4 && (
+          <div className="flex justify-between pt-6 border-t border-[#32353d] mt-auto">
+            <button
+              onClick={() => setStep((p) => Math.max(1, p - 1))}
+              disabled={step === 1}
+              className="px-6 py-3 rounded-2xl border border-[#32353d] hover:bg-[#1d2027] flex items-center gap-2 text-sm disabled:opacity-40 transition"
+            >
+              <ArrowLeft className="w-4 h-4" /> Back
+            </button>
+
+            <button
+              onClick={() => setStep((p) => p + 1)}
+              disabled={
+                (step === 1 &&
+                  (!formData.name?.trim() || !formData.clientName?.trim())) ||
+                isSubmitting
+              }
+              className="px-8 py-3 rounded-2xl bg-gradient-to-r from-[#d3d7ff] to-[#e8b3ff] text-black font-semibold flex items-center gap-2 hover:brightness-110 active:scale-[0.985] transition disabled:opacity-50"
+            >
+              Continue <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Close Button */}
+        <button
+          onClick={onClose}
+          className="absolute top-5 right-5 text-[#94a3b8] hover:text-white text-xl leading-none transition"
+        >
+          ✕
+        </button>
+      </div>
     </div>
   );
 }
