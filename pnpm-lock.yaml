@@ -33,13 +33,13 @@ importers:
   apps/cli:
     dependencies:
       dotenv:
-        specifier: ^16.4.5
+        specifier: ^16.6.1
         version: 16.6.1
       ioredis:
         specifier: ^5.11.1
         version: 5.11.1
       mysql2:
-        specifier: ^3.11.0
+        specifier: ^3.22.5
         version: 3.22.5(@types/node@25.9.3)
 
   apps/client-dashboard:
