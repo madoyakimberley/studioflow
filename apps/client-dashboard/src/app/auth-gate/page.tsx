@@ -80,7 +80,9 @@ function IngressSecurityProtocolScanner() {
           await new Promise((r) => setTimeout(r, 800));
 
           if (needsOnboarding) {
-            router.push(`/environment-setup?user=${targetUser}`);
+            // ✅ FIXED: Updated to point to /onboarding
+            // If your folder is named something else (like "setup"), change "onboarding" to match it!
+            router.push(`/onboarding/setup/?user=${targetUser}`);
           } else {
             router.push(`/dashboard/${targetUser}`);
           }

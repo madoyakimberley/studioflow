@@ -17,10 +17,9 @@ export const dynamic = "force-dynamic";
 export default async function ProjectDetailScreen({
   params,
 }: {
-  params: Promise<{ slug: string }>; // 1. Update the type to a Promise
+  params: Promise<{ slug: string; user: string }>;
 }) {
-  // 2. Await the params before destructuring
-  const { slug } = await params;
+  const { slug, user } = await params;
 
   const projectData = await db
     .select()
@@ -54,7 +53,7 @@ export default async function ProjectDetailScreen({
       <div className="max-w-7xl mx-auto space-y-8">
         <div>
           <Link
-            href="/dashboard/projects"
+            href={`/dashboard/${user}/projects`}
             className="inline-flex items-center gap-2 text-xs text-[#948f9a] hover:text-[#adc6ff] mb-4 transition"
           >
             <ChevronLeft className="w-3.5 h-3.5" /> Return to Systems
@@ -73,6 +72,7 @@ export default async function ProjectDetailScreen({
                 <a
                   href={project.githubRepo}
                   target="_blank"
+                  rel="noopener noreferrer"
                   className="flex items-center gap-2 px-4 py-2 bg-[#131b2e] border border-[#2d3449] rounded-xl text-xs hover:bg-[#222a3e] transition"
                 >
                   <Code className="w-4 h-4" /> Source Array
@@ -82,6 +82,7 @@ export default async function ProjectDetailScreen({
                 <a
                   href={project.liveUrl}
                   target="_blank"
+                  rel="noopener noreferrer"
                   className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#e364a7] to-[#a078ff] text-white rounded-xl text-xs font-bold shadow-lg shadow-[#a078ff]/20 hover:brightness-110 transition"
                 >
                   <ExternalLink className="w-4 h-4" /> Live Node

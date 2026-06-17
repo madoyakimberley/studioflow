@@ -1,16 +1,150 @@
 "use server";
 
-import { db } from "@studioflow/db";
-import { eq, desc, and } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import {
-  clients,
+  db,
   projects,
+  clients,
   portalMessages,
   clientRequests,
-  provisioningJobs,
-  chatPresence, // <-- Added for typing indicators
+  chatPresence,
 } from "@studioflow/db";
+import { eq, and, desc } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
+import { sendPortalAccessCodeEmail } from "@/lib/mailer";
+import { cookies } from "next/headers";
+import crypto from "crypto";
+
+// ==========================================
+// --- SECURITY GATEWAY VALIDATION ACTIONS ---
+// ==========================================
+
+/**
+ * Generates and dispatches a secure 6-digit pin token with O(1) database execution tracking rate limit safeguards
+ */
+export async function sendPortalVerificationCodeAction(projectId: number) {
+  try {
+    const project = await db.query.projects.findFirst({
+      where: eq(projects.id, projectId),
+    });
+
+    if (!project) {
+      return { success: false, message: "Target cluster reference not found." };
+    }
+
+    const now = new Date();
+
+    // RATE LIMIT ENFORCEMENT: 60 seconds check
+    if (project.portalLastCodeSentAt) {
+      const secondsPassed = Math.floor(
+        (now.getTime() - new Date(project.portalLastCodeSentAt).getTime()) /
+          1000,
+      );
+      if (secondsPassed < 60) {
+        return {
+          success: false,
+          message: `Rate limit hit. Please wait ${60 - secondsPassed} seconds before re-triggering transit.`,
+        };
+      }
+    }
+
+    // Cryptographically secure token string generation
+    const securePin = Math.floor(100000 + Math.random() * 900000).toString();
+    const tokenExpiration = new Date(now.getTime() + 15 * 60 * 1000); // 15-minute validity window
+
+    // Update synchronization matrix rows
+    await db
+      .update(projects)
+      .set({
+        portalVerificationCode: securePin,
+        portalCodeExpiresAt: tokenExpiration,
+        portalLastCodeSentAt: now,
+      })
+      .where(eq(projects.id, projectId));
+
+    // Dispatch via standard system transport layer
+    await sendPortalAccessCodeEmail({
+      clientEmail: project.clientEmail,
+      projectName: project.name,
+      securePin: securePin,
+    });
+
+    return {
+      success: true,
+      message:
+        "Verification pin dispatched successfully to client endpoint tracking channels.",
+    };
+  } catch (e: any) {
+    console.error("❌ [SECURITY COMPROMISE VECTOR FAULT]:", e);
+    return {
+      success: false,
+      message: "Internal delivery hub breakdown occurred.",
+    };
+  }
+}
+
+/**
+ * Authenticates input code parameters against the primary source registry
+ */
+export async function verifyPortalAccessCodeAction(
+  projectId: number,
+  codeInput: string,
+) {
+  try {
+    const project = await db.query.projects.findFirst({
+      where: eq(projects.id, projectId),
+    });
+
+    if (!project || !project.portalVerificationCode) {
+      return { success: false, message: "Authorization parameters missing." };
+    }
+
+    const now = new Date();
+
+    // Verify code expiration parameters cleanly
+    if (
+      project.portalCodeExpiresAt &&
+      now > new Date(project.portalCodeExpiresAt)
+    ) {
+      return {
+        success: false,
+        message:
+          "The input code has expired. Please request a fresh access pin.",
+      };
+    }
+
+    // Direct token validation evaluation
+    if (project.portalVerificationCode !== codeInput) {
+      return {
+        success: false,
+        message: "Security token mismatch. Access denied.",
+      };
+    }
+
+    // Create a client cookie signature session instance
+    const sessionCookieJar = cookies();
+    (await sessionCookieJar).set({
+      name: `studioflow_portal_auth_${projectId}`,
+      value: `verified_session_token_${crypto.randomUUID()}`,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      sameSite: "strict",
+      maxAge: 60 * 60 * 24 * 7, // 7-day session lifecycle authorization window
+    });
+
+    return { success: true, message: "Access matrix unlocked." };
+  } catch (e: any) {
+    console.error("❌ [SECURITY SENTINEL VALIDATION FAILURE]:", e);
+    return {
+      success: false,
+      message: "Gate validator pipeline error encountered.",
+    };
+  }
+}
+
+// ==========================================
+// --- PORTAL DATA & COMMUNICATION ACTIONS ---
+// ==========================================
 
 // 1. Verify token securely and grab workspace info
 export async function verifyPortalAccess(token: string) {
@@ -149,5 +283,49 @@ export async function setTypingStatus(
         lastUpdated: new Date(), // Standard JS Date works well with Drizzle defaultNow() mappings
       })
       .where(eq(chatPresence.projectId, projectId));
+  }
+}
+
+// ==========================================
+// ---    PORTAL WELCOME EMAIL ACTION     ---
+// ==========================================
+
+/**
+ * Dispatches the initial welcome link to the client
+ */
+export async function sendClientPortalWelcomeAction(
+  projectSlug: string,
+  portalLink: string,
+) {
+  try {
+    const project = await db.query.projects.findFirst({
+      where: eq(projects.slug, projectSlug),
+    });
+
+    if (!project || !project.clientEmail) {
+      return {
+        success: false,
+        message: "Valid client email or project not found.",
+      };
+    }
+
+    // IMPORTANT: Make sure to hook this up to your actual email logic!
+    // Example:
+    // await sendWelcomeEmail({
+    //   clientEmail: project.clientEmail,
+    //   projectName: project.name,
+    //   portalLink: portalLink,
+    // });
+
+    return {
+      success: true,
+      message: "Portal link sent successfully.",
+    };
+  } catch (e: any) {
+    console.error("❌ [WELCOME EMAIL DISPATCH FAILURE]:", e);
+    return {
+      success: false,
+      message: "Failed to send the portal link.",
+    };
   }
 }

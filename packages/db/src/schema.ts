@@ -17,11 +17,11 @@ import { relations } from "drizzle-orm";
 
 export const users = mysqlTable("users", {
   id: varchar("id", { length: 255 }).primaryKey(),
-  username: varchar("username", { length: 255 }).notNull().unique(), // Unique routing handles (e.g., studioflow.ai/username)
+  username: varchar("username", { length: 255 }).notNull().unique(),
   email: varchar("email", { length: 255 }).notNull().unique(),
   name: varchar("name", { length: 255 }),
-  passwordHash: text("password_hash").notNull(), // Added for secure credential tracking and verification
-  githubAccessToken: text("github_access_token"), // Persistent direct GitHub fallback connection storage
+  passwordHash: text("password_hash").notNull(),
+  githubAccessToken: text("github_access_token"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -31,7 +31,7 @@ export const workspaces = mysqlTable(
     id: int("id").autoincrement().primaryKey(),
     ownerId: varchar("owner_id", { length: 255 }).notNull(),
     name: varchar("name", { length: 255 }).notNull(),
-    slug: varchar("slug", { length: 255 }).notNull().unique(), // Unique routing endpoint (e.g., studioflow.ai/workspace-slug)
+    slug: varchar("slug", { length: 255 }).notNull().unique(),
     createdAt: timestamp("created_at").defaultNow(),
   },
   (table) => ({
@@ -44,7 +44,7 @@ export const workspaceIntegrations = mysqlTable(
   {
     id: int("id").autoincrement().primaryKey(),
     workspaceId: int("workspace_id").notNull(),
-    provider: varchar("provider", { length: 50 }).notNull(), // 'github', 'gitlab', etc.
+    provider: varchar("provider", { length: 50 }).notNull(),
     accessToken: text("access_token"),
     clientId: varchar("client_id", { length: 255 }),
     updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
@@ -66,8 +66,8 @@ export const clients = mysqlTable(
   {
     id: int("id").autoincrement().primaryKey(),
     workspaceId: int("workspace_id").notNull(),
-    slug: varchar("slug", { length: 255 }).notNull(), // Internal scope tracking string identifier used by generation engines
-    portalSlug: varchar("portal_slug", { length: 255 }).notNull().unique(), // GitHub-like external custom URL for client onboarding portal routing
+    slug: varchar("slug", { length: 255 }).notNull(),
+    portalSlug: varchar("portal_slug", { length: 255 }).notNull().unique(),
     name: varchar("name", { length: 255 }).notNull(),
     email: varchar("email", { length: 255 }).notNull().unique(),
     company: varchar("company", { length: 255 }),
@@ -90,30 +90,42 @@ export const projects = mysqlTable(
     workspaceId: int("workspace_id").notNull(),
     clientId: int("client_id").notNull(),
     name: varchar("name", { length: 255 }).notNull(),
-    slug: varchar("slug", { length: 255 }).notNull().unique(), // Unique execution workspace prefix string (e.g., apps/[project-slug])
+    slug: varchar("slug", { length: 255 }).notNull().unique(),
 
-    // ✅ FIXED: Added specific columns to actually save UI choices
     frontendFramework: varchar("frontend_framework", { length: 50 }).default(
-      "nextjs",
+      "dynamic",
     ),
     backendFramework: varchar("backend_framework", { length: 50 }).default(
-      "express",
+      "dynamic",
     ),
     databaseProvider: varchar("database_provider", { length: 50 }).default(
-      "postgres",
+      "dynamic",
     ),
     folderStructure: varchar("folder_structure", { length: 50 }).default(
       "monorepo",
     ),
     deploymentTarget: varchar("deployment_target", { length: 50 }).default(
-      "vercel",
+      "custom",
     ),
 
-    status: varchar("status", { length: 50 }).default("planning"), // planning, active, paused, unhealthy
+    universalManifest: json("universal_manifest").notNull(),
+    blueprintYaml: text("blueprint_yaml"),
+
+    status: varchar("status", { length: 50 }).default("planning"),
     liveUrl: varchar("live_url", { length: 255 }),
     githubRepo: varchar("github_repo", { length: 255 }),
     paymentStatus: varchar("payment_status", { length: 50 }).default("pending"),
     progressPercentage: int("progress_percentage").default(0),
+
+    // Gateway Info
+    clientEmail: varchar("client_email", { length: 255 }).notNull(),
+    portalVerificationCode: varchar("portal_verification_code", { length: 6 }),
+    portalCodeExpiresAt: timestamp("portal_code_expires_at"),
+    portalLastCodeSentAt: timestamp("portal_last_code_sent_at"),
+
+    // NEW METRIC FOR RATE LIMITING
+    portalEmailsSentCount: int("portal_emails_sent_count").default(0),
+
     createdAt: timestamp("created_at").defaultNow(),
   },
   (table) => ({
@@ -122,8 +134,19 @@ export const projects = mysqlTable(
 );
 
 // ==========================================
-// DELIVERABLES & PORTAL COMMUNICATION
+// DELIVERABLES, ASSETS & PORTAL COMMUNICATION
 // ==========================================
+
+export const projectAssets = mysqlTable("project_assets", {
+  id: int("id").autoincrement().primaryKey(),
+  projectId: int("project_id").notNull(),
+  uploadedBy: varchar("uploaded_by", { length: 50 }).notNull(), // 'client' or 'admin'
+  name: varchar("name", { length: 255 }).notNull(),
+  fileUrl: text("file_url").notNull(),
+  fileType: varchar("file_type", { length: 50 }).notNull(),
+  fileSize: varchar("file_size", { length: 50 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
 
 export const tasks = mysqlTable("tasks", {
   id: int("id").autoincrement().primaryKey(),
@@ -137,7 +160,7 @@ export const tasks = mysqlTable("tasks", {
 export const portalMessages = mysqlTable("portal_messages", {
   id: int("id").autoincrement().primaryKey(),
   projectId: int("project_id").notNull(),
-  sender: varchar("sender", { length: 50 }).notNull(), // 'admin' or 'client'
+  sender: varchar("sender", { length: 50 }).notNull(),
   content: text("content").notNull(),
   isRead: boolean("is_read").default(false),
   createdAt: timestamp("created_at").defaultNow(),
@@ -171,8 +194,8 @@ export const provisioningJobs = mysqlTable(
     idempotencyKey: varchar("idempotency_key", { length: 255 })
       .notNull()
       .unique(),
-    status: varchar("status", { length: 50 }).default("pending"), // pending, running, completed, failed
-    manifest: json("manifest").notNull(), // Flexible tech stack choice decisions & dynamic schema parameters
+    status: varchar("status", { length: 50 }).default("pending"),
+    manifest: json("manifest").notNull(),
     executionLogs: text("execution_logs"),
     createdAt: timestamp("created_at").defaultNow(),
     startedAt: timestamp("started_at"),
@@ -224,9 +247,16 @@ export const workspaceEnvironments = mysqlTable("workspace_environments", {
   // Deployment Automation
   deploymentProvider: varchar("deployment_provider", { length: 50 }).default(
     "none",
-  ), // 'render', 'railway', 'vercel', 'none'
+  ),
   deploymentApiKey: text("deployment_api_key"),
-  deploymentOwnerId: varchar("deployment_owner_id", { length: 255 }), // e.g., Render Owner ID or Vercel Team ID
+  deploymentOwnerId: varchar("deployment_owner_id", { length: 255 }),
+
+  // Email Server Settings
+  smtpHost: varchar("smtp_host", { length: 255 }),
+  smtpPort: varchar("smtp_port", { length: 50 }),
+  smtpUser: varchar("smtp_user", { length: 255 }),
+  smtpPass: text("smtp_pass"),
+  adminAlertEmail: varchar("admin_alert_email", { length: 255 }),
 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
@@ -282,6 +312,14 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   monitoringLogs: many(siteMonitoring),
   clientRequests: many(clientRequests),
   portalMessages: many(portalMessages),
+  assets: many(projectAssets),
+}));
+
+export const projectAssetsRelations = relations(projectAssets, ({ one }) => ({
+  project: one(projects, {
+    fields: [projectAssets.projectId],
+    references: [projects.id],
+  }),
 }));
 
 export const tasksRelations = relations(tasks, ({ one }) => ({

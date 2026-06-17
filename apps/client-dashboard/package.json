@@ -11,6 +11,7 @@
   "dependencies": {
     "@hookform/resolvers": "latest",
     "@studioflow/db": "workspace:*",
+    "@uploadthing/react": "^7.3.3",
     "clsx": "latest",
     "date-fns": "^4.4.0",
     "dotenv": "^17.4.2",
@@ -22,8 +23,10 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-hook-form": "latest",
+    "react-hot-toast": "^2.6.0",
     "sonner": "latest",
     "tailwind-merge": "latest",
+    "uploadthing": "^7.7.4",
     "zod": "latest"
   },
   "devDependencies": {

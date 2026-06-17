@@ -1,8 +1,8 @@
 import React from "react";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { verifyPortalAccess } from "../../portal-actions"; // Adjust path as needed
-import { ShieldCheck } from "lucide-react"; // Removed unused icons for cleaner code
+import { ShieldCheck } from "lucide-react";
+import SecureGateFormClient from "./SecureGateFormClient"; // Adjust path to your client form component
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -12,11 +12,12 @@ export default async function PhilosophyPortal({ params }: PageProps) {
   // Next.js 15 pattern: await the params
   const { token } = await params;
 
-  // Phase 3 Security: Server-side validation before rendering
+  // Server-side validation before rendering
   const authResult = await verifyPortalAccess(token);
 
+  // If the slug/token doesn't match an active project registry, trigger 404
   if (!authResult.success || !authResult.project) {
-    notFound(); // Triggers the 404 page if token is invalid
+    notFound();
   }
 
   return (
@@ -27,7 +28,7 @@ export default async function PhilosophyPortal({ params }: PageProps) {
       <div className="max-w-xl w-full border border-[#171f33] bg-[#0b1326]/60 backdrop-blur-md p-8 md:p-12 rounded-2xl shadow-2xl space-y-8 z-10 text-center">
         <div className="space-y-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#131b2e] border border-[#212d4a] rounded-full text-xs text-cyan-400 font-mono">
-            <ShieldCheck className="w-3.5 h-3.5" /> Identity Verified
+            <ShieldCheck className="w-3.5 h-3.5" /> Secure Client Portal
           </div>
           <h1 className="text-4xl font-black font-serif tracking-tight text-white mt-4">
             Communication is{" "}
@@ -43,15 +44,13 @@ export default async function PhilosophyPortal({ params }: PageProps) {
 
         <hr className="border-[#171f33]" />
 
-        {/* <div className="pt-4">
-         
-          <Link
-            href={`/${token}/dashboard`}
-            className="inline-block bg-gradient-to-r from-[#4361ee] to-[#3a0ca3] hover:brightness-110 active:scale-[0.99] text-white text-sm font-bold tracking-wider py-3 px-8 rounded-full transition-all shadow-lg shadow-blue-900/20"
-          >
-            Begin the Journey
-          </Link>
-        </div> */}
+        {/* Embedded Client-Side 2FA PIN Gate Verification */}
+        <div className="pt-2 text-left">
+          <SecureGateFormClient
+            projectId={authResult.project.id}
+            projectSlug={authResult.project.slug}
+          />
+        </div>
       </div>
     </main>
   );

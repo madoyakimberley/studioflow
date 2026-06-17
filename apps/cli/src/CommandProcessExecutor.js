@@ -1,7 +1,7 @@
 import { spawn } from "child_process";
 
 export class CommandProcessExecutor {
-  static runCommand(shellStatementText, activeExecutionDirectoryPath) {
+  execute(shellStatementText, activeExecutionDirectoryPath) {
     return new Promise((resolve) => {
       const stringifiedSanitizedStatement = String(shellStatementText);
 

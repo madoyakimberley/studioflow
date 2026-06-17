@@ -4,10 +4,10 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import ProjectWizard from "./ProjectWizard";
+import { ProjectWizard } from "./ProjectWizard";
 
 export default function SidebarConsole({
-  userSlug = "luna", // fallback only
+  userSlug = "user", // fallback only
 }: {
   userSlug?: string;
 }) {
@@ -50,6 +50,11 @@ export default function SidebarConsole({
       href: `${baseRoute}/clients-requests`,
       label: "Client Requests Queue",
       icon: "queue_play_next",
+    },
+    {
+      href: `${baseRoute}/assets`, // The link to your new Assets Dashboard
+      label: "Asset Vault",
+      icon: "folder_zip", // Material icon for assets/archives
     },
   ];
 
