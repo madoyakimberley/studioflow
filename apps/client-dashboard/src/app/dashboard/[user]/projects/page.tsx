@@ -24,11 +24,11 @@ export default async function ActiveSystemsPage({
       <SidebarConsole userSlug={user} />
 
       <main className="flex-1 overflow-y-auto custom-scrollbar">
-        <div className="max-w-6xl mx-auto px-8 py-12">
+        <div className="max-w-6xl mx-auto px-6 md:px-10 py-10">
           {/* Back Link */}
           <Link
             href={`/dashboard/${user}`}
-            className="inline-flex items-center gap-2 text-sm text-[#94a3b8] hover:text-[#d3d7ff] mb-6 transition-colors"
+            className="inline-flex items-center gap-2 text-sm text-[#94a3b8] hover:text-[#d3d7ff] mb-8 transition-colors group"
           >
             ← Back to Core Systems Overview
           </Link>
@@ -48,18 +48,18 @@ export default async function ActiveSystemsPage({
             <NewSystemButton />
           </div>
 
-          {/* System Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-20">
+          {/* System Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {allProjects.length > 0 ? (
               allProjects.map((project) => (
                 <div
                   key={project.id}
-                  className="glass-card rounded-2xl p-8 group hover:border-[#d3d7ff]/40 transition-all duration-300 relative overflow-hidden"
+                  className="glass-card rounded-3xl p-8 group hover:border-[#d3d7ff]/40 transition-all duration-300 relative overflow-hidden border border-[#1f2538]"
                 >
                   <div className="flex justify-between items-start mb-6">
                     <div>
                       <span
-                        className={`font-label-caps px-3 py-1 rounded text-xs ${
+                        className={`inline-block font-mono text-xs tracking-widest px-3 py-1 rounded-full ${
                           project.status === "active"
                             ? "bg-[#d3d7ff]/10 text-[#d3d7ff]"
                             : project.status === "unhealthy"
@@ -69,67 +69,75 @@ export default async function ActiveSystemsPage({
                       >
                         {project.status?.toUpperCase() || "STABLE"}
                       </span>
-                      <h3 className="headline-sm mt-3 text-white">
+                      <h3 className="headline-sm mt-4 text-white leading-tight">
                         {project.name}
                       </h3>
+                      <p className="text-xs text-[#94a3b8] font-mono mt-1">
+                        apps/{project.slug}
+                      </p>
                     </div>
-                    <span className="material-symbols-outlined text-[#94a3b8] cursor-pointer hover:text-white">
-                      more_vert
-                    </span>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4 mb-8">
-                    <div className="text-center">
+                  {/* Metrics Row */}
+                  <div className="grid grid-cols-3 gap-4 mb-8 text-center">
+                    <div>
                       <p className="label-caps text-[#94a3b8] text-[10px]">
                         CPU
                       </p>
-                      <p className="mono-code text-[#d3d7ff] text-lg">
-                        {Math.floor(Math.random() * 40 + 60)}%
+                      <p className="text-[#d3d7ff] text-xl font-mono font-semibold">
+                        {Math.floor(Math.random() * 35 + 55)}%
                       </p>
                     </div>
-                    <div className="text-center">
+                    <div>
                       <p className="label-caps text-[#94a3b8] text-[10px]">
                         MEM
                       </p>
-                      <p className="mono-code text-[#e8b3ff] text-lg">8.4GB</p>
+                      <p className="text-[#e8b3ff] text-xl font-mono font-semibold">
+                        8.4GB
+                      </p>
                     </div>
-                    <div className="text-center">
+                    <div>
                       <p className="label-caps text-[#94a3b8] text-[10px]">
                         LAT
                       </p>
-                      <p className="mono-code text-[#ffcaf5] text-lg">12ms</p>
+                      <p className="text-[#ffcaf5] text-xl font-mono font-semibold">
+                        12ms
+                      </p>
                     </div>
                   </div>
 
-                  {/* Progress Bar */}
+                  {/* Progress */}
                   <div className="mb-8">
-                    <div className="flex justify-between text-xs mb-1.5 font-mono">
-                      <span className="text-[#94a3b8]">System Allocation</span>
+                    <div className="flex justify-between text-xs mb-2 font-mono">
+                      <span className="text-[#94a3b8]">ALLOCATION</span>
                       <span className="text-[#d3d7ff]">
                         {project.progressPercentage}%
                       </span>
                     </div>
-                    <div className="w-full bg-[#1d2027] h-1.5 rounded-full overflow-hidden border border-[#32353d]">
+                    <div className="w-full bg-[#1d2027] h-1.5 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-gradient-to-r from-[#d3d7ff] via-[#e8b3ff] to-[#ffcaf5] transition-all duration-1000"
+                        className="h-full bg-gradient-to-r from-[#d3d7ff] via-[#c4b5fd] to-[#a078ff] transition-all"
                         style={{ width: `${project.progressPercentage}%` }}
                       />
                     </div>
                   </div>
 
+                  {/* Access Button */}
                   <Link
                     href={`/dashboard/${user}/projects/${project.slug}`}
-                    className="mt-6 block w-full text-center py-3.5 border border-[#d3d7ff]/20 hover:border-[#d3d7ff] rounded-xl text-sm transition-all hover:bg-white/5"
+                    className="block w-full text-center py-4 border border-[#d3d7ff]/30 hover:border-[#d3d7ff] rounded-2xl text-sm font-medium hover:bg-white/5 transition-all"
                   >
-                    Access Core Matrix →
+                    ACCESS CORE MATRIX →
                   </Link>
                 </div>
               ))
             ) : (
-              <div className="col-span-full glass-card p-16 text-center">
-                <p className="text-[#94a3b8]">No active systems yet.</p>
-                <p className="text-sm mt-2">
-                  Create your first project to begin.
+              <div className="col-span-full glass-card p-20 text-center rounded-3xl">
+                <p className="text-[#94a3b8] text-lg">
+                  No active systems found
+                </p>
+                <p className="text-sm text-[#6b7280] mt-2">
+                  Initialize your first project to begin orchestration.
                 </p>
               </div>
             )}

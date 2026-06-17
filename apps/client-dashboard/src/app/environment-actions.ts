@@ -13,11 +13,17 @@ export interface EnvironmentPayload {
   deploymentApiKey: string;
   deploymentOwnerId: string;
   redisUrl: string;
+
+  // Appended configuration keys
+  smtpHost: string;
+  smtpPort: string;
+  smtpUser: string;
+  smtpPass: string;
+  adminAlertEmail: string;
 }
 
 export async function saveWorkspaceEnvironment(payload: EnvironmentPayload) {
   try {
-    // Check if environment config already exists for this workspace
     const existingEnv = await db.query.workspaceEnvironments.findFirst({
       where: eq(workspaceEnvironments.workspaceId, payload.workspaceId),
     });
@@ -33,6 +39,11 @@ export async function saveWorkspaceEnvironment(payload: EnvironmentPayload) {
           deploymentApiKey: payload.deploymentApiKey,
           deploymentOwnerId: payload.deploymentOwnerId,
           redisUrl: payload.redisUrl,
+          smtpHost: payload.smtpHost,
+          smtpPort: payload.smtpPort,
+          smtpUser: payload.smtpUser,
+          smtpPass: payload.smtpPass,
+          adminAlertEmail: payload.adminAlertEmail,
         })
         .where(eq(workspaceEnvironments.workspaceId, payload.workspaceId));
     } else {
@@ -45,19 +56,24 @@ export async function saveWorkspaceEnvironment(payload: EnvironmentPayload) {
         deploymentApiKey: payload.deploymentApiKey,
         deploymentOwnerId: payload.deploymentOwnerId,
         redisUrl: payload.redisUrl,
+        smtpHost: payload.smtpHost,
+        smtpPort: payload.smtpPort,
+        smtpUser: payload.smtpUser,
+        smtpPass: payload.smtpPass,
+        adminAlertEmail: payload.adminAlertEmail,
       });
     }
 
     revalidatePath("/dashboard");
     return {
       success: true,
-      message: "Environment matrices locked and encrypted.",
+      message: "Environment setup saved successfully.",
     };
   } catch (error: any) {
     console.error("❌ [ENVIRONMENT SYNC FAULT]:", error);
     return {
       success: false,
-      message: error.message || "Failed to persist infrastructure keys.",
+      message: error.message || "Failed to save infrastructure configuration.",
     };
   }
 }

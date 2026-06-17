@@ -161,7 +161,7 @@ export default function WelcomePage() {
           onClick={() => triggerAuthSequence("login")}
           className="text-sm font-medium text-slate-300 bg-[#0f172a] hover:bg-[#1e293b] px-5 py-2 rounded-full transition-all border border-slate-800 shadow-md"
         >
-          Developer Console Login
+          Developer Portal Login
         </button>
       </nav>
 
@@ -169,19 +169,21 @@ export default function WelcomePage() {
       <main className="relative z-10 flex flex-col items-center text-center pt-20 pb-32 px-6 max-w-7xl mx-auto">
         {/* Top Pill Early Access Badge */}
         <div className="inline-flex items-center gap-2 border border-[#2e2a75] bg-[#11132e] px-4 py-1.5 rounded-full text-xs font-medium text-[#c3c2ff] mb-8 shadow-sm">
-          <span className="text-xs">✨ v2.0 Node Early Access</span>
+          <span className="text-xs">
+            ✨ v2.0 Now Live — Ship Better, Faster
+          </span>
         </div>
 
         {/* Elegant Serif Typographic Headers matching Screenshot 2026-06-15 at 23.02.31.jpg */}
         <h1 className="text-4xl md:text-6xl lg:text-7xl font-serif text-white tracking-tight mb-6 max-w-5xl leading-[1.15]">
-          Automate your architecture. <br />
-          <span className="text-slate-400">Isolate your environments.</span>
+          Build with your client. <br />
+          <span className="text-slate-400">Not for them.</span>
         </h1>
 
         <p className="text-[#8e93a6] text-base md:text-lg max-w-2xl mb-10 leading-relaxed">
-          The next-generation orchestration engine built for teams who treat
-          their infrastructure as a highly optimized asset. Deploy multi-user
-          workspaces instantly.
+          Stop the silence. Stop the confusion. Give clients a live view of your
+          work as it unfolds. Real-time collaboration that ends back-and-forth
+          forever.
         </p>
 
         {/* Hero Actions Button Section */}
@@ -190,13 +192,13 @@ export default function WelcomePage() {
             onClick={() => triggerAuthSequence("signup")}
             className="bg-[#c3c2ff] text-[#030712] font-semibold px-6 py-2.5 rounded-md hover:bg-[#b0adfc] transition duration-200 text-sm shadow-md"
           >
-            Start For Free
+            Start Free, No Card
           </button>
           <button
             onClick={() => triggerAuthSequence("login")}
             className="bg-transparent text-slate-300 border border-slate-800 px-6 py-2.5 rounded-md hover:bg-slate-900/50 transition duration-200 text-sm"
           >
-            Login
+            Sign In
           </button>
         </div>
 
@@ -233,10 +235,10 @@ export default function WelcomePage() {
               </svg>
             </div>
             <h3 className="text-xl font-serif text-slate-200 tracking-wide">
-              Architectural Logic Engine
+              Live Development Feed
             </h3>
             <p className="text-xs font-mono text-slate-600">
-              Analyzing states of clusters... %100 micro services
+              Client dashboard syncing in real-time... Ready to deploy
             </p>
           </div>
         </div>
@@ -244,90 +246,90 @@ export default function WelcomePage() {
         {/* Feature Split Header Row Section */}
         <div className="w-full max-w-5xl flex flex-col md:flex-row items-start justify-between text-left gap-6 mb-16 border-t border-slate-900 pt-16">
           <h2 className="text-3xl md:text-4xl font-serif text-white tracking-tight max-w-md leading-tight">
-            Foundry-grade infrastructure tools.
+            Three problems. One solution.
           </h2>
           <p className="text-[#8e93a6] text-sm max-w-sm leading-relaxed md:pt-2">
-            Born from the needs of elite engineering squads, environmental nodes
-            are immunized against global network chaos.
+            Built by developers who've lost clients to miscommunication. Never
+            again.
           </p>
         </div>
 
         {/* Three Columns Foundry Features Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left w-full max-w-5xl mb-36">
-          {/* Card 1: CLI First Workflow */}
+          {/* Card 1: Live Build Feed */}
           <div className="bg-[#070b14] border border-[#121929] p-6 rounded-xl shadow-sm flex flex-col justify-between">
             <div>
               <div className="w-8 h-8 rounded bg-[#13192e] flex items-center justify-center border border-[#1e2645] mb-5">
-                <Terminal className="w-4 h-4 text-[#a5a1f6]" />
+                <Eye className="w-4 h-4 text-[#a5a1f6]" />
               </div>
               <h3 className="text-white font-semibold text-base mb-3">
-                CLI First Workflow
+                See It As It Builds
               </h3>
               <p className="text-[#8e93a6] text-sm leading-relaxed mb-6">
-                A zero-latency interface designed for rapid deployment across
-                high-requirement multi-stack orchestration.
+                Your client watches the blank canvas become reality. No
+                surprises at delivery. No "this isn't what I wanted."
               </p>
             </div>
             <div className="space-y-2 pt-2 border-t border-slate-900/60 font-mono text-xs text-slate-500">
               <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-slate-700" />{" "}
-                Concurrent compilation
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-700" /> Live
+                project feed
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-slate-700" />{" "}
-                Local-first state management
+                Instant deployment preview
               </div>
             </div>
           </div>
 
-          {/* Card 2: Active Isolation */}
+          {/* Card 2: Instant Communication */}
           <div className="bg-[#070b14] border border-[#121929] p-6 rounded-xl shadow-sm flex flex-col justify-between">
             <div>
               <div className="w-8 h-8 rounded bg-[#13192e] flex items-center justify-center border border-[#1e2645] mb-5">
-                <ShieldCheck className="w-4 h-4 text-[#a5a1f6]" />
+                <Sparkles className="w-4 h-4 text-[#a5a1f6]" />
               </div>
               <h3 className="text-white font-semibold text-base mb-3">
-                Active Isolation
+                Talk Without Waiting
               </h3>
               <p className="text-[#8e93a6] text-sm leading-relaxed mb-6">
-                Cryptographic micro-segments ensure that no data overlays cross
-                environment boundaries without permission.
+                In-app chat, live requests, real-time feedback. No more 2-week
+                silences. No more blocked work.
               </p>
             </div>
             <div className="space-y-2 pt-2 border-t border-slate-900/60 font-mono text-xs text-slate-500">
               <div className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-slate-700" />{" "}
-                Cluster multi-tenancy rules
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-slate-700" />{" "}
-                Instant revocation
-              </div>
-            </div>
-          </div>
-
-          {/* Card 3: Elastic Flow */}
-          <div className="bg-[#070b14] border border-[#121929] p-6 rounded-xl shadow-sm flex flex-col justify-between">
-            <div>
-              <div className="w-8 h-8 rounded bg-[#13192e] flex items-center justify-center border border-[#1e2645] mb-5">
-                <Workflow className="w-4 h-4 text-[#a5a1f6]" />
-              </div>
-              <h3 className="text-white font-semibold text-base mb-3">
-                Elastic Flow
-              </h3>
-              <p className="text-[#8e93a6] text-sm leading-relaxed mb-6">
-                Dynamic scaling instances operated via real-time telemetry
-                pipelines deep inside our proprietary predictive engine.
-              </p>
-            </div>
-            <div className="space-y-2 pt-2 border-t border-slate-900/60 font-mono text-xs text-slate-500">
-              <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-slate-700" /> Low
-                latency automapping
+                Built-in messaging
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-slate-700" /> Zero
-                downtime migrations
+                waiting game
+              </div>
+            </div>
+          </div>
+
+          {/* Card 3: Assets & Brand */}
+          <div className="bg-[#070b14] border border-[#121929] p-6 rounded-xl shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="w-8 h-8 rounded bg-[#13192e] flex items-center justify-center border border-[#1e2645] mb-5">
+                <Layers className="w-4 h-4 text-[#a5a1f6]" />
+              </div>
+              <h3 className="text-white font-semibold text-base mb-3">
+                All Assets In One Place
+              </h3>
+              <p className="text-[#8e93a6] text-sm leading-relaxed mb-6">
+                Logos, fonts, colors, brand guidelines. Everything shared from
+                day one. No hunting emails for assets.
+              </p>
+            </div>
+            <div className="space-y-2 pt-2 border-t border-slate-900/60 font-mono text-xs text-slate-500">
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-700" />{" "}
+                Centralized brand hub
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-700" />{" "}
+                Project starts on day one
               </div>
             </div>
           </div>
@@ -352,19 +354,19 @@ export default function WelcomePage() {
               </div>
             </div>
             <div className="absolute bottom-4 right-4 bg-[#0a0f1d] border border-slate-800 rounded px-2 py-1 text-[10px] font-mono text-slate-500">
-              eng_node_telemetry_view
+              client_dashboard_live
             </div>
           </div>
 
           {/* Right Text Row Information */}
           <div className="space-y-6">
             <h2 className="text-3xl md:text-4xl font-serif text-white tracking-tight leading-tight">
-              Orchestrate with the elegance of a conductor.
+              One dashboard for everything.
             </h2>
             <p className="text-[#8e93a6] text-sm leading-relaxed">
-              StudioFlow provides a unified plane for your entire technical
-              stack. From Kubernetes clusters to edge serverless functions,
-              manage it all through a single, beautiful interface.
+              StudioFlow gives you and your client a shared space. Project
+              structure auto-generated. Deployment handled. Live collaboration
+              baked in. One link. That's it.
             </p>
 
             <div className="space-y-4 pt-4 border-t border-slate-900">
@@ -374,11 +376,11 @@ export default function WelcomePage() {
                 </div>
                 <div>
                   <h4 className="text-xs font-mono font-bold text-white tracking-wider uppercase">
-                    VISUAL LOGIC MAPPING
+                    Auto Project Setup
                   </h4>
                   <p className="text-[#8e93a6] text-xs leading-relaxed mt-0.5">
-                    Trace dependencies across thousands of microservices in
-                    real-time.
+                    Folder structure, .env files, dependencies. Ready to code on
+                    minute one.
                   </p>
                 </div>
               </div>
@@ -389,11 +391,11 @@ export default function WelcomePage() {
                 </div>
                 <div>
                   <h4 className="text-xs font-mono font-bold text-white tracking-wider uppercase">
-                    INSTANT ENVIRONMENT CLONING
+                    Deploy & Share
                   </h4>
                   <p className="text-[#8e93a6] text-xs leading-relaxed mt-0.5">
-                    Replicate production stacks in under 100ms. Test code
-                    anywhere, instantly.
+                    Client gets a live link instantly. Watch builds happen.
+                    React in real-time.
                   </p>
                 </div>
               </div>
@@ -404,24 +406,24 @@ export default function WelcomePage() {
         {/* Footer End Block Section Call to Action */}
         <div className="w-full max-w-5xl text-center py-16 border-t border-slate-900 flex flex-col items-center">
           <h2 className="text-3xl md:text-4xl font-serif text-white tracking-tight mb-4">
-            Ready to evolve your flow?
+            End the guessing game.
           </h2>
           <p className="text-[#8e93a6] text-sm max-w-md mb-8 leading-relaxed">
-            Join the world's most sophisticated engineering teams. From stealth
-            startups to the Fortune 500, StudioFlow is the new standard.
+            Developers and clients on the same page. Finally. Join teams
+            building without the drama.
           </p>
           <div className="flex flex-row gap-3">
             <button
               onClick={() => triggerAuthSequence("signup")}
               className="bg-[#c3c2ff] text-[#030712] font-semibold px-5 py-2 rounded-md hover:bg-[#b0adfc] transition text-xs"
             >
-              Launch Free Account
+              Start Building Today
             </button>
             <button
               onClick={() => triggerAuthSequence("login")}
               className="bg-transparent text-slate-400 border border-slate-800 px-5 py-2 rounded-md hover:bg-slate-950 transition text-xs"
             >
-              login
+              Sign In
             </button>
           </div>
         </div>
@@ -472,14 +474,12 @@ export default function WelcomePage() {
                   </svg>
                 </div>
                 <h2 className="text-2xl font-serif text-white tracking-wide">
-                  {authMode === "signup"
-                    ? "Initialize Universal Node"
-                    : "Secure Console Access"}
+                  {authMode === "signup" ? "Join StudioFlow" : "Welcome Back"}
                 </h2>
                 <p className="text-xs text-[#6b7280] max-w-xs mt-2 leading-relaxed">
                   {authMode === "signup"
-                    ? "Configure your high-performance node identity within the StudioFlow ecosystem."
-                    : "Cryptographically checked validation session handshake."}
+                    ? "Create your account and start building with your clients today."
+                    : "Access your projects and continue collaborating."}
                 </p>
               </div>
 
@@ -498,7 +498,7 @@ export default function WelcomePage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-[11px] font-sans text-slate-400 mb-1.5">
-                          Full Profile Name
+                          Full Name
                         </label>
                         <input
                           type="text"
@@ -513,7 +513,7 @@ export default function WelcomePage() {
 
                       <div>
                         <label className="block text-[11px] font-sans text-slate-400 mb-1.5">
-                          Global Unique Handle
+                          Username
                         </label>
                         <input
                           type="text"
@@ -521,7 +521,7 @@ export default function WelcomePage() {
                           value={username}
                           onChange={(e) => setUsername(e.target.value)}
                           className="w-full bg-[#0a0f1d] border border-[#161f33] rounded-md px-3 py-2 text-xs text-white placeholder-slate-700 focus:outline-none focus:border-[#c3c2ff] transition font-sans"
-                          placeholder="@kimmadoya"
+                          placeholder="kimmadoya"
                           disabled={isSubmitting}
                         />
                       </div>
@@ -530,7 +530,7 @@ export default function WelcomePage() {
                     {/* Primary Cluster Node Full Width block */}
                     <div>
                       <label className="block text-[11px] font-sans text-slate-400 mb-1.5">
-                        Primary Cluster Node Name
+                        Workspace Name
                       </label>
                       <input
                         type="text"
@@ -538,7 +538,7 @@ export default function WelcomePage() {
                         value={workspaceName}
                         onChange={(e) => setWorkspaceName(e.target.value)}
                         className="w-full bg-[#0a0f1d] border border-[#161f33] rounded-md px-3 py-2 text-xs text-white placeholder-slate-700 focus:outline-none focus:border-[#c3c2ff] transition font-sans"
-                        placeholder="Lynvista Safaris Production"
+                        placeholder="My Projects"
                         disabled={isSubmitting}
                       />
                     </div>
@@ -548,7 +548,7 @@ export default function WelcomePage() {
                 {/* Email Access Node block */}
                 <div>
                   <label className="block text-[11px] font-sans text-slate-400 mb-1.5">
-                    Network Ingress Identity (Email)
+                    Email Address
                   </label>
                   <input
                     type="email"
@@ -556,7 +556,7 @@ export default function WelcomePage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full bg-[#0a0f1d] border border-[#161f33] rounded-md px-3 py-2 text-xs text-white placeholder-slate-700 focus:outline-none focus:border-[#c3c2ff] transition font-sans"
-                    placeholder="k.msimbi@lynvista.io"
+                    placeholder="you@example.com"
                     disabled={isSubmitting}
                   />
                 </div>
@@ -566,7 +566,7 @@ export default function WelcomePage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[11px] font-sans text-slate-400 mb-1.5">
-                        Secret Vault Key
+                        Password
                       </label>
                       <input
                         type="password"
@@ -581,7 +581,7 @@ export default function WelcomePage() {
 
                     <div>
                       <label className="block text-[11px] font-sans text-slate-400 mb-1.5">
-                        Re-verify Vault Key
+                        Confirm Password
                       </label>
                       <input
                         type="password"
@@ -597,7 +597,7 @@ export default function WelcomePage() {
                 ) : (
                   <div>
                     <label className="block text-[11px] font-sans text-slate-400 mb-1.5">
-                      Secret Vault Key
+                      Password
                     </label>
                     <input
                       type="password"
@@ -615,7 +615,7 @@ export default function WelcomePage() {
                 {authMode === "signup" && (
                   <div className="p-4 bg-[#050810] rounded-lg border border-[#111827] mt-4">
                     <span className="block text-[9px] font-bold text-slate-500 tracking-wider mb-3">
-                      PROTOCOL REQUIREMENTS
+                      PASSWORD REQUIREMENTS
                     </span>
                     <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[11px] text-slate-400">
                       <div className="flex items-center gap-2">
@@ -624,7 +624,7 @@ export default function WelcomePage() {
                         ) : (
                           <Circle className="w-3.5 h-3.5 text-slate-700" />
                         )}
-                        <span>Minimum 12 Characters</span>
+                        <span>At least 12 characters</span>
                       </div>
                       <div className="flex items-center gap-2">
                         {passwordCriteria.hasSymbol ? (
@@ -632,7 +632,7 @@ export default function WelcomePage() {
                         ) : (
                           <Circle className="w-3.5 h-3.5 text-slate-700" />
                         )}
-                        <span>At least one Symbol (@#$%)</span>
+                        <span>One symbol (@#$%)</span>
                       </div>
                       <div className="flex items-center gap-2">
                         {passwordCriteria.hasNumber ? (
@@ -640,7 +640,7 @@ export default function WelcomePage() {
                         ) : (
                           <Circle className="w-3.5 h-3.5 text-slate-700" />
                         )}
-                        <span>Numeric sequence</span>
+                        <span>At least one number</span>
                       </div>
                       <div className="flex items-center gap-2">
                         {passwordCriteria.caseSensitive ? (
@@ -648,7 +648,7 @@ export default function WelcomePage() {
                         ) : (
                           <Circle className="w-3.5 h-3.5 text-slate-700" />
                         )}
-                        <span>Case sensitivity</span>
+                        <span>Upper & lowercase</span>
                       </div>
                     </div>
                   </div>
@@ -666,9 +666,9 @@ export default function WelcomePage() {
                       {loadingText}
                     </>
                   ) : authMode === "signup" ? (
-                    "Establish Isolation Environment"
+                    "Create Account & Start"
                   ) : (
-                    "Authorize Session Handshake"
+                    "Sign In to Dashboard"
                   )}
                 </button>
               </form>
@@ -677,24 +677,24 @@ export default function WelcomePage() {
               <div className="mt-6 text-center text-xs text-slate-500">
                 {authMode === "signup" ? (
                   <>
-                    Existing node detected?{" "}
+                    Already have an account?{" "}
                     <button
                       onClick={() => triggerAuthSequence("login")}
                       className="text-[#e364a7] hover:underline ml-0.5 font-medium"
                       disabled={isSubmitting}
                     >
-                      Sign In Here
+                      Sign In
                     </button>
                   </>
                 ) : (
                   <>
-                    New to the orchestration system?{" "}
+                    Don't have an account?{" "}
                     <button
                       onClick={() => triggerAuthSequence("signup")}
                       className="text-[#e364a7] hover:underline ml-0.5 font-medium"
                       disabled={isSubmitting}
                     >
-                      Provision Node
+                      Create One
                     </button>
                   </>
                 )}

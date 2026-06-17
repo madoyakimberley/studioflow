@@ -1,3 +1,4 @@
+import os from "os";
 import path from "path";
 import fs from "fs/promises";
 import { CommandProcessExecutor } from "./CommandProcessExecutor.js";
@@ -5,36 +6,31 @@ import { CommandProcessExecutor } from "./CommandProcessExecutor.js";
 export class MultiStackTemplateScaffolder {
   constructor(projectSlug, manifest) {
     const baseWorkspace =
-      process.env.TARGET_OUTPUT_DIR || "/Users/luna/Sites/work";
-    this.targetPath = path.join(baseWorkspace, this.validateSlug(projectSlug));
+      process.env.TARGET_OUTPUT_DIR ||
+      path.join(os.homedir(), "Downloads", "StudioFlow");
+
+    this.projectSlug = this.validateSlug(projectSlug);
+    this.targetPath = path.join(baseWorkspace, this.projectSlug);
     this.manifest = manifest;
-    this.projectName = manifest.projectName || projectSlug;
+    this.projectName = (manifest.projectName || projectSlug).trim();
 
     this.githubToken = process.env.GITHUB_PAT || process.env.GITHUB_TOKEN;
-    this.githubRemote = `https://github.com/madoyakimberley/${this.validateSlug(projectSlug)}.git`;
+    this.githubRepoUrl = null; // Will be set during repo creation
 
-    this.frontendChoice = this.manifest.frontendFramework || "nextjs";
-    this.backendChoice = this.manifest.backendFramework || "none";
-
-    // ✅ FIXED: Fallback to 'monorepo' if the DB manifest is missing the structure key
-    const structChoice =
-      this.manifest.folderStructure ||
-      this.manifest.folder_structure ||
-      "monorepo";
-    this.isMonorepo = structChoice !== "src_flat";
-
+    const structChoice = this.manifest.folderStructure || "monorepo";
+    this.isMonorepo = structChoice === "monorepo";
     this.deploymentTarget = (
-      this.manifest.deploymentTarget ||
-      this.manifest.deploymentProvider ||
-      this.manifest.deployment ||
-      "none"
+      this.manifest.deploymentTarget || "none"
     ).toLowerCase();
   }
 
   validateSlug(slug) {
-    const safeSlug = slug.toLowerCase().replace(/[^a-z0-9-]/g, "");
-    if (safeSlug !== slug) throw new Error("Invalid slug format.");
-    return safeSlug;
+    if (!slug) return "unnamed-project";
+    return slug
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "");
   }
 
   async verifyClearance() {
@@ -46,475 +42,321 @@ export class MultiStackTemplateScaffolder {
     }
   }
 
-  getFrontendPath() {
-    if (this.isMonorepo) {
-      return this.frontendChoice === "react"
-        ? "apps/dashboard-react"
-        : "apps/web-nextjs";
-    }
-    return this.frontendChoice === "react" ? "client-react" : "client-next";
-  }
+  async processExecutionPipeline() {
+    console.log(`\n⚙️ Setting up project: [${this.projectName}]`);
 
-  getBackendPath() {
-    if (this.backendChoice === "none") return null;
-    if (this.isMonorepo) {
-      if (this.backendChoice === "express") return "services/api-node";
-      if (this.backendChoice === "fastapi") return "services/api-fastapi";
-      if (this.backendChoice === "flask") return "services/service-flask";
-    }
-    return this.backendChoice === "express" ? "server-node" : "server-python";
-  }
-
-  async injectRenderBlueprint() {
-    console.log(
-      ` -> Injecting Render Infrastructure Blueprint (render.yaml)...`,
-    );
-
-    const slug = this.validateSlug(this.manifest.slug || this.projectName);
-
-    let renderYaml = `services:\n`;
-    renderYaml += `  - type: web\n`;
-    renderYaml += `    name: ${this.projectName}-frontend\n`;
-    renderYaml += `    runtime: node\n`;
-    renderYaml += `    plan: free\n`;
-    renderYaml += `    rootDir: .\n`;
-    renderYaml += `    buildCommand: pnpm install && pnpm run build\n`;
-    renderYaml += `    startCommand: pnpm run start\n`;
-    renderYaml += `    healthCheckPath: /\n`;
-    renderYaml += `    autoDeployTrigger: commit\n`;
-    renderYaml += `    envVars:\n`;
-    renderYaml += `      - key: NODE_VERSION\n`;
-    renderYaml += `        value: 20.x\n`;
-    renderYaml += `      - key: PNPM_VERSION\n`;
-    renderYaml += `        value: 9.x\n`;
-
-    const backendPath = this.getBackendPath();
-    if (backendPath) {
-      renderYaml += `\n  - type: web\n`;
-      renderYaml += `    name: ${this.projectName}-backend\n`;
-      renderYaml += `    runtime: python\n`;
-      renderYaml += `    plan: free\n`;
-      renderYaml += `    rootDir: ${backendPath}\n`;
-      renderYaml += `    buildCommand: pip install -r requirements.txt\n`;
-      renderYaml += `    startCommand: python -m gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT\n`;
-      renderYaml += `    healthCheckPath: /api/v1/health\n`;
-      renderYaml += `    autoDeployTrigger: commit\n`;
-      renderYaml += `    envVars:\n`;
-      renderYaml += `      - key: PYTHON_VERSION\n`;
-      renderYaml += `        value: 3.12.0\n`;
-    }
-
-    await fs.writeFile(path.join(this.targetPath, "render.yaml"), renderYaml);
-  }
-
-  async injectRailwayBlueprint() {
-    console.log(
-      ` -> Injecting Railway Infrastructure Blueprint (railway.yaml)...`,
-    );
-
-    let railwayYaml = `services:\n`;
-    railwayYaml += `  ${this.projectName}-frontend:\n`;
-    railwayYaml += `    builder: NIXPACKS\n`;
-    railwayYaml += `    buildCommand: pnpm install && pnpm run build\n`;
-    railwayYaml += `    startCommand: pnpm run start\n`;
-    railwayYaml += `    watch: [${this.getFrontendPath() || "."}]\n`;
-    railwayYaml += `    env:\n`;
-    railwayYaml += `      NODE_VERSION: 20.x\n`;
-    railwayYaml += `      PNPM_VERSION: 9.x\n`;
-
-    const backendPath = this.getBackendPath();
-    if (backendPath) {
-      railwayYaml += `\n  ${this.projectName}-backend:\n`;
-      railwayYaml += `    builder: NIXPACKS\n`;
-      railwayYaml += `    watch: [${backendPath}]\n`;
-      railwayYaml += `    buildCommand: pip install -r requirements.txt\n`;
-      railwayYaml += `    startCommand: python -m gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT\n`;
-      railwayYaml += `    env:\n`;
-      railwayYaml += `      PYTHON_VERSION: 3.12.0\n`;
-    }
-
-    await fs.writeFile(path.join(this.targetPath, "railway.yaml"), railwayYaml);
-  }
-
-  async buildNextjsTree(target) {
-    const dirs = [
-      "public",
-      "src/app/dashboard",
-      "src/app/api",
-      "src/components/ui",
-      "src/components/features",
-      "src/hooks",
-      "src/lib",
-      "src/types",
-    ];
-    for (const d of dirs)
-      await fs.mkdir(path.join(target, d), { recursive: true });
-
-    await fs.writeFile(
-      path.join(target, "src/app/layout.tsx"),
-      `export default function RootLayout({ children }: { children: React.ReactNode }) { return <html lang="en"><body>{children}</body></html>; }`,
-    );
-    await fs.writeFile(
-      path.join(target, "src/app/page.tsx"),
-      `export default function Page() { return <main><h1>Next.js Client</h1></main>; }`,
-    );
-    await fs.writeFile(
-      path.join(target, "src/app/dashboard/page.tsx"),
-      `export default function Dashboard() { return <div>Dashboard</div>; }`,
-    );
-
-    const pkg = {
-      name: "frontend-next",
-      version: "0.1.0",
-      private: true,
-      scripts: {
-        dev: "next dev",
-        build: "next build",
-        start: "next start",
-        lint: "next lint",
-      },
-      dependencies: {
-        next: "15.0.0",
-        react: "^19.0.0",
-        "react-dom": "^19.0.0",
-      },
-      devDependencies: {
-        typescript: "^5",
-        "@types/node": "^20",
-        "@types/react": "^19",
-        "@types/react-dom": "^19",
-      },
-    };
-    await fs.writeFile(
-      path.join(target, "package.json"),
-      JSON.stringify(pkg, null, 2),
-    );
-    await fs.writeFile(
-      path.join(target, "next.config.ts"),
-      `/** @type {import('next').NextConfig} */\nconst nextConfig = {};\nexport default nextConfig;`,
-    );
-  }
-
-  async buildReactTree(target) {
-    const dirs = [
-      "public",
-      "src/assets",
-      "src/components",
-      "src/context",
-      "src/features/auth/components",
-      "src/features/auth/hooks",
-      "src/services",
-    ];
-    for (const d of dirs)
-      await fs.mkdir(path.join(target, d), { recursive: true });
-
-    await fs.writeFile(
-      path.join(target, "src/App.tsx"),
-      `export default function App() { return <div><h1>React SPA</h1></div>; }`,
-    );
-    await fs.writeFile(
-      path.join(target, "src/main.tsx"),
-      `import React from 'react'; import ReactDOM from 'react-dom/client'; import App from './App';\nReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>);`,
-    );
-    await fs.writeFile(
-      path.join(target, "src/features/auth/components/LoginForm.tsx"),
-      `export const LoginForm = () => <form>Login</form>;`,
-    );
-    await fs.writeFile(
-      path.join(target, "src/features/auth/components/SignupForm.tsx"),
-      `export const SignupForm = () => <form>Signup</form>;`,
-    );
-    await fs.writeFile(
-      path.join(target, "src/features/auth/hooks/useAuth.ts"),
-      `export const useAuth = () => ({ user: null });`,
-    );
-    await fs.writeFile(
-      path.join(target, "src/features/auth/authSlice.ts"),
-      `// Redux or Zustand state`,
-    );
-
-    const pkg = {
-      name: "frontend-react",
-      private: true,
-      version: "0.0.0",
-      type: "module",
-      scripts: {
-        dev: "vite",
-        build: "tsc && vite build",
-        preview: "vite preview",
-      },
-      dependencies: { react: "^18.2.0", "react-dom": "^18.2.0" },
-      devDependencies: { typescript: "^5.2.2", vite: "^5.0.8" },
-    };
-    await fs.writeFile(
-      path.join(target, "package.json"),
-      JSON.stringify(pkg, null, 2),
-    );
-    await fs.writeFile(
-      path.join(target, "vite.config.ts"),
-      `import { defineConfig } from 'vite';\nimport react from '@vitejs/plugin-react';\nexport default defineConfig({ plugins: [react()] });`,
-    );
-  }
-
-  async buildExpressTree(target) {
-    const dirs = [
-      "src/config",
-      "src/constants",
-      "src/controllers",
-      "src/middleware",
-      "src/models",
-      "src/routes",
-      "src/services",
-      "src/utils",
-      "tests",
-    ];
-    for (const d of dirs)
-      await fs.mkdir(path.join(target, d), { recursive: true });
-
-    await fs.writeFile(
-      path.join(target, "src/app.js"),
-      `const express = require('express');\nconst app = express();\napp.use(express.json());\napp.get('/api/health', (req, res) => res.json({ status: 'ok' }));\nmodule.exports = app;`,
-    );
-    await fs.writeFile(
-      path.join(target, "server.js"),
-      `const app = require('./src/app');\nconst PORT = process.env.PORT || 8080;\napp.listen(PORT, () => console.log('Server running'));`,
-    );
-    await fs.writeFile(
-      path.join(target, ".env"),
-      `PORT=8080\nNODE_ENV=development`,
-    );
-
-    const pkg = {
-      name: "server-node",
-      version: "1.0.0",
-      main: "server.js",
-      scripts: { start: "node server.js", dev: "nodemon server.js" },
-      dependencies: { express: "^4.18.2", cors: "^2.8.5", dotenv: "^16.3.1" },
-    };
-    await fs.writeFile(
-      path.join(target, "package.json"),
-      JSON.stringify(pkg, null, 2),
-    );
-  }
-
-  async buildFastApiTree(target) {
-    const dirs = [
-      "app/api/v1/endpoints",
-      "app/core",
-      "app/models",
-      "app/schemas",
-      "app/services",
-      "tests",
-      "venv",
-    ];
-    for (const d of dirs)
-      await fs.mkdir(path.join(target, d), { recursive: true });
-
-    await fs.writeFile(path.join(target, "app/__init__.py"), "");
-    await fs.writeFile(path.join(target, "app/api/__init__.py"), "");
-    await fs.writeFile(path.join(target, "app/api/v1/__init__.py"), "");
-
-    await fs.writeFile(
-      path.join(target, "app/api/v1/router.py"),
-      `from fastapi import APIRouter\nrouter = APIRouter()\n@router.get("/health")\ndef health(): return {"status": "ok"}`,
-    );
-    await fs.writeFile(
-      path.join(target, "app/main.py"),
-      `from fastapi import FastAPI\nfrom app.api.v1.router import router\napp = FastAPI()\napp.include_router(router, prefix="/api/v1")`,
-    );
-    await fs.writeFile(
-      path.join(target, "requirements.txt"),
-      `fastapi>=0.110.0\nuvicorn[standard]>=0.28.0\npydantic>=2.6.0\npython-dotenv>=1.0.1\ngunicorn>=23.0.0`,
-    );
-    await fs.writeFile(path.join(target, ".env"), `NODE_ENV=development`);
-  }
-
-  async buildFlaskTree(target) {
-    const dirs = ["src/routes", "src/utils", "tests", "venv"];
-    for (const d of dirs)
-      await fs.mkdir(path.join(target, d), { recursive: true });
-
-    await fs.writeFile(
-      path.join(target, "src/__init__.py"),
-      `from flask import Flask\ndef create_app():\n    app = Flask(__name__)\n    from .routes.legacy_api import bp\n    app.register_blueprint(bp)\n    return app`,
-    );
-    await fs.writeFile(
-      path.join(target, "src/config.py"),
-      `class Config: pass`,
-    );
-    await fs.writeFile(
-      path.join(target, "src/extensions.py"),
-      `# Extensions initialization`,
-    );
-    await fs.writeFile(path.join(target, "src/routes/__init__.py"), ``);
-    await fs.writeFile(
-      path.join(target, "src/routes/webhooks.py"),
-      `# Webhooks`,
-    );
-    await fs.writeFile(
-      path.join(target, "src/routes/legacy_api.py"),
-      `from flask import Blueprint, jsonify\nbp = Blueprint('api', __name__, url_prefix='/api')\n@bp.route('/health')\ndef health(): return jsonify({"status": "ok"})`,
-    );
-    await fs.writeFile(
-      path.join(target, "run.py"),
-      `from src import create_app\napp = create_app()\nif __name__ == '__main__':\n    app.run(port=8080)`,
-    );
-    await fs.writeFile(
-      path.join(target, "requirements.txt"),
-      `Flask>=3.0.0\ngunicorn>=21.2.0\npython-dotenv>=1.0.0`,
-    );
-    await fs.writeFile(path.join(target, ".env"), `FLASK_ENV=development`);
-  }
-
-  async writeBoilerplateFiles() {
     await fs.mkdir(this.targetPath, { recursive: true });
 
-    if (this.isMonorepo) {
-      await fs.writeFile(
-        path.join(this.targetPath, "package.json"),
-        JSON.stringify(
-          {
-            name: this.projectName,
-            private: true,
-            scripts: { dev: "turbo run dev", build: "turbo run build" },
-            devDependencies: { turbo: "latest" },
-          },
-          null,
-          2,
-        ),
-      );
-      await fs.writeFile(
-        path.join(this.targetPath, "turbo.json"),
-        JSON.stringify(
-          {
-            $schema: "https://turbo.build/schema.json",
-            pipeline: {
-              build: {
-                dependsOn: ["^build"],
-                outputs: [".next/**", "dist/**"],
-              },
-              dev: { cache: false },
-            },
-          },
-          null,
-          2,
-        ),
-      );
-      await fs.writeFile(
-        path.join(this.targetPath, "pnpm-workspace.yaml"),
-        `packages:\n  - 'apps/*'\n  - 'services/*'\n  - 'packages/*'`,
-      );
-    } else {
-      // ✅ FIXED: Flat structure needs a basic root boundary so `pnpm install`
-      // doesn't traverse up and install packages in your main /Sites folder
-      await fs.writeFile(
-        path.join(this.targetPath, "package.json"),
-        JSON.stringify(
-          { name: `${this.projectName}-root`, private: true },
-          null,
-          2,
-        ),
-      );
-      await fs.writeFile(
-        path.join(this.targetPath, "pnpm-workspace.yaml"),
-        `packages:\n  - '*'\n`, // Maps pnpm directly to client-* and server-*
-      );
-    }
+    const servicesList = this.manifest.services || [];
 
-    const frontendPathAbs = path.join(this.targetPath, this.getFrontendPath());
-    if (this.frontendChoice === "react") {
-      await this.buildReactTree(frontendPathAbs);
-    } else {
-      await this.buildNextjsTree(frontendPathAbs);
-    }
+    for (const srv of servicesList) {
+      const srvDirName = srv.rootDir || srv.name;
+      const fullSrvPath = path.join(this.targetPath, srvDirName);
 
-    const backendPathRel = this.getBackendPath();
-    if (backendPathRel) {
-      const backendPathAbs = path.join(this.targetPath, backendPathRel);
-      if (this.backendChoice === "express")
-        await this.buildExpressTree(backendPathAbs);
-      else if (this.backendChoice === "fastapi")
-        await this.buildFastApiTree(backendPathAbs);
-      else if (this.backendChoice === "flask")
-        await this.buildFlaskTree(backendPathAbs);
-    }
-
-    if (this.deploymentTarget === "render") {
-      await this.injectRenderBlueprint();
-    } else if (this.deploymentTarget === "railway") {
-      await this.injectRailwayBlueprint();
-    } else {
       console.log(
-        ` -> Skipping deployment blueprint injection (Target is local/none).`,
+        `  -> Creating folder for [${srv.name}] inside /${srvDirName}`,
       );
+      await fs.mkdir(fullSrvPath, { recursive: true });
+
+      if (srv.runtime === "node") {
+        await this.generateNodePackageManifest(fullSrvPath, srv);
+      } else if (srv.runtime === "python") {
+        await this.generatePythonPipManifest(fullSrvPath, srv);
+      } else if (srv.runtime === "go") {
+        await this.generateGoModuleManifest(fullSrvPath, srv);
+      } else if (srv.runtime === "rust") {
+        await this.generateRustCargoManifest(fullSrvPath, srv);
+      } else {
+        await fs.writeFile(
+          path.join(fullSrvPath, "index.html"),
+          `<!DOCTYPE html><html><head><title>${srv.name}</title></head><body><h1>StudioFlow Managed Project</h1></body></html>`,
+        );
+      }
+
+      await this.stubServiceEntryPoint(fullSrvPath, srv);
     }
 
+    await this.injectUniversalInfrastructureBlueprint();
     await this.generateEnvFiles();
+
+    // NEW: Inject the secure .gitignore file right before touching Git
+    await this.generateGitIgnore();
   }
 
-  async provisionPythonEnvironment() {
-    const backendPathRel = this.getBackendPath();
-    if (!backendPathRel) return;
-
-    if (this.backendChoice === "fastapi" || this.backendChoice === "flask") {
-      console.log(
-        `\n -> Initializing isolated Python architecture environment via uv...`,
-      );
-      const apiPath = path.join(this.targetPath, backendPathRel);
-
-      const venvResult = await CommandProcessExecutor.runCommand(
-        "uv venv",
-        apiPath,
-      );
-      if (!venvResult.success) {
-        throw new Error(
-          `uv venv orchestration layer failed: ${venvResult.output}`,
-        );
-      }
-
-      console.log(
-        ` -> Injecting compiled Python package dependencies via uv pip...`,
-      );
-      const pipResult = await CommandProcessExecutor.runCommand(
-        "uv pip install -r requirements.txt",
-        apiPath,
-      );
-      if (!pipResult.success) {
-        throw new Error(
-          `uv pip package optimization dropped: ${pipResult.output}`,
-        );
-      }
-
-      console.log(`✅ Automated Python microservice cleanly provisioned.`);
+  async generateNodePackageManifest(targetDir, spec) {
+    const dependenciesMap = {};
+    if (spec.dependencies) {
+      spec.dependencies.forEach((d) => {
+        dependenciesMap[d.name] = d.version || "latest";
+      });
     }
+
+    const pm = this.manifest.nodePackageManager || "npm";
+
+    // ANTI-INFINITE LOOP SAFEGUARD FOR BUILD:
+    // If the provided build command includes "run build" (meant for the cloud provider),
+    // we strip it from the local package.json to prevent recursive OOM errors.
+    const rawBuildCmd = spec.buildCommand || "echo 'No build script'";
+    let safePkgBuildCmd = rawBuildCmd;
+    if (
+      rawBuildCmd.includes("run build") ||
+      rawBuildCmd.includes("yarn build")
+    ) {
+      safePkgBuildCmd =
+        "echo 'Insert explicit framework compiler here (e.g. next build, tsc)'";
+    }
+
+    // ANTI-INFINITE LOOP SAFEGUARD FOR START:
+    // Same logic applies here! If the user passed "pnpm run start" to the cloud,
+    // we must prevent package.json from pointing back to itself.
+    const rawStartCmd = spec.startCommand || "node index.js";
+    let safePkgStartCmd = rawStartCmd;
+    if (
+      rawStartCmd.includes("run start") ||
+      rawStartCmd.includes("yarn start") ||
+      rawStartCmd.includes("npm start") ||
+      rawStartCmd.includes("pnpm start")
+    ) {
+      safePkgStartCmd = "node index.js"; // Safely fallback to the stub entry point
+    }
+
+    const pkgJson = {
+      name: this.validateSlug(spec.name),
+      version: "1.0.0",
+      description: "StudioFlow managed project",
+      main: "index.js",
+      type: "module",
+      packageManager:
+        pm === "pnpm"
+          ? "pnpm@9.0.0"
+          : pm === "yarn"
+            ? "yarn@4.1.0"
+            : pm === "bun"
+              ? "bun@1.1.0"
+              : "npm@10.5.0",
+      scripts: {
+        build: safePkgBuildCmd,
+        start: safePkgStartCmd,
+      },
+      dependencies: dependenciesMap,
+    };
+
+    await fs.writeFile(
+      path.join(targetDir, "package.json"),
+      JSON.stringify(pkgJson, null, 2),
+    );
+    console.log(`    ✅ Created package.json for [${pm}].`);
+  }
+
+  async generatePythonPipManifest(targetDir, spec) {
+    let reqsContent = "# Required Python Packages\n";
+    if (spec.dependencies && spec.dependencies.length > 0) {
+      spec.dependencies.forEach((d) => {
+        reqsContent += `${d.name}==${d.version.replace(/[^0-9.]/g, "") || "3.0.0"}\n`;
+      });
+    } else {
+      reqsContent += "fastapi==0.111.0\nuvicorn==0.30.1\ngunicorn==22.0.0\n";
+    }
+
+    await fs.writeFile(path.join(targetDir, "requirements.txt"), reqsContent);
+    console.log(`    ✅ Saved requirements.txt`);
+  }
+
+  async generateGoModuleManifest(targetDir, spec) {
+    let goMod = `module ${this.validateSlug(spec.name)}\n\ngo 1.22\n\n`;
+    if (spec.dependencies && spec.dependencies.length > 0) {
+      goMod += "require (\n";
+      spec.dependencies.forEach((d) => {
+        goMod += `\t${d.name} ${d.version}\n`;
+      });
+      goMod += ")\n";
+    }
+    await fs.writeFile(path.join(targetDir, "go.mod"), goMod);
+    console.log(`    ✅ Created go.mod`);
+  }
+
+  async generateRustCargoManifest(targetDir, spec) {
+    let cargoToml = `[package]\nname = "${this.validateSlug(spec.name)}"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\n`;
+    if (spec.dependencies) {
+      spec.dependencies.forEach((d) => {
+        cargoToml += `${d.name} = "${d.version || "*"}"\n`;
+      });
+    }
+    await fs.writeFile(path.join(targetDir, "Cargo.toml"), cargoToml);
+    console.log(`    ✅ Created Cargo.toml`);
+  }
+
+  async stubServiceEntryPoint(targetDir, spec) {
+    if (spec.runtime === "node") {
+      // FIX: Creates an actual persistent HTTP server to prevent Render from exiting early
+      await fs.writeFile(
+        path.join(targetDir, "index.js"),
+        `import http from "http";\n\nconst PORT = process.env.PORT || 10000;\n\nconst server = http.createServer((req, res) => {\n  res.writeHead(200, { "Content-Type": "application/json" });\n  res.end(JSON.stringify({ status: "online", app: "${spec.name}" }));\n});\n\nserver.listen(PORT, "0.0.0.0", () => {\n  console.log("Starting server: ${spec.name} on port " + PORT);\n});\n`,
+      );
+    } else if (spec.runtime === "python") {
+      await fs.writeFile(
+        path.join(targetDir, "main.py"),
+        `import uvicorn\nfrom fastapi import FastAPI\n\napp = FastAPI()\n\n@app.get("/")\ndef read_root():\n    return {"status": "online", "app": "${spec.name}"}\n`,
+      );
+    }
+  }
+
+  async injectUniversalInfrastructureBlueprint() {
+    const rawYaml = this.manifest.blueprintYaml;
+    if (!rawYaml) return;
+
+    let targetFilename = "render.yaml";
+    if (this.deploymentTarget === "railway") targetFilename = "railway.json";
+    if (this.deploymentTarget === "vercel") targetFilename = "vercel.json";
+    if (this.deploymentTarget === "docker_compose")
+      targetFilename = "docker-compose.yml";
+
+    await fs.writeFile(path.join(this.targetPath, targetFilename), rawYaml);
+    console.log(`    ✅ Saved cloud deployment settings to: ${targetFilename}`);
   }
 
   async generateEnvFiles() {
-    console.log(` -> Injecting environment variables...`);
-    let envContent = "";
-    if (process.env.DATABASE_URL) {
+    let envContent = `# StudioFlow Generated Environment File\nPORT=10000\n`;
+    if (process.env.DATABASE_URL)
       envContent += `DATABASE_URL="${process.env.DATABASE_URL}"\n`;
-    }
-    await fs.writeFile(path.join(this.targetPath, ".env.local"), envContent);
+    if (process.env.SMTP_HOST)
+      envContent += `SMTP_HOST="${process.env.SMTP_HOST}"\n`;
+    if (process.env.SMTP_PORT)
+      envContent += `SMTP_PORT="${process.env.SMTP_PORT}"\n`;
+    if (process.env.SMTP_USER)
+      envContent += `SMTP_USER="${process.env.SMTP_USER}"\n`;
+    if (process.env.SMTP_PASS)
+      envContent += `SMTP_PASS="${process.env.SMTP_PASS}"\n`;
+
     await fs.writeFile(path.join(this.targetPath, ".env"), envContent);
+    console.log(`    ✅ Saved .env variables`);
+  }
+
+  // ==========================================
+  // --- SECURITY: IGNORE FILE INJECTION ---
+  // ==========================================
+  async generateGitIgnore() {
+    const gitignoreContent = `# ==============================================================================
+# 1. DEPENDENCIES & PACKAGES (Never commit third-party code)
+# ==============================================================================
+# JavaScript / Node
+node_modules/
+jspm_packages/
+web_modules/
+.npm/
+.yarn/
+.pnpm-store/
+
+# Python
+.venv/
+venv/
+ENV/
+env/
+target/
+.pytest_cache/
+.poetry/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PHP / Ruby / Bundler
+vendor/
+.bundle/
+vendor/bundle/
+
+# Rust / Cargo
+target/
+**/*.rs.bk
+
+# Go
+/vendor/
+
+# ==============================================================================
+# 2. BUILD OUTPUTS, ARTIFACTS & CACHES
+# ==============================================================================
+# General Build Folders
+dist/
+build/
+out/
+bin/
+obj/
+
+# Compiled Binaries & Libraries
+*.exe
+*.dll
+*.so
+*.dylib
+*.app
+*.jar
+*.war
+*.ear
+*.class
+
+# Language-Specific Caches
+.eslintcache
+.tsbuildinfo
+.sass-cache/
+.parcel-cache/
+.next/
+.nuxt/
+.svelte-kit/
+.turbo/
+
+# ==============================================================================
+# 3. ENVIRONMENT SECRETS & CREDENTIALS (CRITICAL SECURITY)
+# ==============================================================================
+.env
+.env.*
+!.env.example
+*.pem
+*.crt
+*.cert
+*.key
+*.pub
+*.pfx
+secrets.toml
+
+# ==============================================================================
+# 4. OS JUNK & LOCAL CONFIGS (Safetynet if not configured globally)
+# ==============================================================================
+.DS_Store
+Thumbs.db
+ehthumbs.db
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln.docstates`;
+
+    await fs.writeFile(
+      path.join(this.targetPath, ".gitignore"),
+      gitignoreContent,
+    );
+    console.log(`    ✅ Created comprehensive .gitignore protection`);
   }
 
   async createGitHubRepo() {
     if (!this.githubToken) {
-      throw new Error(
-        "GITHUB_PAT / GITHUB_TOKEN not found in environment settings. Cannot create repository.",
+      console.log(
+        "⚠️ Skipping GitHub repository creation: No access token provided.",
       );
+      return null;
     }
 
-    console.log(` -> Attempting to create GitHub repository via API...`);
+    const repoSlug = this.validateSlug(this.projectName);
+    console.log(
+      ` -> Attempting to create GitHub repository [${repoSlug}] via API...`,
+    );
     const response = await fetch("https://api.github.com/user/repos", {
       method: "POST",
       headers: {
         Authorization: `token ${this.githubToken}`,
         Accept: "application/vnd.github.v3+json",
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        name: this.validateSlug(this.manifest.slug || this.projectName),
+        name: repoSlug,
         description: `Automatically provisioned via StudioFlow Engine`,
         private: true,
       }),
@@ -522,188 +364,273 @@ export class MultiStackTemplateScaffolder {
 
     if (!response.ok) {
       const errorData = await response.json();
+      if (
+        errorData.errors &&
+        errorData.errors.some(
+          (e) => e.message === "name already exists on this account",
+        )
+      ) {
+        console.log(
+          `⚠️ Repository already exists. Fetching existing remote URL...`,
+        );
+        const userRes = await fetch("https://api.github.com/user", {
+          headers: { Authorization: `token ${this.githubToken}` },
+        });
+        const userData = await userRes.json();
+
+        this.githubRepoUrl = `https://github.com/${userData.login}/${repoSlug}`;
+        return `${this.githubRepoUrl}.git`;
+      }
       throw new Error(`GitHub API Rejected Request: ${errorData.message}`);
     }
-    console.log(`✅ GitHub repository created successfully.`);
-    return true;
+
+    const data = await response.json();
+    console.log(
+      `✅ GitHub repository created successfully at ${data.html_url}`,
+    );
+
+    this.githubRepoUrl = data.html_url; // Store for Cloud APIs
+    return data.clone_url;
   }
 
   async setupGitRepository() {
-    console.log(
-      `\n -> Initializing Git tracking and mapping to remote origin...`,
-    );
-    const gitignoreContent =
-      "node_modules\n.next\ndist\n.env\n.env.local\n.DS_Store\nvenv\n.venv\n__pycache__\n";
-    await fs.writeFile(
-      path.join(this.targetPath, ".gitignore"),
-      gitignoreContent,
-    );
-
-    await this.createGitHubRepo();
-
-    await CommandProcessExecutor.runCommand("git init", this.targetPath);
-    await CommandProcessExecutor.runCommand("git add .", this.targetPath);
-    await CommandProcessExecutor.runCommand(
-      `git commit -m "feat: initial architecture scaffold via StudioFlow engine"`,
-      this.targetPath,
-    );
-    await CommandProcessExecutor.runCommand(
-      "git branch -M main",
-      this.targetPath,
-    );
-    await CommandProcessExecutor.runCommand(
-      `git remote add origin ${this.githubRemote}`,
-      this.targetPath,
-    );
-
-    const pushResult = await CommandProcessExecutor.runCommand(
-      `git push -u origin main`,
-      this.targetPath,
-    );
-    if (!pushResult.success) {
-      throw new Error(`Git Push Failed:\n${pushResult.output}`);
+    if (!this.githubToken) {
+      console.log("⚠️ Skipping GitHub upload: No access token provided.");
+      return;
     }
 
-    return { success: true };
+    const remoteUrl = await this.createGitHubRepo();
+    if (!remoteUrl) return;
+
+    const executor = new CommandProcessExecutor();
+    console.log(` -> Uploading code to GitHub...`);
+
+    await executor.execute("git init", this.targetPath);
+    await executor.execute("git add .", this.targetPath);
+    await executor.execute(
+      'git commit -m "Initial commit: Project setup by StudioFlow"',
+      this.targetPath,
+    );
+    await executor.execute("git branch -M main", this.targetPath);
+
+    await executor
+      .execute(`git remote remove origin`, this.targetPath)
+      .catch(() => {});
+
+    const parsedRemote = remoteUrl.replace(
+      "https://",
+      `https://x-access-token:${this.githubToken}@`,
+    );
+
+    const pushRes = await executor.execute(
+      `git remote add origin ${parsedRemote} && git push -u origin main`,
+      this.targetPath,
+    );
+
+    if (!pushRes.success) {
+      throw new Error(`Failed to push to GitHub: ${pushRes.output}`);
+    } else {
+      console.log(`✅ Uploaded successfully. Keys secured by .gitignore.`);
+    }
   }
 
-  async deployToRenderAPI() {
-    const deployProvider = this.deploymentTarget;
-    if (deployProvider !== "render") {
+  async deployToVercelAPI() {
+    if (this.deploymentTarget !== "vercel") return null;
+
+    const vercelToken = process.env.VERCEL_TOKEN;
+    if (!vercelToken) {
       console.log(
-        `\nℹ️ Deployment target is not Render. Skipping automated remote build trigger.`,
+        `\n⚠️ VERCEL_TOKEN missing from .env. Automated Vercel deployment skipped.`,
       );
       return null;
     }
+
+    if (!this.githubRepoUrl) {
+      console.log(
+        `⚠️ GitHub repository URL not found. Cannot deploy to Vercel.`,
+      );
+      return null;
+    }
+
+    console.log(
+      `\n -> Authenticating with Vercel API to link and deploy project...`,
+    );
+
+    // Extract 'owner/repo' from 'https://github.com/owner/repo'
+    const repoPath = this.githubRepoUrl.split("github.com/")[1];
+
+    const payload = {
+      name: this.projectSlug,
+      framework: null, // Let Vercel auto-detect the framework
+      gitRepository: {
+        type: "github",
+        repo: repoPath,
+      },
+    };
+
+    const res = await fetch("https://api.vercel.com/v9/projects", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${vercelToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      console.error(`    ❌ Vercel Project Link Failed:`, err);
+      return null;
+    }
+
+    console.log(
+      `    ✅ Vercel project connected successfully. Vercel will auto-deploy the main branch.`,
+    );
+    return `https://${this.projectSlug}.vercel.app`;
+  }
+
+  async deployToRenderAPI() {
+    if (this.deploymentTarget !== "render") return null;
 
     const renderApiKey = process.env.RENDER_API_KEY;
     const renderOwnerId = process.env.RENDER_OWNER_ID;
 
     if (!renderApiKey || !renderOwnerId) {
       console.log(
-        `\n⚠️ RENDER_API_KEY or RENDER_OWNER_ID missing from .env. Code pushed to GitHub, but automated Render deployment skipped.`,
+        `\n⚠️ RENDER_API_KEY or RENDER_OWNER_ID missing from .env. Automated Render deployment skipped.`,
+      );
+      return null;
+    }
+
+    if (!this.githubRepoUrl) {
+      console.log(
+        `⚠️ GitHub repository URL not found. Cannot deploy to Render.`,
       );
       return null;
     }
 
     console.log(
-      `\n -> Authenticating with Render REST API to construct cloud nodes...`,
+      `\n -> Authenticating with Render REST API to construct dynamic cloud nodes...`,
     );
 
-    const repoUrl = this.githubRemote.replace(".git", "");
-    const slug = this.validateSlug(this.manifest.slug || this.projectName);
+    const services = this.manifest.services || [];
+    let backendUrl = null;
+    let frontendUrl = null;
 
-    let apiUrl = null;
-    const backendPath = this.getBackendPath();
+    // Sort services: Deploy APIs/Backends first so we can inject their URL into the Frontend
+    const sortedServices = [...services].sort((a, b) => {
+      const aIsApi =
+        a.name.includes("api") ||
+        a.name.includes("core") ||
+        a.runtime !== "node";
+      const bIsApi =
+        b.name.includes("api") ||
+        b.name.includes("core") ||
+        b.runtime !== "node";
+      return aIsApi === bIsApi ? 0 : aIsApi ? -1 : 1;
+    });
 
-    try {
-      if (backendPath) {
-        console.log(` -> Instructing Render to build Backend service...`);
+    for (const srv of sortedServices) {
+      console.log(
+        ` -> Instructing Render to build [${srv.name}] (${srv.runtime})...`,
+      );
 
-        const apiRes = await fetch("https://api.render.com/v1/services", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${renderApiKey}`,
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            type: "web_service",
-            name: `${slug}-backend`,
-            ownerId: renderOwnerId,
-            repo: repoUrl,
-            branch: "main",
-            autoDeploy: "yes", // ✅ FIXED: changed boolean `true` to string `"yes"`
-            rootDir: backendPath,
-            serviceDetails: {
-              env: "python", // ✅ FIXED: changed 'runtime' to 'env' to stop "invalid JSON" error
-              plan: "free",
-              envSpecificDetails: {
-                buildCommand: "pip install -r requirements.txt",
-                startCommand:
-                  "python -m gunicorn app.main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT",
-              },
-            },
-          }),
-        });
+      const isFrontend =
+        srv.name.includes("front") ||
+        srv.name.includes("web") ||
+        srv.name.includes("ui");
+      const envVars = [];
 
-        if (!apiRes.ok) {
-          const err = await apiRes.json();
-          console.error("    ❌ Backend API Creation Failed:", err);
-        } else {
-          const backendData = await apiRes.json();
-          apiUrl =
-            backendData?.service?.serviceDetails?.url ||
-            backendData?.service?.url ||
-            null;
-          console.log(`    ✅ Backend deployment initiated at: ${apiUrl}`);
+      if (srv.runtime === "node") {
+        envVars.push({ key: "NODE_VERSION", value: "20.x" });
+        if (this.manifest.nodePackageManager === "pnpm") {
+          envVars.push({ key: "PNPM_VERSION", value: "9.x" });
         }
+      } else if (srv.runtime === "python") {
+        envVars.push({ key: "PYTHON_VERSION", value: "3.12.0" });
+      } else if (srv.runtime === "go") {
+        envVars.push({ key: "GO_VERSION", value: "1.22.0" });
+      } else if (srv.runtime === "rust") {
+        envVars.push({ key: "RUST_VERSION", value: "1.75.0" });
       }
 
-      console.log(` -> Instructing Render to build Frontend dashboard...`);
+      if (process.env.DATABASE_URL) {
+        envVars.push({ key: "DATABASE_URL", value: process.env.DATABASE_URL });
+      }
 
-      const webRes = await fetch("https://api.render.com/v1/services", {
+      if (isFrontend && backendUrl) {
+        envVars.push({ key: "NEXT_PUBLIC_API_BASE_URL", value: backendUrl });
+      }
+
+      const payload = {
+        type: "web_service",
+        name: `${this.projectSlug}-${srv.name}`,
+        ownerId: renderOwnerId,
+        repo: this.githubRepoUrl,
+        branch: "main",
+        autoDeploy: "yes",
+        rootDir: srv.rootDir || srv.name,
+        serviceDetails: {
+          env:
+            srv.runtime === "node"
+              ? "node"
+              : srv.runtime === "python"
+                ? "python"
+                : srv.runtime === "go"
+                  ? "go"
+                  : srv.runtime === "rust"
+                    ? "rust"
+                    : "docker",
+          plan: "free",
+          envSpecificDetails: {
+            buildCommand: srv.buildCommand || "echo 'No build command'",
+            startCommand: srv.startCommand || "echo 'No start command'",
+          },
+          envVars: envVars,
+        },
+      };
+
+      const res = await fetch("https://api.render.com/v1/services", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${renderApiKey}`,
           Accept: "application/json",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          type: "web_service",
-          name: `${slug}-frontend`,
-          ownerId: renderOwnerId,
-          repo: repoUrl,
-          branch: "main",
-          autoDeploy: "yes", // ✅ FIXED: changed boolean `true` to string `"yes"`
-          rootDir: this.getFrontendPath() || ".",
-          serviceDetails: {
-            env: "node", // ✅ FIXED: changed 'runtime' to 'env' to stop "invalid JSON" error
-            plan: "free",
-            envSpecificDetails: {
-              buildCommand: "pnpm install && pnpm run build",
-              startCommand:
-                this.frontendChoice === "react"
-                  ? "pnpm run preview --port $PORT"
-                  : "pnpm run start",
-            },
-          },
-        }),
+        body: JSON.stringify(payload),
       });
 
-      if (!webRes.ok) {
-        const err = await webRes.json();
-        console.error("    ❌ Frontend Creation Failed:", err);
-        return null;
+      if (!res.ok) {
+        const err = await res.json();
+        console.error(`    ❌ ${srv.name} Creation Failed:`, err);
+      } else {
+        const data = await res.json();
+        const deployedUrl =
+          data?.service?.serviceDetails?.url || data?.service?.url || null;
+        console.log(
+          `    ✅ ${srv.name} deployment initiated at: ${deployedUrl}`,
+        );
+
+        if (isFrontend && !frontendUrl) {
+          frontendUrl = deployedUrl;
+        } else if (!isFrontend && !backendUrl) {
+          backendUrl = deployedUrl;
+        }
       }
-
-      const webData = await webRes.json();
-      const frontendUrl =
-        webData?.service?.serviceDetails?.url ||
-        webData?.service?.url ||
-        `https://${slug}-dashboard.onrender.com`;
-      console.log(`    ✅ Frontend deployment initiated at: ${frontendUrl}`);
-
-      return frontendUrl;
-    } catch (error) {
-      console.error(
-        `    ❌ Render API Connection Dropped:`,
-        error?.message || error,
-      );
-      return null;
     }
-  }
-  async cleanupFailedRun() {
-    const timestamp = Date.now();
-    const failedPath = `${this.targetPath}.failed-${timestamp}`;
-    console.log(
-      `\n⚠️ Scaffolding failed. Moving partial files to ${failedPath}`,
+
+    return (
+      frontendUrl || backendUrl || `https://${this.projectSlug}.onrender.com`
     );
+  }
+
+  async cleanupFailedRun() {
+    const failedPath = `${this.targetPath}.failed-${Date.now()}`;
+    console.log(`\n⚠️ Setup failed. Moving broken files to: ${failedPath}`);
     try {
       await fs.rename(this.targetPath, failedPath);
-      console.log(`✅ Cleanup complete.`);
     } catch (err) {
-      console.error(`❌ Failed to move directory during cleanup:`, err.message);
+      console.error(`❌ Could not move failed files:`, err.message);
     }
   }
 }

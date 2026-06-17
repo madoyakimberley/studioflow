@@ -1,11 +1,16 @@
 {
   "name": "studioflow-cli",
-  "version": "1.0.0",
+  "version": "1.0.5",
   "description": "Universal Multi-Tenant Provisioning Engine",
   "main": "index.js",
+  "type": "module",
   "bin": {
-    "studioflow": "./index.js"
+    "studioflow": "index.js"
   },
+  "files": [
+    "index.js",
+    "src/"
+  ],
   "scripts": {
     "start": "node index.js watch",
     "daemon": "node index.js watch"

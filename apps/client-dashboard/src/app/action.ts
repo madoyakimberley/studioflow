@@ -1,6 +1,12 @@
 "use server";
 
-import { db, projects, provisioningJobs, clients } from "@studioflow/db";
+import {
+  db,
+  projects,
+  provisioningJobs,
+  clients,
+  checklistItems,
+} from "@studioflow/db";
 import { revalidatePath } from "next/cache";
 import Redis from "ioredis";
 import crypto from "crypto";
@@ -25,148 +31,174 @@ try {
   );
 }
 
+export interface UniversalServiceConfig {
+  id: string;
+  name: string;
+  type: "web" | "worker" | "private" | "cron";
+  runtime: string; // 'python', 'node', 'go', 'rust', etc.
+  rootDir: string;
+  buildCommand: string;
+  startCommand: string;
+  dependencies: Array<{ name: string; version: string }>;
+}
+
 export interface UniversalManifestPayload {
   workspaceId: number;
   name: string;
   clientName: string;
+  clientEmail: string; // INJECTED CRITICAL ADJACENCY DATA HANDLER
   brief?: string;
   gitProvider: "github" | "gitlab";
-  techStack: string;
-  database: string;
-  auth: string;
-  folderStructure:
-    | "monorepo"
-    | "src_flat"
-    | "layered_mvc"
-    | "clean_architecture";
-  deploymentTarget:
-    | "vercel"
-    | "railway"
-    | "render"
-    | "aws_amplify"
-    | "docker_compose"
-    | "netlify"
-    | "none";
-  features: string[];
-  priority: "STANDARD" | "HIGH" | "PRIORITY" | "CRITICAL";
-  apiIntegration?: boolean;
+  folderStructure: "monorepo" | "src_flat";
+  deploymentTarget: "render" | "railway" | "vercel" | "docker_compose" | "none";
+  nodePackageManager: "npm" | "pnpm" | "yarn" | "bun"; // Added globally for manifest inheritance
+  services: UniversalServiceConfig[];
+  blueprintYaml: string;
 }
 
 export async function queueProjectProvisioning(
   payload: UniversalManifestPayload,
 ) {
   try {
-    // Structural Integrity Guard
-    if (!payload.name || !payload.workspaceId) {
-      throw new Error(
-        "Validation Guard Trigger Deflection: Required payload tracking nodes omitted.",
-      );
+    if (!payload.name || !payload.clientEmail) {
+      return {
+        success: false,
+        error:
+          "Missing identity markers: Project Name and Client Email required.",
+      };
     }
 
-    // Generate functional slugs for target routing engines
+    // 1. Establish slug and clear duplicates safely
     const projectSlug = payload.name
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)+/g, "");
+      .replace(/[^a-z0-9-]/g, "")
+      .replace(/-+/g, "-");
 
-    const clientSlug = (payload.clientName || "operations-node")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)+/g, "");
+    if (!projectSlug) {
+      return {
+        success: false,
+        error: "Project tracking handle slug generation failure.",
+      };
+    }
 
-    // 1. Locate or Instantiate Client Mapping Layer Registry Context
-    let targetClient = await db.query.clients.findFirst({
-      where: (c, { and, eq }) =>
-        and(eq(c.slug, clientSlug), eq(c.workspaceId, payload.workspaceId)),
+    // 2. Clear or assign client node lookup strings
+    let clientRecord = await db.query.clients.findFirst({
+      where: (c, { eq, and }) =>
+        and(
+          eq(c.workspaceId, payload.workspaceId),
+          eq(c.name, payload.clientName),
+        ),
     });
 
-    if (!targetClient) {
-      // Satisfy complex schema constraints with an isolated, unique platform portal slug
-      const uniquePortalSlug = `${clientSlug}-${crypto.randomBytes(4).toString("hex")}`;
-      // Account for unique email table key index structures securely per workspace context
-      const uniqueInternalEmail = `${clientSlug}-${payload.workspaceId}@studioflow.internal`;
-
-      const [insertedClient] = await db.insert(clients).values({
+    if (!clientRecord) {
+      const clientSlug = payload.clientName
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
+      const [newClient] = await db.insert(clients).values({
         workspaceId: payload.workspaceId,
-        slug: clientSlug,
-        portalSlug: uniquePortalSlug,
-        name: payload.clientName || "Universal Operations Node",
-        email: uniqueInternalEmail,
-        company: payload.clientName || "StudioFlow Enterprise Systems",
-        onboardingCompleted: true,
-      });
-
-      targetClient = {
-        id: insertedClient.insertId,
-        workspaceId: payload.workspaceId,
-        slug: clientSlug,
-        portalSlug: uniquePortalSlug,
         name: payload.clientName,
-        email: uniqueInternalEmail,
+        slug: clientSlug,
+        portalSlug: `${clientSlug}-portal-${crypto.randomBytes(3).toString("hex")}`,
+        email: payload.clientEmail,
         company: payload.clientName,
         onboardingCompleted: true,
-        createdAt: new Date(),
-      };
+      });
+      clientRecord = { id: newClient.insertId } as any;
     }
 
-    // 2. Generates strict cryptographic hash keys for dynamic idempotency validations
-    const idempotencyPayloadString = JSON.stringify({
-      slug: projectSlug,
-      stack: payload.techStack,
-      workspace: payload.workspaceId,
-    });
-
-    const uniqueIdempotencyKey = crypto
-      .createHash("sha256")
-      .update(idempotencyPayloadString)
-      .digest("hex");
-
-    // Defensive Verification Circuit Breaker Check
-    const redundantExecutionCheck = await db.query.provisioningJobs.findFirst({
-      where: (j, { eq }) => eq(j.idempotencyKey, uniqueIdempotencyKey),
-    });
-
-    if (redundantExecutionCheck) {
-      return {
-        success: true,
-        slug: projectSlug,
-        message:
-          "Idempotent Transaction Cache Intercepted. Duplicate task bypass engaged.",
-      };
-    }
-
-    // 3. Initialize primary core project mappings
+    // 3. Inject new universal layout project record
     const [newProject] = await db.insert(projects).values({
       workspaceId: payload.workspaceId,
-      clientId: targetClient.id,
+      clientId: clientRecord!.id,
       name: payload.name,
       slug: projectSlug,
+      clientEmail: payload.clientEmail, // RECORD PERSISTENCE ASSIGNMENT FOR GATEWAY
+      frontendFramework: "universal",
+      backendFramework: "universal",
+      databaseProvider: "dynamic",
+      folderStructure: payload.folderStructure,
+      deploymentTarget: payload.deploymentTarget,
+      universalManifest: {
+        services: payload.services,
+        packageManager: payload.nodePackageManager,
+      } as any, // Schema organically inherits schema keys here
+      blueprintYaml: payload.blueprintYaml,
       status: "planning",
-      paymentStatus: "pending",
-      progressPercentage: 5,
+      progressPercentage: 15,
     });
 
-    // 4. Register automated background runner execution engine manifest job
+    const projectId = newProject.insertId;
+
+    // 4. INJECT PROFESSIONAL TEMPLATE (MVP, Testing, Security)
+    const standardMvpChecklist = [
+      {
+        projectId,
+        title: "Environment Setup (Staging Server Link)",
+        type: "MVP",
+      },
+      { projectId, title: "Database Migration (Schema Logs)", type: "MVP" },
+      { projectId, title: "Domain & SSL Configuration", type: "MVP" },
+      { projectId, title: "Build Automation (CI/CD Logs)", type: "MVP" },
+      {
+        projectId,
+        title: "Component Testing (Unit/Integration Success PDF)",
+        type: "MVP",
+      },
+      {
+        projectId,
+        title: "User Acceptance Testing (UAT Screen Share)",
+        type: "MVP",
+      },
+      {
+        projectId,
+        title: "Cross-Browser Check (Layout Compatibility)",
+        type: "MVP",
+      },
+      {
+        projectId,
+        title: "API Verification (200 OK Responses Proof)",
+        type: "MVP",
+      },
+      {
+        projectId,
+        title: "Authentication Security (Failure & Token Expiry Clip)",
+        type: "MVP",
+      },
+      {
+        projectId,
+        title: "Dependency Audit (0 Critical Vulnerabilities)",
+        type: "MVP",
+      },
+      {
+        projectId,
+        title: "Environment Variables (Hidden Private Keys Proof)",
+        type: "MVP",
+      },
+      { projectId, title: "SQL Injection / XSS Protection Check", type: "MVP" },
+    ];
+
+    await db.insert(checklistItems).values(standardMvpChecklist);
+
+    const uniqueIdempotencyKey = `job_${crypto.randomBytes(16).toString("hex")}`;
+
+    // 5. Save provisioning engine manifest job entry
     await db.insert(provisioningJobs).values({
-      projectId: newProject.insertId,
+      projectId: projectId,
       idempotencyKey: uniqueIdempotencyKey,
       status: "pending",
       manifest: {
         projectName: payload.name,
         slug: projectSlug,
         gitProvider: payload.gitProvider,
-        techStack: payload.techStack,
-        database: payload.database,
-        auth: payload.auth,
         folderStructure: payload.folderStructure,
         deploymentTarget: payload.deploymentTarget,
-        apiIntegration: payload.apiIntegration || false,
-        features: payload.features,
-        priority: payload.priority,
-      },
+        nodePackageManager: payload.nodePackageManager,
+        services: payload.services,
+        blueprintYaml: payload.blueprintYaml,
+      } as any,
     });
 
-    // 5. Instantly notify orchestrator CLI daemon nodes via Redis PubSub matrix if online
+    // 6. Instantly notify orchestrator CLI daemon nodes via Redis PubSub matrix if online
     if (redis && redis.status === "ready") {
       await redis.publish(
         "provisioning_queue",
