@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { db, projects, provisioningJobs } from "@studioflow/db";
+import { db, projects, provisioningJobs, checklistItems } from "@studioflow/db";
 import { desc, inArray, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import SidebarConsole from "../../../components/SidebarConsole";
@@ -35,6 +35,12 @@ export default async function SystemsOverviewDashboard({
       .where(inArray(provisioningJobs.projectId, projectIds))
       .orderBy(desc(provisioningJobs.id));
 
+    const allChecklistItems = await db
+      .select()
+      .from(checklistItems)
+      .where(inArray(checklistItems.projectId, projectIds))
+      .orderBy(checklistItems.id);
+
     // Convert secondary datasets to indexed hash mappings (O(N))
     const jobsMap = new Map<number, any[]>();
     for (const job of allJobs) {
@@ -44,10 +50,19 @@ export default async function SystemsOverviewDashboard({
       jobsMap.get(job.projectId)!.push(job);
     }
 
+    const checklistMap = new Map<number, any[]>();
+    for (const item of allChecklistItems) {
+      if (!checklistMap.has(item.projectId)) {
+        checklistMap.set(item.projectId, []);
+      }
+      checklistMap.get(item.projectId)!.push(item);
+    }
+
     // Direct mapping configuration deployment (O(M))
     activeProjectsList = fetchedProjects.map((project) => ({
       ...project,
       jobs: jobsMap.get(project.id) || [],
+      checklist: checklistMap.get(project.id) || [],
     }));
   }
 
@@ -66,6 +81,7 @@ export default async function SystemsOverviewDashboard({
         )
       : 100;
 
+  // Server Actions for System Dashboard
   async function deleteProjectAction(formData: FormData) {
     "use server";
     try {
@@ -112,6 +128,26 @@ export default async function SystemsOverviewDashboard({
         "[CRITICAL RE-PROVISION SYSTEM TERMINATION RE-TRIGGER]: ",
         e,
       );
+    }
+  }
+
+  async function submitDevProofAction(formData: FormData) {
+    "use server";
+    try {
+      const itemId = Number(formData.get("itemId"));
+      const proofUrl = formData.get("proofUrl")?.toString();
+      const userSlug = formData.get("userSlug")?.toString();
+
+      if (!itemId || !proofUrl) return;
+
+      await db
+        .update(checklistItems)
+        .set({ status: "pending_client_review", proofUrl: proofUrl })
+        .where(eq(checklistItems.id, itemId));
+
+      revalidatePath(`/dashboard/${userSlug}`);
+    } catch (e) {
+      console.error("[FAILED TO SUBMIT MVP PROOF]: ", e);
     }
   }
 
@@ -407,139 +443,247 @@ export default async function SystemsOverviewDashboard({
                       return (
                         <div
                           key={project.id}
-                          className="p-3.5 md:p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-[rgba(175,186,255,0.1)] last:border-0 hover:bg-[rgba(175,186,255,0.03)] transition-colors"
+                          className="p-3.5 md:p-4 flex flex-col border-b border-[rgba(175,186,255,0.1)] last:border-0 hover:bg-[rgba(175,186,255,0.03)] transition-colors"
                         >
-                          <div className="space-y-1 flex-1">
-                            <div className="flex items-center gap-2.5 flex-wrap">
-                              <Link
-                                href={`/projects/${project.slug}`}
-                                className="headline-sm text-[#e0e2ec] hover:text-[#d3d7ff] transition text-sm md:text-base"
-                              >
-                                {project.name}
-                              </Link>
-                              <span className="mono-code bg-[#1d2027] text-[#c6c5d1] border border-[#32353d] px-1.5 py-0.5 rounded text-[9px]">
-                                apps/{project.slug}
-                              </span>
-                            </div>
-
-                            <div className="body-md text-[#c6c5d1] flex items-center gap-3 text-[11px] flex-wrap">
-                              <div className="flex items-center gap-2">
-                                <span>State Assessment Matrix:</span>
-                                <span
-                                  className={`status-badge ${project.status === "paused" ? "status-paused" : isUnhealthy ? "status-unhealthy" : "status-active"}`}
+                          {/* TOP ROW: Infrastructure & Controls */}
+                          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                            <div className="space-y-1 flex-1">
+                              <div className="flex items-center gap-2.5 flex-wrap">
+                                <Link
+                                  href={`/dashboard/${user}/projects/${project.slug}`}
+                                  className="headline-sm text-[#e0e2ec] hover:text-[#d3d7ff] transition text-sm md:text-base"
                                 >
-                                  {project.status}
+                                  {project.name}
+                                </Link>
+                                <span className="mono-code bg-[#1d2027] text-[#c6c5d1] border border-[#32353d] px-1.5 py-0.5 rounded text-[9px]">
+                                  apps/{project.slug}
                                 </span>
                               </div>
 
-                              {/* NEW PORTAL LINK & EMAIL BUTTON */}
-                              <div className="ml-1 flex items-center gap-3 border-l border-[rgba(175,186,255,0.1)] pl-3">
-                                <Link
-                                  href={`/portal/${project.slug}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1 text-[#e8b3ff] hover:underline text-[10px]"
-                                >
-                                  <span className="material-symbols-outlined text-[11px]">
-                                    open_in_new
+                              <div className="body-md text-[#c6c5d1] flex items-center gap-3 text-[11px] flex-wrap">
+                                <div className="flex items-center gap-2">
+                                  <span>State Assessment Matrix:</span>
+                                  <span
+                                    className={`status-badge ${project.status === "paused" ? "status-paused" : isUnhealthy ? "status-unhealthy" : "status-active"}`}
+                                  >
+                                    {project.status}
                                   </span>
-                                  Live Link
-                                </Link>
+                                </div>
 
-                                <SendPortalLinkButton
-                                  clientEmail={project.clientEmail || ""}
-                                  projectSlug={project.slug}
-                                  projectName={project.name}
-                                />
+                                {/* PORTAL LINK & EMAIL BUTTON */}
+                                <div className="ml-1 flex items-center gap-3 border-l border-[rgba(175,186,255,0.1)] pl-3">
+                                  {/* <Link
+                                    href={`https://${project.slug}.studioflow.dev`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1 text-[#e8b3ff] hover:underline text-[10px]"
+                                  >
+                                    <span className="material-symbols-outlined text-[11px]">
+                                      open_in_new
+                                    </span>
+                                    Live Link
+                                  </Link> */}
+
+                                  <SendPortalLinkButton
+                                    clientEmail={project.clientEmail || ""}
+                                    projectSlug={project.slug}
+                                    projectName={project.name}
+                                  />
+                                </div>
                               </div>
                             </div>
-                          </div>
 
-                          <div className="flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-5 w-full md:w-auto">
-                            <div className="text-left md:text-right space-y-0.5">
-                              <div className="label-caps text-[#94a3b8] text-[8px]">
-                                Pipeline State
+                            <div className="flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-5 w-full md:w-auto">
+                              <div className="text-left md:text-right space-y-0.5">
+                                <div className="label-caps text-[#94a3b8] text-[8px]">
+                                  Pipeline State
+                                </div>
+                                <span
+                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] label-caps border ${isUnhealthy ? "bg-[rgba(255,180,171,0.06)] text-[#ffb4ab] border-[rgba(255,180,171,0.15)]" : currentJob?.status === "completed" ? "bg-[#1d2027] text-[#c6c5d1] border-[#32353d]" : "bg-[#1d2027] text-[#d3d7ff] border-[#32353d]"}`}
+                                >
+                                  <div
+                                    className={`w-1 h-1 rounded-full ${isUnhealthy ? "bg-[#ffb4ab]" : currentJob?.status === "completed" ? "bg-[#90909b]" : "bg-[#d3d7ff] animate-pulse"}`}
+                                  />
+                                  {isUnhealthy
+                                    ? "CRITICAL_FAIL"
+                                    : currentJob?.status || "QUEUED"}
+                                </span>
                               </div>
-                              <span
-                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] label-caps border ${isUnhealthy ? "bg-[rgba(255,180,171,0.06)] text-[#ffb4ab] border-[rgba(255,180,171,0.15)]" : currentJob?.status === "completed" ? "bg-[#1d2027] text-[#c6c5d1] border-[#32353d]" : "bg-[#1d2027] text-[#d3d7ff] border-[#32353d]"}`}
-                              >
+
+                              <div className="w-20 md:w-24 bg-[#1d2027] h-1 rounded-full overflow-hidden border border-[#32353d] shrink-0">
                                 <div
-                                  className={`w-1 h-1 rounded-full ${isUnhealthy ? "bg-[#ffb4ab]" : currentJob?.status === "completed" ? "bg-[#90909b]" : "bg-[#d3d7ff] animate-pulse"}`}
+                                  className={`h-full transition-all duration-500 ${project.status === "paused" ? "bg-[#ffcaf5]" : isUnhealthy ? "bg-[#ffb4ab]" : "bg-gradient-to-r from-[#d3d7ff] to-[#ecb6e2]"}`}
+                                  style={{
+                                    width: `${project.progressPercentage}%`,
+                                  }}
                                 />
-                                {isUnhealthy
-                                  ? "CRITICAL_FAIL"
-                                  : currentJob?.status || "QUEUED"}
-                              </span>
-                            </div>
+                              </div>
 
-                            <div className="w-20 md:w-24 bg-[#1d2027] h-1 rounded-full overflow-hidden border border-[#32353d] shrink-0">
-                              <div
-                                className={`h-full transition-all duration-500 ${project.status === "paused" ? "bg-[#ffcaf5]" : isUnhealthy ? "bg-[#ffb4ab]" : "bg-gradient-to-r from-[#d3d7ff] to-[#ecb6e2]"}`}
-                                style={{
-                                  width: `${project.progressPercentage}%`,
-                                }}
-                              />
-                            </div>
-
-                            <div className="flex items-center gap-0.5 md:pl-3 md:border-l md:border-[rgba(175,186,255,0.1)]">
-                              <form
-                                action={
-                                  project.status === "paused"
-                                    ? updateProjectAction
-                                    : pauseProjectAction
-                                }
-                              >
-                                <input
-                                  type="hidden"
-                                  name="id"
-                                  value={project.id}
-                                />
-                                <button
-                                  type="submit"
-                                  disabled={isUnhealthy}
-                                  className="p-1 text-[#c6c5d1] hover:text-[#e0e2ec] hover:bg-[#32353d] rounded transition disabled:opacity-50"
+                              <div className="flex items-center gap-0.5 md:pl-3 md:border-l md:border-[rgba(175,186,255,0.1)]">
+                                <form
+                                  action={
+                                    project.status === "paused"
+                                      ? updateProjectAction
+                                      : pauseProjectAction
+                                  }
                                 >
-                                  <span className="material-symbols-outlined text-sm">
-                                    {project.status === "paused"
-                                      ? "play_arrow"
-                                      : "pause"}
-                                  </span>
-                                </button>
-                              </form>
+                                  <input
+                                    type="hidden"
+                                    name="id"
+                                    value={project.id}
+                                  />
+                                  <button
+                                    type="submit"
+                                    disabled={isUnhealthy}
+                                    className="p-1 text-[#c6c5d1] hover:text-[#e0e2ec] hover:bg-[#32353d] rounded transition disabled:opacity-50"
+                                  >
+                                    <span className="material-symbols-outlined text-sm">
+                                      {project.status === "paused"
+                                        ? "play_arrow"
+                                        : "pause"}
+                                    </span>
+                                  </button>
+                                </form>
 
-                              <form action={updateProjectAction}>
-                                <input
-                                  type="hidden"
-                                  name="id"
-                                  value={project.id}
-                                />
-                                <button
-                                  type="submit"
-                                  className="p-1 text-[#c6c5d1] hover:text-[#e0e2ec] hover:bg-[#32353d] rounded transition"
-                                >
-                                  <span className="material-symbols-outlined text-sm">
-                                    refresh
-                                  </span>
-                                </button>
-                              </form>
+                                <form action={updateProjectAction}>
+                                  <input
+                                    type="hidden"
+                                    name="id"
+                                    value={project.id}
+                                  />
+                                  <button
+                                    type="submit"
+                                    className="p-1 text-[#c6c5d1] hover:text-[#e0e2ec] hover:bg-[#32353d] rounded transition"
+                                  >
+                                    <span className="material-symbols-outlined text-sm">
+                                      refresh
+                                    </span>
+                                  </button>
+                                </form>
 
-                              <form action={deleteProjectAction}>
-                                <input
-                                  type="hidden"
-                                  name="id"
-                                  value={project.id}
-                                />
-                                <button
-                                  type="submit"
-                                  className="p-1 text-[#c6c5d1] hover:text-[#ffb4ab] hover:bg-[rgba(255,180,171,0.06)] rounded transition"
-                                >
-                                  <span className="material-symbols-outlined text-sm">
-                                    delete
-                                  </span>
-                                </button>
-                              </form>
+                                <form action={deleteProjectAction}>
+                                  <input
+                                    type="hidden"
+                                    name="id"
+                                    value={project.id}
+                                  />
+                                  <button
+                                    type="submit"
+                                    className="p-1 text-[#c6c5d1] hover:text-[#ffb4ab] hover:bg-[rgba(255,180,171,0.06)] rounded transition"
+                                  >
+                                    <span className="material-symbols-outlined text-sm">
+                                      delete
+                                    </span>
+                                  </button>
+                                </form>
+                              </div>
                             </div>
                           </div>
+
+                          {/* BOTTOM ROW: MVP Checklist & Proof Submission */}
+                          {project.checklist &&
+                            project.checklist.length > 0 && (
+                              <div className="mt-4 pt-4 border-t border-[rgba(175,186,255,0.05)]">
+                                <h4 className="label-caps text-[#c6c5d1] mb-3 opacity-80 flex items-center gap-2">
+                                  <span className="material-symbols-outlined text-[14px]">
+                                    checklist
+                                  </span>
+                                  Project Scope & MVP Proofing
+                                </h4>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  {project.checklist.map((item: any) => (
+                                    <div
+                                      key={item.id}
+                                      className="bg-[#12151d] border border-[rgba(175,186,255,0.05)] p-3 rounded-lg flex flex-col gap-2 transition hover:border-[rgba(175,186,255,0.15)]"
+                                    >
+                                      <div className="flex justify-between items-start gap-2">
+                                        <span className="text-xs text-[#e0e2ec] font-medium leading-tight">
+                                          {item.title}
+                                        </span>
+                                        <span
+                                          className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${item.type === "MVP" ? "bg-[#8b5cf6]/10 text-[#c084fc]" : "bg-cyan-400/10 text-cyan-400"}`}
+                                        >
+                                          {item.type}
+                                        </span>
+                                      </div>
+
+                                      {item.status === "pending" ? (
+                                        <form
+                                          action={submitDevProofAction}
+                                          className="flex gap-2 mt-1"
+                                        >
+                                          <input
+                                            type="hidden"
+                                            name="itemId"
+                                            value={item.id}
+                                          />
+                                          <input
+                                            type="hidden"
+                                            name="userSlug"
+                                            value={user}
+                                          />
+                                          <input
+                                            type="url"
+                                            name="proofUrl"
+                                            required
+                                            placeholder="Paste proof URL (Loom, GitHub, Link)"
+                                            className="flex-1 bg-[#1d2027] border border-[#32353d] rounded px-2 py-1.5 text-[10px] text-[#e0e2ec] focus:outline-none focus:border-[#8b5cf6] placeholder:text-[#94a3b8]/50"
+                                          />
+                                          <button
+                                            type="submit"
+                                            className="bg-gradient-to-r from-[#8b5cf6] to-[#a855f7] hover:from-[#7c3aed] hover:to-[#9333ea] text-white px-3 py-1.5 rounded text-[10px] font-medium transition shadow-sm"
+                                          >
+                                            Submit
+                                          </button>
+                                        </form>
+                                      ) : item.status ===
+                                        "pending_client_review" ? (
+                                        <div className="flex items-center gap-1.5 mt-1 bg-[#1d2027]/50 rounded py-1 px-2 border border-[#32353d]/50">
+                                          <span className="material-symbols-outlined text-amber-400 text-[14px]">
+                                            hourglass_empty
+                                          </span>
+                                          <span className="text-[10px] text-amber-400 font-medium">
+                                            Awaiting Client Approval
+                                          </span>
+                                          <a
+                                            href={item.proofUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="ml-auto text-[10px] text-[#94a3b8] hover:text-[#e0e2ec] flex items-center gap-1"
+                                          >
+                                            View Proof{" "}
+                                            <span className="material-symbols-outlined text-[12px]">
+                                              open_in_new
+                                            </span>
+                                          </a>
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center gap-1.5 mt-1 bg-emerald-400/5 rounded py-1 px-2 border border-emerald-400/10">
+                                          <span className="material-symbols-outlined text-emerald-400 text-[14px]">
+                                            check_circle
+                                          </span>
+                                          <span className="text-[10px] text-emerald-400 font-medium">
+                                            Approved by Client
+                                          </span>
+                                          <a
+                                            href={item.proofUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="ml-auto text-[10px] text-[#94a3b8] hover:text-[#e0e2ec] flex items-center gap-1"
+                                          >
+                                            Archive Link{" "}
+                                            <span className="material-symbols-outlined text-[12px]">
+                                              open_in_new
+                                            </span>
+                                          </a>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                         </div>
                       );
                     })}

@@ -1,43 +1,23 @@
 import React from "react";
-import { db, projectAssets, projects } from "@studioflow/db";
-import { desc, eq } from "drizzle-orm";
+import Link from "next/link";
+import { db, projects } from "@studioflow/db";
 import SidebarConsole from "../../../../components/SidebarConsole"; // Adjust import path
-import AssetVaultClient from "../../../../components/AssetVaultClient"; // Adjust import path
 
 export const dynamic = "force-dynamic";
 
-export default async function DevAssetDashboard({
+export default async function ProjectsAssetDirectory({
   params,
 }: {
-  params: Promise<{ user: string; projectId?: string }>;
+  params: Promise<{ user: string }>;
 }) {
-  const { user, projectId } = await params;
+  const { user } = await params;
 
-  // Hardcoded fallback to 1 so it doesn't crash if you put this in a global route without a projectId yet.
-  // Change this logic to map to how you select projects in the UI.
-  const currentProjectId = projectId ? Number(projectId) : 1;
-
-  // 1. Fetch exact project context
-  const projectContext = await db.query.projects.findFirst({
-    where: eq(projects.id, currentProjectId),
-  });
-
-  // 2. Fetch all related assets for this project securely on the server
-  const fetchedAssets = await db
-    .select()
-    .from(projectAssets)
-    .where(eq(projectAssets.projectId, currentProjectId))
-    .orderBy(desc(projectAssets.createdAt));
-
-  const clientUploadsCount = fetchedAssets.filter(
-    (a) => a.uploadedBy === "client",
-  ).length;
+  // Fetch ALL projects to display in the directory
+  const allProjects = await db.query.projects.findMany();
 
   return (
     <>
-      {/* EXACT STYLES FROM YOUR page.tsx TEMPLATE 
-        Maintained word-for-word for visual continuity
-      */}
+      {/* Retaining your exact styling system */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
@@ -66,10 +46,13 @@ export default async function DevAssetDashboard({
           background: rgba(20, 24, 36, 0.35);
           backdrop-filter: blur(12px);
           border: 1px solid rgba(175, 186, 255, 0.08);
+          transition: all 0.2s ease-in-out;
         }
 
         .glass-card:hover {
-          border-color: rgba(175, 186, 255, 0.18);
+          border-color: rgba(175, 186, 255, 0.25);
+          background: rgba(30, 36, 54, 0.45);
+          transform: translateY(-2px);
         }
 
         .lilac-gradient {
@@ -85,13 +68,6 @@ export default async function DevAssetDashboard({
           font-weight: 600;
           line-height: 1.2;
           letter-spacing: -0.01em;
-        }
-
-        .headline-sm {
-          font-family: 'Playfair Display', serif;
-          font-size: 18px;
-          font-weight: 500;
-          line-height: 1.3;
         }
 
         .label-caps {
@@ -138,53 +114,19 @@ export default async function DevAssetDashboard({
           background: rgba(175, 186, 255, 0.15);
           border-radius: 10px;
         }
-
-        .grid-overlay {
-          position: absolute;
-          inset: 0;
-          opacity: 0.02;
-          pointer-events: none;
-          background-image: radial-gradient(#afbaff 0.5px, transparent 0.5px);
-          background-size: 24px 24px;
-        }
-
-        .status-badge {
-          font-size: 9px;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-          padding: 0.2rem 0.5rem;
-          border-radius: 0.375rem;
-        }
-
-        .status-active {
-          background-color: rgba(210, 167, 255, 0.08);
-          color: #d3d7ff;
-        }
-
-        .status-paused {
-          background-color: rgba(255, 202, 245, 0.08);
-          color: #ffcaf5;
-        }
-
-        .status-unhealthy {
-          background-color: rgba(255, 180, 171, 0.08);
-          color: #ffb4ab;
-        }
       `}</style>
 
       <div className="flex h-screen overflow-hidden bg-[#0c0f16]">
-        {/* Keeping the SideBar identical */}
         <SidebarConsole userSlug={user} />
 
         <main className="flex-1 overflow-y-auto custom-scrollbar relative">
           <header className="h-auto min-h-14 py-3 px-4 md:px-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[rgba(175,186,255,0.1)] sticky top-0 bg-[#0c0f16]/90 backdrop-blur-md z-40">
             <div className="flex-1 min-w-0 pt-0.5">
               <h1 className="headline-lg text-[#e0e2ec] text-sm sm:text-base md:text-lg break-words">
-                Development Asset Gateway
+                Global Asset Matrix
               </h1>
               <p className="label-caps text-[8px] text-[#94a3b8] mt-1 opacity-70 hidden md:block">
-                Project Matrix: {projectContext?.name || "Global Scope"}
+                Select a project to access its vault
               </p>
             </div>
 
@@ -194,77 +136,64 @@ export default async function DevAssetDashboard({
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#afbaff]"></span>
               </span>
               <span className="mono-code text-[#afbaff] text-[10px]">
-                Bi-Directional Sync: Secure
+                Directory Matrix: Active
               </span>
             </div>
           </header>
 
           <div className="max-w-6xl mx-auto px-4 md:px-8 py-6 md:py-10">
-            {/* The Metric Blocks adapted from your Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5 mb-8 md:mb-10">
-              <div className="glass-card p-4 md:p-5 rounded-xl relative overflow-hidden group">
-                <div className="glow-point -top-10 -right-10"></div>
-                <div className="flex flex-col h-full relative z-10">
-                  <h3 className="label-caps text-[#c6c5d1] mb-2 opacity-80">
-                    Total Vault Records
-                  </h3>
-                  <div className="flex items-baseline gap-2 mb-2">
-                    <span className="headline-lg lilac-gradient text-2xl md:text-3xl">
-                      {fetchedAssets.length}
-                    </span>
-                    <span
-                      className="material-symbols-outlined text-[#d3d7ff] text-lg"
-                      style={{ fontVariationSettings: "'FILL' 1" }}
-                    >
-                      source
-                    </span>
-                  </div>
-                  <div className="mt-auto flex items-center gap-1.5 text-[#d3d7ff]/70 text-[11px]">
-                    <span className="material-symbols-outlined text-[11px]">
-                      subdirectory_arrow_right
-                    </span>
-                    <p className="body-md italic text-[11px]">
-                      Assets registered across both endpoints
-                    </p>
-                  </div>
-                </div>
+            {allProjects.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 glass-card rounded-xl">
+                <span className="material-symbols-outlined text-[#94a3b8] text-4xl mb-4">
+                  folder_off
+                </span>
+                <p className="body-md text-[#94a3b8]">
+                  No projects found in the matrix.
+                </p>
               </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                {allProjects.map((project) => (
+                  <Link
+                    key={project.id}
+                    href={`/dashboard/${user}/assets/${project.id}`}
+                    className="glass-card p-5 md:p-6 rounded-xl relative overflow-hidden group cursor-pointer flex flex-col h-full"
+                  >
+                    <div className="glow-point -top-10 -right-10 transition-opacity duration-300 opacity-50 group-hover:opacity-100"></div>
 
-              <div className="glass-card p-4 md:p-5 rounded-xl relative overflow-hidden group">
-                <div className="glow-point -bottom-10 -left-10 opacity-50"></div>
-                <div className="flex flex-col h-full relative z-10">
-                  <h3 className="label-caps text-[#c6c5d1] mb-2 opacity-80">
-                    Client Payload Drops
-                  </h3>
-                  <div className="flex items-baseline gap-2 mb-2">
-                    <span className="headline-lg lilac-gradient text-2xl md:text-3xl">
-                      {clientUploadsCount}
-                    </span>
-                    <span
-                      className="material-symbols-outlined text-[#e8b3ff] text-lg"
-                      style={{ fontVariationSettings: "'FILL' 1" }}
-                    >
-                      file_download
-                    </span>
-                  </div>
-                  <div className="mt-auto flex items-center gap-1.5 text-[#e8b3ff]/70 text-[11px]">
-                    <span className="material-symbols-outlined text-[11px]">
-                      subdirectory_arrow_right
-                    </span>
-                    <p className="body-md italic text-[11px]">
-                      Files originating from external client portal
-                    </p>
-                  </div>
-                </div>
+                    <div className="flex items-start justify-between mb-4 relative z-10">
+                      <div className="bg-[rgba(175,186,255,0.08)] p-2 rounded-lg">
+                        <span className="material-symbols-outlined text-[#afbaff]">
+                          folder_open
+                        </span>
+                      </div>
+                      <span className="label-caps text-[#c6c5d1] opacity-60">
+                        ID: {project.id}
+                      </span>
+                    </div>
+
+                    <div className="relative z-10 flex-grow">
+                      <h3 className="headline-lg lilac-gradient text-xl mb-2 line-clamp-2">
+                        {project.name || "Unnamed Project"}
+                      </h3>
+                      <p className="body-md text-[#94a3b8] line-clamp-2 text-[12px]">
+                        Project initialized:{" "}
+                        {project.createdAt
+                          ? new Date(project.createdAt).toLocaleDateString()
+                          : "Active"}
+                      </p>
+                    </div>
+
+                    <div className="mt-6 flex items-center gap-1.5 text-[#d3d7ff] text-[11px] relative z-10 group-hover:translate-x-1 transition-transform">
+                      <span className="label-caps">Open Vault</span>
+                      <span className="material-symbols-outlined text-[14px]">
+                        arrow_forward
+                      </span>
+                    </div>
+                  </Link>
+                ))}
               </div>
-            </div>
-
-            {/* Render the Interactive Upload & Grid Component */}
-            <AssetVaultClient
-              initialAssets={fetchedAssets}
-              projectId={currentProjectId}
-              userRole="admin"
-            />
+            )}
           </div>
         </main>
       </div>

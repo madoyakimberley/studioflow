@@ -179,66 +179,11 @@ function EnvironmentSetupForm() {
           </div>
 
           <div className="bg-[#0b101d] border border-slate-800 rounded-xl p-6 space-y-6">
-            {/* Step 1: Download */}
+            {/* Step 1: Install CLI */}
             <div className="space-y-2">
               <h3 className="text-xs font-bold text-[#dac5ff] uppercase tracking-wider flex items-center gap-2">
                 <span className="w-5 h-5 rounded-full bg-[#dac5ff]/20 flex items-center justify-center text-[#dac5ff]">
                   1
-                </span>
-                Download Your Keys
-              </h3>
-              <p className="text-xs text-slate-400 font-mono pl-7">
-                Download the master `.env` file pre-configured with all your
-                inputs.
-              </p>
-              <div className="pl-7 pt-2">
-                <button
-                  onClick={downloadGlobalEnv}
-                  className="bg-[#161f33] hover:bg-[#1c2842] border border-slate-700 text-white text-xs font-mono py-2 px-4 rounded-lg transition flex items-center gap-2"
-                >
-                  <Download className="w-4 h-4" /> Download .env File
-                </button>
-              </div>
-            </div>
-
-            {/* Step 2: Placement */}
-            <div className="space-y-2">
-              <h3 className="text-xs font-bold text-[#dac5ff] uppercase tracking-wider flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-[#dac5ff]/20 flex items-center justify-center text-[#dac5ff]">
-                  2
-                </span>
-                Place it in Headquarters
-              </h3>
-              <p className="text-xs text-slate-400 font-mono pl-7">
-                Move the downloaded `.env` file directly into your chosen
-                workspace projects directory:
-              </p>
-              <div className="pl-7 relative">
-                <div className="bg-black border border-slate-800 rounded-lg p-3 flex justify-between items-center">
-                  <code className="text-cyan-400 text-[11px] font-mono">
-                    {formData.targetOutputDir || "~/StudioFlow/projects"}
-                  </code>
-                  <button
-                    onClick={() =>
-                      copyToClipboard(
-                        formData.targetOutputDir || "~/StudioFlow/projects",
-                        "Directory path copied!",
-                      )
-                    }
-                    className="text-slate-500 hover:text-white transition"
-                    title="Copy path"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Step 3: Install CLI */}
-            <div className="space-y-2">
-              <h3 className="text-xs font-bold text-[#dac5ff] uppercase tracking-wider flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-[#dac5ff]/20 flex items-center justify-center text-[#dac5ff]">
-                  3
                 </span>
                 Install the StudioFlow CLI Global Engine
               </h3>
@@ -267,11 +212,101 @@ function EnvironmentSetupForm() {
               </div>
             </div>
 
-            {/* Step 4: Boot */}
+            {/* Step 2: Download */}
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold text-[#dac5ff] uppercase tracking-wider flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-[#dac5ff]/20 flex items-center justify-center text-[#dac5ff]">
+                  2
+                </span>
+                Download Your Keys
+              </h3>
+              <p className="text-xs text-slate-400 font-mono pl-7">
+                Download the master configuration file pre-configured with all
+                your inputs.
+              </p>
+              <div className="pl-7 pt-2">
+                <button
+                  onClick={downloadGlobalEnv}
+                  className="bg-[#161f33] hover:bg-[#1c2842] border border-slate-700 text-white text-xs font-mono py-2 px-4 rounded-lg transition flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" /> Download Configuration File
+                </button>
+              </div>
+            </div>
+
+            {/* Step 3: Rename File */}
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold text-[#dac5ff] uppercase tracking-wider flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-[#dac5ff]/20 flex items-center justify-center text-[#dac5ff]">
+                  3
+                </span>
+                Fix File Extension
+              </h3>
+              <p className="text-xs text-slate-400 font-mono pl-7">
+                If your browser saved the download as{" "}
+                <code className="text-amber-400 text-[11px]">env.txt</code>,
+                rename it to a hidden system file inside your terminal:
+              </p>
+              <div className="pl-7 relative">
+                <div className="bg-black border border-slate-800 rounded-lg p-3 flex justify-between items-center group">
+                  <code className="text-amber-400 text-[11px] font-mono">
+                    mv env.txt .env
+                  </code>
+                  <button
+                    onClick={() =>
+                      copyToClipboard(
+                        "mv env.txt .env",
+                        "Rename command copied!",
+                      )
+                    }
+                    className="text-slate-500 hover:text-white transition"
+                    title="Copy rename command"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 4: Placement */}
             <div className="space-y-2">
               <h3 className="text-xs font-bold text-[#dac5ff] uppercase tracking-wider flex items-center gap-2">
                 <span className="w-5 h-5 rounded-full bg-[#dac5ff]/20 flex items-center justify-center text-[#dac5ff]">
                   4
+                </span>
+                Place it in Headquarters
+              </h3>
+              <p className="text-xs text-slate-400 font-mono pl-7">
+                Move the renamed{" "}
+                <code className="text-cyan-400 text-[11px]">.env</code> file
+                directly into your chosen workspace projects directory:
+              </p>
+              <div className="pl-7 relative">
+                <div className="bg-black border border-slate-800 rounded-lg p-3 flex justify-between items-center">
+                  <code className="text-cyan-400 text-[11px] font-mono">
+                    {formData.targetOutputDir || "~/StudioFlow/projects"}
+                  </code>
+                  <button
+                    onClick={() =>
+                      copyToClipboard(
+                        formData.targetOutputDir || "~/StudioFlow/projects",
+                        "Directory path copied!",
+                      )
+                    }
+                    className="text-slate-500 hover:text-white transition"
+                    title="Copy path"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 5: Boot */}
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold text-[#dac5ff] uppercase tracking-wider flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-[#dac5ff]/20 flex items-center justify-center text-[#dac5ff]">
+                  5
                 </span>
                 Boot the Engine Daemon
               </h3>
@@ -423,6 +458,9 @@ function EnvironmentSetupForm() {
               <input
                 type="password"
                 required
+                autoComplete="new-password"
+                spellCheck="false"
+                autoCorrect="off"
                 value={formData.githubToken}
                 onChange={(e) => handleUpdate("githubToken", e.target.value)}
                 className="w-full bg-transparent border-b border-[#161f33] pb-3 text-sm text-white font-mono focus:outline-none focus:border-[#dac5ff] transition"
@@ -498,6 +536,9 @@ function EnvironmentSetupForm() {
                 </label>
                 <input
                   type="password"
+                  autoComplete="new-password"
+                  spellCheck="false"
+                  autoCorrect="off"
                   value={formData.smtpPass}
                   onChange={(e) => handleUpdate("smtpPass", e.target.value)}
                   className="w-full bg-transparent border-b border-[#161f33] pb-3 text-sm text-white font-mono focus:outline-none focus:border-[#dac5ff] transition"
@@ -644,6 +685,9 @@ function EnvironmentSetupForm() {
                   </label>
                   <input
                     type="password"
+                    autoComplete="new-password"
+                    spellCheck="false"
+                    autoCorrect="off"
                     value={formData.deploymentApiKey}
                     onChange={(e) =>
                       handleUpdate("deploymentApiKey", e.target.value)

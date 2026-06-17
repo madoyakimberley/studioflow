@@ -117,13 +117,14 @@ export const projects = mysqlTable(
     paymentStatus: varchar("payment_status", { length: 50 }).default("pending"),
     progressPercentage: int("progress_percentage").default(0),
 
+    // MVP Tracking Engine Logic
+    mvpEditCount: int("mvp_edit_count").default(0),
+
     // Gateway Info
     clientEmail: varchar("client_email", { length: 255 }).notNull(),
     portalVerificationCode: varchar("portal_verification_code", { length: 6 }),
     portalCodeExpiresAt: timestamp("portal_code_expires_at"),
     portalLastCodeSentAt: timestamp("portal_last_code_sent_at"),
-
-    // NEW METRIC FOR RATE LIMITING
     portalEmailsSentCount: int("portal_emails_sent_count").default(0),
 
     createdAt: timestamp("created_at").defaultNow(),
@@ -137,23 +138,30 @@ export const projects = mysqlTable(
 // DELIVERABLES, ASSETS & PORTAL COMMUNICATION
 // ==========================================
 
-export const projectAssets = mysqlTable("project_assets", {
-  id: int("id").autoincrement().primaryKey(),
-  projectId: int("project_id").notNull(),
-  uploadedBy: varchar("uploaded_by", { length: 50 }).notNull(), // 'client' or 'admin'
-  name: varchar("name", { length: 255 }).notNull(),
-  fileUrl: text("file_url").notNull(),
-  fileType: varchar("file_type", { length: 50 }).notNull(),
-  fileSize: varchar("file_size", { length: 50 }),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+export const projectAssets = mysqlTable(
+  "project_assets",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    projectId: int("project_id").notNull(),
+    uploadedBy: varchar("uploaded_by", { length: 50 }).notNull(), // 'client' or 'admin'
+    name: varchar("name", { length: 255 }).notNull(),
+    fileUrl: text("file_url").notNull(),
+    fileType: varchar("file_type", { length: 50 }).notNull(),
+    fileSize: varchar("file_size", { length: 50 }),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    projectAssetIdx: index("project_asset_idx").on(table.projectId),
+  }),
+);
 
-export const tasks = mysqlTable("tasks", {
+export const checklistItems = mysqlTable("checklist_items", {
   id: int("id").autoincrement().primaryKey(),
   projectId: int("project_id").notNull(),
   title: varchar("title", { length: 255 }).notNull(),
-  description: text("description"),
-  isCompleted: boolean("is_completed").default(false),
+  status: varchar("status", { length: 50 }).default("pending"), // 'pending', 'pending_client_review', 'completed'
+  proofUrl: text("proof_url"),
+  type: varchar("type", { length: 50 }).default("MVP"), // 'MVP' or 'Added Feature'
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -234,24 +242,20 @@ export const workspaceEnvironments = mysqlTable("workspace_environments", {
   id: int("id").autoincrement().primaryKey(),
   workspaceId: int("workspace_id").notNull().unique(),
 
-  // Core Infrastructure
   databaseUrl: text("database_url"),
   redisUrl: text("redis_url"),
   targetOutputDir: varchar("target_output_dir", { length: 255 }).default(
     "~/StudioFlow/projects",
   ),
 
-  // VCS Connectivity
   githubToken: text("github_token"),
 
-  // Deployment Automation
   deploymentProvider: varchar("deployment_provider", { length: 50 }).default(
     "none",
   ),
   deploymentApiKey: text("deployment_api_key"),
   deploymentOwnerId: varchar("deployment_owner_id", { length: 255 }),
 
-  // Email Server Settings
   smtpHost: varchar("smtp_host", { length: 255 }),
   smtpPort: varchar("smtp_port", { length: 50 }),
   smtpUser: varchar("smtp_user", { length: 255 }),
@@ -307,7 +311,7 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
     fields: [projects.clientId],
     references: [clients.id],
   }),
-  tasks: many(tasks),
+  checklistItems: many(checklistItems),
   jobs: many(provisioningJobs),
   monitoringLogs: many(siteMonitoring),
   clientRequests: many(clientRequests),
@@ -322,9 +326,9 @@ export const projectAssetsRelations = relations(projectAssets, ({ one }) => ({
   }),
 }));
 
-export const tasksRelations = relations(tasks, ({ one }) => ({
+export const checklistItemsRelations = relations(checklistItems, ({ one }) => ({
   project: one(projects, {
-    fields: [tasks.projectId],
+    fields: [checklistItems.projectId],
     references: [projects.id],
   }),
 }));

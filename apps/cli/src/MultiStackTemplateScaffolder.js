@@ -78,6 +78,9 @@ export class MultiStackTemplateScaffolder {
 
     await this.injectUniversalInfrastructureBlueprint();
     await this.generateEnvFiles();
+
+    // NEW: Inject the secure .gitignore file right before touching Git
+    await this.generateGitIgnore();
   }
 
   async generateNodePackageManifest(targetDir, spec) {
@@ -90,7 +93,7 @@ export class MultiStackTemplateScaffolder {
 
     const pm = this.manifest.nodePackageManager || "npm";
 
-    // ANTI-INFINITE LOOP SAFEGUARD:
+    // ANTI-INFINITE LOOP SAFEGUARD FOR BUILD:
     // If the provided build command includes "run build" (meant for the cloud provider),
     // we strip it from the local package.json to prevent recursive OOM errors.
     const rawBuildCmd = spec.buildCommand || "echo 'No build script'";
@@ -101,6 +104,20 @@ export class MultiStackTemplateScaffolder {
     ) {
       safePkgBuildCmd =
         "echo 'Insert explicit framework compiler here (e.g. next build, tsc)'";
+    }
+
+    // ANTI-INFINITE LOOP SAFEGUARD FOR START:
+    // Same logic applies here! If the user passed "pnpm run start" to the cloud,
+    // we must prevent package.json from pointing back to itself.
+    const rawStartCmd = spec.startCommand || "node index.js";
+    let safePkgStartCmd = rawStartCmd;
+    if (
+      rawStartCmd.includes("run start") ||
+      rawStartCmd.includes("yarn start") ||
+      rawStartCmd.includes("npm start") ||
+      rawStartCmd.includes("pnpm start")
+    ) {
+      safePkgStartCmd = "node index.js"; // Safely fallback to the stub entry point
     }
 
     const pkgJson = {
@@ -119,7 +136,7 @@ export class MultiStackTemplateScaffolder {
               : "npm@10.5.0",
       scripts: {
         build: safePkgBuildCmd,
-        start: spec.startCommand || "node index.js",
+        start: safePkgStartCmd,
       },
       dependencies: dependenciesMap,
     };
@@ -171,9 +188,10 @@ export class MultiStackTemplateScaffolder {
 
   async stubServiceEntryPoint(targetDir, spec) {
     if (spec.runtime === "node") {
+      // FIX: Creates an actual persistent HTTP server to prevent Render from exiting early
       await fs.writeFile(
         path.join(targetDir, "index.js"),
-        `console.log("Starting server: ${spec.name}");\n`,
+        `import http from "http";\n\nconst PORT = process.env.PORT || 10000;\n\nconst server = http.createServer((req, res) => {\n  res.writeHead(200, { "Content-Type": "application/json" });\n  res.end(JSON.stringify({ status: "online", app: "${spec.name}" }));\n});\n\nserver.listen(PORT, "0.0.0.0", () => {\n  console.log("Starting server: ${spec.name} on port " + PORT);\n});\n`,
       );
     } else if (spec.runtime === "python") {
       await fs.writeFile(
@@ -194,7 +212,7 @@ export class MultiStackTemplateScaffolder {
       targetFilename = "docker-compose.yml";
 
     await fs.writeFile(path.join(this.targetPath, targetFilename), rawYaml);
-    console.log(` ✅ Saved cloud deployment settings to: ${targetFilename}`);
+    console.log(`    ✅ Saved cloud deployment settings to: ${targetFilename}`);
   }
 
   async generateEnvFiles() {
@@ -211,6 +229,111 @@ export class MultiStackTemplateScaffolder {
       envContent += `SMTP_PASS="${process.env.SMTP_PASS}"\n`;
 
     await fs.writeFile(path.join(this.targetPath, ".env"), envContent);
+    console.log(`    ✅ Saved .env variables`);
+  }
+
+  // ==========================================
+  // --- SECURITY: IGNORE FILE INJECTION ---
+  // ==========================================
+  async generateGitIgnore() {
+    const gitignoreContent = `# ==============================================================================
+# 1. DEPENDENCIES & PACKAGES (Never commit third-party code)
+# ==============================================================================
+# JavaScript / Node
+node_modules/
+jspm_packages/
+web_modules/
+.npm/
+.yarn/
+.pnpm-store/
+
+# Python
+.venv/
+venv/
+ENV/
+env/
+target/
+.pytest_cache/
+.poetry/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PHP / Ruby / Bundler
+vendor/
+.bundle/
+vendor/bundle/
+
+# Rust / Cargo
+target/
+**/*.rs.bk
+
+# Go
+/vendor/
+
+# ==============================================================================
+# 2. BUILD OUTPUTS, ARTIFACTS & CACHES
+# ==============================================================================
+# General Build Folders
+dist/
+build/
+out/
+bin/
+obj/
+
+# Compiled Binaries & Libraries
+*.exe
+*.dll
+*.so
+*.dylib
+*.app
+*.jar
+*.war
+*.ear
+*.class
+
+# Language-Specific Caches
+.eslintcache
+.tsbuildinfo
+.sass-cache/
+.parcel-cache/
+.next/
+.nuxt/
+.svelte-kit/
+.turbo/
+
+# ==============================================================================
+# 3. ENVIRONMENT SECRETS & CREDENTIALS (CRITICAL SECURITY)
+# ==============================================================================
+.env
+.env.*
+!.env.example
+*.pem
+*.crt
+*.cert
+*.key
+*.pub
+*.pfx
+secrets.toml
+
+# ==============================================================================
+# 4. OS JUNK & LOCAL CONFIGS (Safetynet if not configured globally)
+# ==============================================================================
+.DS_Store
+Thumbs.db
+ehthumbs.db
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln.docstates`;
+
+    await fs.writeFile(
+      path.join(this.targetPath, ".gitignore"),
+      gitignoreContent,
+    );
+    console.log(`    ✅ Created comprehensive .gitignore protection`);
   }
 
   async createGitHubRepo() {
@@ -307,7 +430,7 @@ export class MultiStackTemplateScaffolder {
     if (!pushRes.success) {
       throw new Error(`Failed to push to GitHub: ${pushRes.output}`);
     } else {
-      console.log(`✅ Uploaded successfully.`);
+      console.log(`✅ Uploaded successfully. Keys secured by .gitignore.`);
     }
   }
 

@@ -1,6 +1,12 @@
 "use server";
 
-import { db, projects, provisioningJobs, clients } from "@studioflow/db";
+import {
+  db,
+  projects,
+  provisioningJobs,
+  clients,
+  checklistItems,
+} from "@studioflow/db";
 import { revalidatePath } from "next/cache";
 import Redis from "ioredis";
 import crypto from "crypto";
@@ -121,11 +127,63 @@ export async function queueProjectProvisioning(
       progressPercentage: 15,
     });
 
+    const projectId = newProject.insertId;
+
+    // 4. INJECT PROFESSIONAL TEMPLATE (MVP, Testing, Security)
+    const standardMvpChecklist = [
+      {
+        projectId,
+        title: "Environment Setup (Staging Server Link)",
+        type: "MVP",
+      },
+      { projectId, title: "Database Migration (Schema Logs)", type: "MVP" },
+      { projectId, title: "Domain & SSL Configuration", type: "MVP" },
+      { projectId, title: "Build Automation (CI/CD Logs)", type: "MVP" },
+      {
+        projectId,
+        title: "Component Testing (Unit/Integration Success PDF)",
+        type: "MVP",
+      },
+      {
+        projectId,
+        title: "User Acceptance Testing (UAT Screen Share)",
+        type: "MVP",
+      },
+      {
+        projectId,
+        title: "Cross-Browser Check (Layout Compatibility)",
+        type: "MVP",
+      },
+      {
+        projectId,
+        title: "API Verification (200 OK Responses Proof)",
+        type: "MVP",
+      },
+      {
+        projectId,
+        title: "Authentication Security (Failure & Token Expiry Clip)",
+        type: "MVP",
+      },
+      {
+        projectId,
+        title: "Dependency Audit (0 Critical Vulnerabilities)",
+        type: "MVP",
+      },
+      {
+        projectId,
+        title: "Environment Variables (Hidden Private Keys Proof)",
+        type: "MVP",
+      },
+      { projectId, title: "SQL Injection / XSS Protection Check", type: "MVP" },
+    ];
+
+    await db.insert(checklistItems).values(standardMvpChecklist);
+
     const uniqueIdempotencyKey = `job_${crypto.randomBytes(16).toString("hex")}`;
 
-    // 4. Save provisioning engine manifest job entry
+    // 5. Save provisioning engine manifest job entry
     await db.insert(provisioningJobs).values({
-      projectId: newProject.insertId,
+      projectId: projectId,
       idempotencyKey: uniqueIdempotencyKey,
       status: "pending",
       manifest: {
@@ -140,7 +198,7 @@ export async function queueProjectProvisioning(
       } as any,
     });
 
-    // 5. Instantly notify orchestrator CLI daemon nodes via Redis PubSub matrix if online
+    // 6. Instantly notify orchestrator CLI daemon nodes via Redis PubSub matrix if online
     if (redis && redis.status === "ready") {
       await redis.publish(
         "provisioning_queue",

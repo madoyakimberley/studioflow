@@ -1,11 +1,29 @@
 "use server";
 
 import { db } from "@studioflow/db";
-import { projectAssets } from "@studioflow/db";
+import { projectAssets, projects } from "@studioflow/db";
 import { eq, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
+export async function getProjectIdBySlug(slug: string) {
+  if (!slug) return null;
+  try {
+    const result = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(eq(projects.slug, slug))
+      .limit(1);
+    return result[0]?.id || null;
+  } catch (error) {
+    console.error("Failed to fetch project ID by slug:", error);
+    return null;
+  }
+}
+
 export async function getProjectAssets(projectId: number) {
+  if (!projectId || isNaN(projectId)) {
+    return { success: false, data: [] };
+  }
   try {
     const assets = await db
       .select()
@@ -27,6 +45,9 @@ export async function saveProjectAsset(data: {
   fileType: string;
   fileSize: number;
 }) {
+  if (!data.projectId || isNaN(data.projectId)) {
+    return { success: false, error: "Invalid Project ID" };
+  }
   try {
     // Format size for display (e.g., 1.5 MB)
     const formattedSize =

@@ -1,9 +1,7 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
-// Make sure you have your toast library installed (e.g., npm install react-hot-toast)
 import toast from "react-hot-toast";
-// UPDATE THIS IMPORT PATH based on where you put portal-actions.ts
 import { sendClientPortalWelcomeAction } from "../app/portal-actions";
 
 interface SendPortalLinkProps {
@@ -21,34 +19,21 @@ export default function SendPortalLinkButton({
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
 
   const handleSend = () => {
-    // Dynamically grab the current domain so it works locally and on the live web
-    const baseUrl =
-      typeof window !== "undefined"
-        ? window.location.origin
-        : "https://studioflow.dev";
-    const portalLink = `${baseUrl}/portal/${projectSlug}`;
-
     startTransition(async () => {
       setStatus("idle");
-      // Pop up a loading toast right away
       const toastId = toast.loading("Sending portal link...");
 
       try {
-        const res = await sendClientPortalWelcomeAction(
-          projectSlug,
-          portalLink,
-        );
+        // Offloads processing entirely to server variables to guarantee accurate web routes
+        const res = await sendClientPortalWelcomeAction(projectSlug);
 
         if (res.success) {
           setStatus("success");
-          // Update the toast to show success and the remaining chances
           toast.success(res.message, { id: toastId, duration: 4000 });
 
-          // Reset the button look after 3 seconds
           setTimeout(() => setStatus("idle"), 3000);
         } else {
           setStatus("error");
-          // Update the toast to show the exact error (like the 60-second cooldown warning)
           toast.error(res.message, { id: toastId, duration: 5000 });
 
           setTimeout(() => setStatus("idle"), 3000);
@@ -94,7 +79,7 @@ export default function SendPortalLinkButton({
           ? "Sent!"
           : status === "error"
             ? "Failed"
-            : "Email to Client"}
+            : "Send Portal Link to Client"}
     </button>
   );
 }

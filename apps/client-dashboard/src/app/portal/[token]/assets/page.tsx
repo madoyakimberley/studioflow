@@ -1,47 +1,36 @@
-"use client";
+import React from "react";
+import { getProjectAssets, getProjectIdBySlug } from "../../../asset-actions"; // Adjust path based on your hierarchy
+import AssetVaultUI from "./AssetVaultUI";
 
-import React, { useEffect, useState } from "react";
-import {
-  FileImage,
-  FileCode,
-  FolderArchive,
-  ArrowDownToLine,
-  FileText,
-  Loader2,
-} from "lucide-react";
-import { UploadDropzone } from "../../../../utils/uploading";
-import { getProjectAssets, saveProjectAsset } from "../../../asset-actions";
-
-// Adjust icon based on file type string from UploadThing
-const getIconForType = (type: string) => {
-  if (type.includes("image")) return FileImage;
-  if (type.includes("pdf")) return FileText;
-  if (type.includes("json") || type.includes("code")) return FileCode;
-  return FolderArchive;
-};
-
-export default function AssetsPage({
-  projectId,
-  userRole = "admin", // Pass "client" if this is the client portal view
+export default async function AssetsPage({
+  params,
 }: {
-  projectId: number;
-  userRole?: "admin" | "client";
+  params: Promise<{ projectId?: string; id?: string; token?: string }>;
 }) {
-  const [assets, setAssets] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  // 1. Await params because Next.js 16 treats dynamic segments as a Promise
+  const resolvedParams = await params;
 
-  const fetchAssets = async () => {
-    setLoading(true);
-    const res = await getProjectAssets(projectId);
-    if (res.success) {
-      setAssets(res.data);
+  // 2. Safely compute the numeric project ID
+  let projectId = Number(resolvedParams.projectId || resolvedParams.id);
+
+  // If projectId is NaN, resolve the text slug (token) from the client portal URL
+  if (isNaN(projectId) && resolvedParams.token) {
+    const tokenAsNumber = Number(resolvedParams.token);
+    if (!isNaN(tokenAsNumber)) {
+      projectId = tokenAsNumber;
+    } else {
+      const lookedUpId = await getProjectIdBySlug(resolvedParams.token);
+      if (lookedUpId) {
+        projectId = lookedUpId;
+      }
     }
-    setLoading(false);
-  };
+  }
 
-  useEffect(() => {
-    fetchAssets();
-  }, [projectId]);
+  // 3. Query records using verified numerical ID
+  const initialAssets =
+    !isNaN(projectId) && projectId > 0
+      ? (await getProjectAssets(projectId)).data
+      : [];
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
@@ -54,82 +43,15 @@ export default function AssetsPage({
         </p>
       </div>
 
-      {/* Upload Area */}
-      <div className="bg-[#0b1326] border border-[#212d4a] border-dashed rounded-2xl p-6">
-        <UploadDropzone
-          endpoint="projectAssetUploader"
-          onClientUploadComplete={async (res: string | any[]) => {
-            if (res && res.length > 0) {
-              for (const file of res) {
-                await saveProjectAsset({
-                  projectId: projectId,
-                  uploadedBy: userRole,
-                  name: file.name,
-                  fileUrl: file.url,
-                  fileType: file.type,
-                  fileSize: file.size,
-                });
-              }
-              // Refresh the list after saving to DB
-              fetchAssets();
-            }
-          }}
-          onUploadError={(error: Error) => {
-            alert(`ERROR! ${error.message}`);
-          }}
-          className="ut-button:bg-[#4361ee] ut-button:ut-readying:bg-[#4361ee]/50 ut-label:text-[#4361ee] ut-allowed-content:text-[#958ea0]"
+      {!isNaN(projectId) && projectId > 0 ? (
+        <AssetVaultUI
+          projectId={projectId}
+          initialAssets={initialAssets}
+          userRole="client"
         />
-      </div>
-
-      {/* Assets Grid */}
-      {loading ? (
-        <div className="flex justify-center py-12 text-[#4361ee]">
-          <Loader2 className="animate-spin" size={32} />
-        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {assets.map((asset) => {
-            const Icon = getIconForType(asset.fileType);
-            return (
-              <a
-                href={asset.fileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                key={asset.id}
-                className="bg-[#0b1326] border border-[#212d4a] rounded-2xl p-5 hover:border-[#9d4edd] transition-colors group cursor-pointer block"
-              >
-                <div className="w-12 h-12 rounded-xl bg-[#131b2e] border border-[#171f33] flex items-center justify-center text-[#dae2fd] mb-4 group-hover:text-[#9d4edd] group-hover:bg-[#9d4edd]/10 transition-all">
-                  <Icon size={24} />
-                </div>
-                <h3
-                  className="text-white font-medium mb-1 truncate"
-                  title={asset.name}
-                >
-                  {asset.name}
-                </h3>
-                <div className="flex justify-between items-center text-xs text-[#958ea0]">
-                  <span>
-                    {asset.fileSize} •{" "}
-                    {new Date(asset.createdAt).toLocaleDateString()}
-                  </span>
-                  {/* Visual indicator of who uploaded it */}
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-bold tracking-wider ${asset.uploadedBy === "admin" ? "bg-[#4361ee]/10 text-[#4361ee]" : "bg-[#9d4edd]/10 text-[#9d4edd]"}`}
-                  >
-                    {asset.uploadedBy}
-                  </span>
-                  <button className="text-[#4361ee] opacity-0 group-hover:opacity-100 transition-opacity">
-                    <ArrowDownToLine size={16} />
-                  </button>
-                </div>
-              </a>
-            );
-          })}
-          {assets.length === 0 && (
-            <div className="col-span-1 md:col-span-3 text-center py-12 text-[#958ea0] border border-[#212d4a] border-dashed rounded-2xl">
-              No assets found in the vault yet. Upload some files above!
-            </div>
-          )}
+        <div className="text-center py-12 text-red-400 border border-red-900/30 bg-red-950/20 rounded-2xl">
+          Invalid or unauthorized project portal domain.
         </div>
       )}
     </div>
