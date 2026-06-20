@@ -40,22 +40,22 @@ export default function SmtpActionButtons({
         <button
           onClick={runTest}
           disabled={testing}
-          className="flex-1 py-3 bg-[#1d2027] hover:bg-[#272a32] border border-[#32353d] disabled:opacity-40 text-white rounded-xl text-sm transition font-medium"
+          className="flex-1 py-3 bg-[var(--bg-surface)] hover:bg-[var(--bg-surface)] border border-[var(--border-outline)] disabled:opacity-40 text-theme-text rounded-xl text-sm transition font-medium"
         >
           {testing ? "Testing Pipeline..." : "Test Dispatch"}
         </button>
         <button
           onClick={readLogs}
           disabled={logLoading}
-          className="flex-1 py-3 bg-[#1d2027] hover:bg-[#272a32] border border-[#32353d] disabled:opacity-40 text-white rounded-xl text-sm transition font-medium"
+          className="flex-1 py-3 bg-[var(--bg-surface)] hover:bg-[var(--bg-surface)] border border-[var(--border-outline)] disabled:opacity-40 text-theme-text rounded-xl text-sm transition font-medium"
         >
           {logLoading ? "Streaming..." : "View Logs"}
         </button>
       </div>
 
       {activeLogs && (
-        <div className="bg-black/60 border border-[#32353d] rounded-xl p-4 mt-4 max-h-60 overflow-y-auto font-mono text-xs text-slate-300 space-y-2">
-          <div className="flex justify-between border-b border-[#32353d] pb-2 text-[#94a3b8]">
+        <div className="bg-black/60 border border-[var(--border-outline)] rounded-xl p-4 mt-4 max-h-60 overflow-y-auto font-mono text-xs text-theme-muted space-y-2">
+          <div className="flex justify-between border-b border-[var(--border-outline)] pb-2 text-[var(--text-muted)]">
             <span>TIMESTAMP</span>
             <span>STATUS</span>
           </div>
@@ -69,7 +69,7 @@ export default function SmtpActionButtons({
                 key={lg.id}
                 className="flex justify-between py-1 border-b border-white/5 last:border-0"
               >
-                <span className="text-slate-400">
+                <span className="text-theme-muted">
                   {new Date(lg.checkedAt).toLocaleTimeString()}
                 </span>
                 <span className={lg.isUp ? "text-emerald-400" : "text-red-400"}>

@@ -35,7 +35,7 @@ export default function AssetVaultUI({
   return (
     <>
       {/* Upload Area */}
-      <div className="bg-[#0b1326] border border-[#212d4a] border-dashed rounded-2xl p-6">
+      <div className="bg-[var(--bg-surface)] border border-[var(--border-outline)] border-dashed rounded-2xl p-6">
         <UploadDropzone
           endpoint="projectAssetUploader"
           input={{ projectId: projectId, uploadedBy: userRole }}
@@ -48,7 +48,7 @@ export default function AssetVaultUI({
           onUploadError={(error: Error) => {
             alert(`ERROR! ${error.message}`);
           }}
-          className="ut-button:bg-[#4361ee] ut-button:ut-readying:bg-[#4361ee]/50 ut-label:text-[#4361ee] ut-allowed-content:text-[#958ea0]"
+          className="ut-button:bg-[var(--color-theme-primary)] ut-button:ut-readying:bg-[var(--color-theme-primary)]/50 ut-label:text-[var(--color-theme-primary)] ut-allowed-content:text-[var(--text-muted)]"
         />
       </div>
 
@@ -64,9 +64,9 @@ export default function AssetVaultUI({
               target="_blank"
               rel="noopener noreferrer"
               key={asset.id}
-              className="bg-[#0b1326] border border-[#212d4a] rounded-2xl p-5 hover:border-[#9d4edd] transition-colors group cursor-pointer block"
+              className="bg-[var(--bg-surface)] border border-[var(--border-outline)] rounded-2xl p-5 hover:border-[var(--color-theme-primary)] transition-colors group cursor-pointer block"
             >
-              <div className="w-12 h-12 rounded-xl bg-[#131b2e] border border-[#171f33] flex items-center justify-center text-[#dae2fd] mb-4 group-hover:text-[#9d4edd] group-hover:border-[#9d4edd]/50 overflow-hidden transition-all relative">
+              <div className="w-12 h-12 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-outline)] flex items-center justify-center text-[var(--text-main)] mb-4 group-hover:text-[var(--color-theme-primary)] group-hover:border-[var(--color-theme-primary)]/50 overflow-hidden transition-all relative">
                 {isImage ? (
                   <img
                     src={asset.fileUrl}
@@ -79,12 +79,12 @@ export default function AssetVaultUI({
               </div>
 
               <h3
-                className="text-white font-medium mb-1 truncate"
+                className="text-theme-text font-medium mb-1 truncate"
                 title={asset.name}
               >
                 {asset.name}
               </h3>
-              <div className="flex justify-between items-center text-xs text-[#958ea0]">
+              <div className="flex justify-between items-center text-xs text-[var(--text-muted)]">
                 <span>
                   {asset.fileSize} •{" "}
                   {asset.createdAt
@@ -95,13 +95,13 @@ export default function AssetVaultUI({
                 <span
                   className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-bold tracking-wider ${
                     asset.uploadedBy === "admin"
-                      ? "bg-[#4361ee]/10 text-[#4361ee]"
-                      : "bg-[#9d4edd]/10 text-[#9d4edd]"
+                      ? "bg-[var(--color-theme-primary)]/10 text-[var(--color-theme-primary)]"
+                      : "bg-[var(--color-theme-primary)]/10 text-[var(--color-theme-primary)]"
                   }`}
                 >
                   {asset.uploadedBy}
                 </span>
-                <button className="text-[#4361ee] opacity-0 group-hover:opacity-100 transition-opacity">
+                <button className="text-[var(--color-theme-primary)] opacity-0 group-hover:opacity-100 transition-opacity">
                   <ArrowDownToLine size={16} />
                 </button>
               </div>
@@ -110,7 +110,7 @@ export default function AssetVaultUI({
         })}
 
         {initialAssets.length === 0 && (
-          <div className="col-span-1 md:col-span-3 text-center py-12 text-[#958ea0] border border-[#212d4a] border-dashed rounded-2xl">
+          <div className="col-span-1 md:col-span-3 text-center py-12 text-[var(--text-muted)] border border-[var(--border-outline)] border-dashed rounded-2xl">
             No assets found in the vault yet. Upload some files above!
           </div>
         )}

@@ -52,22 +52,22 @@ export default async function AdminClientRequestsOverview({
           <div className="mb-12 shrink-0">
             <Link
               href={`/dashboard/${user}`}
-              className="inline-flex items-center gap-2 mb-4 group cursor-pointer text-[12px] font-semibold tracking-[0.1em] text-[#d3d7ff]/70 hover:text-[#d3d7ff] transition-colors font-['Plus_Jakarta_Sans',_sans-serif] uppercase"
+              className="inline-flex items-center gap-2 mb-4 group cursor-pointer text-[12px] font-semibold tracking-[0.1em] text-[var(--color-theme-primary)]/70 hover:text-[var(--color-theme-primary)] transition-colors font-['Plus_Jakarta_Sans',_sans-serif] uppercase"
             >
               <ChevronLeft className="w-[18px] h-[18px] group-hover:-translate-x-1 transition-transform" />
               Back to Core Systems Overview
             </Link>
 
             <div className="flex items-center gap-3 mb-2">
-              <span className="w-2 h-2 rounded-full bg-[#f8c1ee] animate-pulse shadow-[0_0_8px_rgba(248,193,238,0.5)]"></span>
-              <span className="text-[12px] font-bold font-['Plus_Jakarta_Sans',_sans-serif] text-[#f8c1ee] uppercase tracking-[0.2em]">
+              <span className="w-2 h-2 rounded-full bg-[var(--color-theme-secondary)] animate-pulse shadow-[0_0_8px_rgba(248,193,238,0.5)]"></span>
+              <span className="text-[12px] font-bold font-['Plus_Jakarta_Sans',_sans-serif] text-[var(--color-theme-secondary)] uppercase tracking-[0.2em]">
                 Operational Inbound Queue
               </span>
             </div>
 
-            <h1 className="text-[48px] lg:text-[72px] leading-[1.1] font-bold font-['Playfair_Display',_serif] tracking-[-0.02em] text-[#e0e2ec]">
+            <h1 className="text-[48px] lg:text-[72px] leading-[1.1] font-bold font-['Playfair_Display',_serif] tracking-[-0.02em] text-[var(--text-main)]">
               Client{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#AFBAFF] to-[#F8C1EE] italic">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--color-theme-primary)] to-[var(--color-theme-secondary)] italic">
                 Matrix
               </span>
             </h1>

@@ -30,23 +30,23 @@ export default async function MessagesPage({
   const orderedMessages = initialMessages.reverse();
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col bg-[#0b1326] border border-[#171f33] rounded-2xl overflow-hidden shadow-2xl">
+    <div className="h-[calc(100vh-4rem)] flex flex-col bg-[var(--bg-surface)] border border-[var(--border-outline)] rounded-2xl overflow-hidden shadow-2xl">
       {/* Chat Header (Static Context) */}
-      <div className="p-4 border-b border-[#171f33] bg-[#0b1326] flex items-center justify-between z-10">
+      <div className="p-4 border-b border-[var(--border-outline)] bg-[var(--bg-surface)] flex items-center justify-between z-10">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#9d4edd] to-[#e364a7] p-[2px]">
-            <div className="w-full h-full bg-[#06070b] rounded-full overflow-hidden flex items-center justify-center">
-              <span className="text-xs font-bold text-white">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[var(--color-theme-primary)] to-[var(--color-theme-secondary)] p-[2px]">
+            <div className="w-full h-full bg-[var(--bg-main)] rounded-full overflow-hidden flex items-center justify-center">
+              <span className="text-xs font-bold text-theme-text">
                 {project.client?.name?.substring(0, 2).toUpperCase() || "CL"}
               </span>
             </div>
           </div>
           <div>
-            <h3 className="font-semibold text-white">
+            <h3 className="font-semibold text-theme-text">
               {project.client?.name || "Client"}
             </h3>
-            <p className="text-xs text-[#9d4edd] flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#9d4edd] animate-pulse" />{" "}
+            <p className="text-xs text-[var(--color-theme-primary)] flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-theme-primary)] animate-pulse" />{" "}
               Active Workspace
             </p>
           </div>

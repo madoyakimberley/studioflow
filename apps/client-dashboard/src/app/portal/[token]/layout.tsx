@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { verifyPortalAccess } from "../../portal-actions";
 import SidebarRequestButton from "../../../components/SidebarRequestButton";
+import ThemeModal from "../../../components/ThemeSelector"; // Adjust path to ThemeModal!
 import { cookies } from "next/headers";
 import {
   LayoutDashboard,
@@ -42,51 +43,70 @@ export default async function PortalLayout({
   // Render ONLY the children (SecureGate) without the sidebar.
   if (!isAuthorized) {
     return (
-      <div className="min-h-screen bg-[#06070b] text-slate-200 flex flex-col font-sans relative overflow-hidden">
-        {/* Themed Toaster placed at the root level for unauthenticated state */}
+      <div className="min-h-screen bg-theme-bg text-theme-text flex flex-col font-sans relative overflow-hidden transition-colors duration-300">
+        {/* ✨ Themed Toaster (Uses CSS Variables to dynamically shift colors!) */}
         <Toaster
           position="bottom-right"
           toastOptions={{
             style: {
-              background: "#0b1326",
-              color: "#dae2fd",
-              border: "1px solid #171f33",
+              background: "var(--color-theme-surface)",
+              color: "var(--color-theme-text)",
+              border: "1px solid var(--color-theme-outline)",
             },
             success: {
-              iconTheme: { primary: "#9d4edd", secondary: "#0b1326" },
+              iconTheme: {
+                primary: "var(--color-theme-primary)",
+                secondary: "var(--color-theme-surface)",
+              },
             },
-            error: { iconTheme: { primary: "#e364a7", secondary: "#0b1326" } },
+            error: {
+              iconTheme: {
+                primary: "var(--color-theme-secondary)",
+                secondary: "var(--color-theme-surface)",
+              },
+            },
           }}
         />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#9d4edd]/10 via-[#06070b]/0 to-[#06070b]/0 pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-theme-primary/10 via-theme-bg/0 to-theme-bg/0 pointer-events-none transition-colors duration-300" />
         <div className="relative z-10 flex-1 flex flex-col">{children}</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#06070b] text-slate-200 flex font-sans">
-      {/* Themed Toaster placed at the root level for authenticated state */}
+    <div className="min-h-screen bg-theme-bg text-theme-text flex font-sans transition-colors duration-300">
+      {/* ✨ Themed Toaster for Authenticated State */}
       <Toaster
         position="bottom-right"
         toastOptions={{
           style: {
-            background: "#0b1326",
-            color: "#dae2fd",
-            border: "1px solid #171f33",
+            background: "var(--color-theme-surface)",
+            color: "var(--color-theme-text)",
+            border: "1px solid var(--color-theme-outline)",
             boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
           },
-          success: { iconTheme: { primary: "#9d4edd", secondary: "#0b1326" } },
-          error: { iconTheme: { primary: "#e364a7", secondary: "#0b1326" } },
+          success: {
+            iconTheme: {
+              primary: "var(--color-theme-primary)",
+              secondary: "var(--color-theme-surface)",
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: "var(--color-theme-secondary)",
+              secondary: "var(--color-theme-surface)",
+            },
+          },
         }}
       />
 
-      {/* Sidebar Navigation */}
-      <aside className="w-64 border-r border-[#171f33] bg-[#080b14] flex flex-col justify-between hidden md:flex shrink-0">
+      {/* ✨ Sidebar Navigation (Migrated to Theme Variables) */}
+      <aside className="w-64 border-r border-theme-outline bg-theme-surface flex flex-col justify-between hidden md:flex shrink-0 transition-colors duration-300">
         <div>
-          <div className="p-6">
-            <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-              <div className="relative w-7 h-7 overflow-hidden rounded shadow-[0_0_15px_rgba(208,80,194,0.4)]">
+          {/* Header containing Logo and ThemeModal */}
+          <div className="p-6 flex items-center justify-between">
+            <h2 className="text-xl font-bold text-theme-text tracking-tight flex items-center gap-2">
+              <div className="relative w-7 h-7 overflow-hidden rounded shadow-[0_0_15px_var(--color-theme-primary)]">
                 <div className="relative h-6 w-6 flex-shrink-0">
                   <Image
                     src="/images/logo.jpg"
@@ -100,6 +120,9 @@ export default async function PortalLayout({
               </div>
               StudioFlow
             </h2>
+
+            {/* THE THEME SWITCHER UI */}
+            <ThemeModal />
           </div>
 
           <nav className="px-4 space-y-1.5 mt-2">
@@ -138,14 +161,14 @@ export default async function PortalLayout({
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#9d4edd]/10 via-[#06070b]/0 to-[#06070b]/0 pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-theme-primary/10 via-theme-bg/0 to-theme-bg/0 pointer-events-none transition-colors duration-300" />
         <div className="flex-1 overflow-y-auto relative z-10">{children}</div>
       </div>
     </div>
   );
 }
 
-// NavItem Helper Component (Toaster Removed!)
+// NavItem Helper Component (Migrated to Theme Variables)
 function NavItem({
   href,
   icon,
@@ -158,7 +181,7 @@ function NavItem({
   return (
     <Link
       href={href}
-      className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all text-[#7a849c] hover:text-[#e0e2ec] hover:bg-[#121827]"
+      className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all text-theme-muted hover:text-theme-text hover:bg-theme-bg/50"
     >
       {icon}
       <span>{label}</span>

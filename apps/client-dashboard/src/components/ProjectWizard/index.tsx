@@ -175,15 +175,15 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 font-sans text-slate-100">
-      <div className="bg-[#12141c] w-full max-w-5xl h-[85vh] rounded-3xl border border-[#32353d] flex flex-col overflow-hidden shadow-2xl relative">
-        <div className="p-6 border-b border-[#32353d] flex justify-between items-center bg-[#161924]">
+      <div className="bg-[var(--bg-surface)] w-full max-w-5xl h-[85vh] rounded-3xl border border-[var(--border-outline)] flex flex-col overflow-hidden shadow-2xl relative">
+        <div className="p-6 border-b border-[var(--border-outline)] flex justify-between items-center bg-[var(--bg-surface)]">
           <div>
             <h2 className="text-xl font-bold text-indigo-300 flex items-center gap-2">
               <Terminal className="w-5 h-5 text-indigo-400" /> Create New
               Project
             </h2>
             <div className="mt-auto pt-8">
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-theme-muted">
                 Configure your project apps, packages, and deployments.
               </p>
             </div>
@@ -198,17 +198,17 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
             ].map((sNode) => (
               <div key={sNode.num} className="flex items-center gap-2">
                 <div
-                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${step === sNode.num ? "bg-indigo-600 text-white" : step > sNode.num ? "bg-emerald-600 text-white" : "bg-[#1d212f] text-slate-400 border border-[#32353d]"}`}
+                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${step === sNode.num ? "bg-indigo-600 text-theme-text" : step > sNode.num ? "bg-emerald-600 text-theme-text" : "bg-[var(--bg-surface)] text-theme-muted border border-[var(--border-outline)]"}`}
                 >
                   {step > sNode.num ? "✓" : sNode.num}
                 </div>
                 <span
-                  className={`text-xs font-medium hidden md:inline ${step === sNode.num ? "text-indigo-400" : "text-slate-400"}`}
+                  className={`text-xs font-medium hidden md:inline ${step === sNode.num ? "text-indigo-400" : "text-theme-muted"}`}
                 >
                   {sNode.label}
                 </span>
                 {sNode.num < 4 && (
-                  <div className="w-4 h-[1px] bg-[#32353d] hidden md:block" />
+                  <div className="w-4 h-[1px] bg-[var(--border-outline)] hidden md:block" />
                 )}
               </div>
             ))}
@@ -241,20 +241,20 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
           )}
         </div>
 
-        <div className="p-4 border-t border-[#32353d] bg-[#161924] flex justify-between items-center rounded-b-3xl">
+        <div className="p-4 border-t border-[var(--border-outline)] bg-[var(--bg-surface)] flex justify-between items-center rounded-b-3xl">
           <div className="flex gap-2">
             <button
               onClick={() => {
                 if (onClose) onClose();
               }}
-              className="px-4 py-2.5 rounded-xl text-slate-400 text-xs font-bold hover:text-white hover:bg-[#1d212f] transition"
+              className="px-4 py-2.5 rounded-xl text-theme-muted text-xs font-bold hover:text-theme-text hover:bg-[var(--bg-surface)] transition"
             >
               Cancel
             </button>
             {step > 1 && (
               <button
                 onClick={() => setStep((p) => p - 1)}
-                className="px-4 py-2.5 rounded-xl text-slate-300 text-xs font-bold hover:bg-[#1d212f] border border-transparent hover:border-[#32353d] flex items-center gap-1 transition"
+                className="px-4 py-2.5 rounded-xl text-theme-muted text-xs font-bold hover:bg-[var(--bg-surface)] border border-transparent hover:border-[var(--border-outline)] flex items-center gap-1 transition"
               >
                 <ArrowLeft className="w-4 h-4" /> Back
               </button>
@@ -276,7 +276,7 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
                 }
                 setStep((p) => p + 1);
               }}
-              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 text-white text-xs font-bold hover:brightness-110 shadow-lg flex items-center gap-1 active:scale-95 transition"
+              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 text-theme-text text-xs font-bold hover:brightness-110 shadow-lg flex items-center gap-1 active:scale-95 transition"
             >
               Continue <ArrowRight className="w-4 h-4" />
             </button>
@@ -284,7 +284,7 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
             <button
               onClick={handleSubmitPipeline}
               disabled={isSubmitting}
-              className="px-8 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-xs font-bold hover:brightness-110 shadow-xl flex items-center gap-1.5 transition disabled:opacity-40"
+              className="px-8 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-theme-text text-xs font-bold hover:brightness-110 shadow-xl flex items-center gap-1.5 transition disabled:opacity-40"
             >
               {isSubmitting ? (
                 "Creating..."

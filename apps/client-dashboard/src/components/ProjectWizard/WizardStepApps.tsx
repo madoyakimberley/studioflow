@@ -27,8 +27,8 @@ export const WizardStepApps: React.FC<WizardStepAppsProps> = ({
       exit={{ opacity: 0, x: -15 }}
       className="space-y-4"
     >
-      <div className="flex items-center justify-between pb-2 border-b border-[#32353d]">
-        <h3 className="text-sm font-bold text-slate-300 flex items-center gap-2">
+      <div className="flex items-center justify-between pb-2 border-b border-[var(--border-outline)]">
+        <h3 className="text-sm font-bold text-theme-muted flex items-center gap-2">
           <Server className="w-4 h-4 text-indigo-400" /> Your Apps & APIs
         </h3>
 
@@ -55,19 +55,19 @@ export const WizardStepApps: React.FC<WizardStepAppsProps> = ({
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="bg-[#171a25] border border-[#32353d] rounded-2xl p-5 space-y-4 overflow-hidden relative"
+              className="bg-[var(--bg-surface)] border border-[var(--border-outline)] rounded-2xl p-5 space-y-4 overflow-hidden relative"
             >
               {!isFlatFolder && services.length > 1 && (
                 <button
                   onClick={() => deleteService(srv.id)}
-                  className="absolute top-4 right-4 text-slate-500 hover:text-red-400 transition-colors bg-[#0f111a] p-1.5 rounded-md"
+                  className="absolute top-4 right-4 text-slate-500 hover:text-red-400 transition-colors bg-[var(--bg-surface)] p-1.5 rounded-md"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
               )}
 
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <label className="text-[10px] font-bold text-theme-muted uppercase tracking-wider">
                   Microservice Route Name
                 </label>
                 <input
@@ -80,14 +80,14 @@ export const WizardStepApps: React.FC<WizardStepAppsProps> = ({
                       e.target.value.toLowerCase().replace(/\s+/g, "-"),
                     )
                   }
-                  className="w-full bg-[#0f111a] border border-[#32353d] rounded-xl py-2.5 px-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors font-mono"
+                  className="w-full bg-[var(--bg-surface)] border border-[var(--border-outline)] rounded-xl py-2.5 px-3 text-sm text-theme-text focus:outline-none focus:border-indigo-500 transition-colors font-mono"
                   placeholder="e.g. backend-api"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  <label className="text-[10px] font-bold text-theme-muted uppercase tracking-wider">
                     Core Language
                   </label>
                   <select
@@ -95,7 +95,7 @@ export const WizardStepApps: React.FC<WizardStepAppsProps> = ({
                     onChange={(e) =>
                       updateServiceField(srv.id, "runtime", e.target.value)
                     }
-                    className="w-full bg-[#0f111a] border border-[#32353d] rounded-xl py-2.5 px-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors"
+                    className="w-full bg-[var(--bg-surface)] border border-[var(--border-outline)] rounded-xl py-2.5 px-3 text-sm text-theme-text focus:outline-none focus:border-indigo-500 transition-colors"
                   >
                     {RUNTIME_PRESETS.map((rt) => (
                       <option key={rt.value} value={rt.value}>
@@ -107,7 +107,7 @@ export const WizardStepApps: React.FC<WizardStepAppsProps> = ({
 
                 {!isFlatFolder && (
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <label className="text-[10px] font-bold text-theme-muted uppercase tracking-wider">
                       Target Output Directory
                     </label>
                     <input
@@ -116,7 +116,7 @@ export const WizardStepApps: React.FC<WizardStepAppsProps> = ({
                       onChange={(e) =>
                         updateServiceField(srv.id, "rootDir", e.target.value)
                       }
-                      className="w-full bg-[#0f111a] border border-[#32353d] rounded-xl py-2.5 px-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors font-mono"
+                      className="w-full bg-[var(--bg-surface)] border border-[var(--border-outline)] rounded-xl py-2.5 px-3 text-sm text-theme-text focus:outline-none focus:border-indigo-500 transition-colors font-mono"
                     />
                   </div>
                 )}
@@ -124,7 +124,7 @@ export const WizardStepApps: React.FC<WizardStepAppsProps> = ({
 
               {FRAMEWORK_OPTIONS[srv.runtime] && (
                 <div className="pt-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-3">
+                  <label className="text-[10px] font-bold text-theme-muted uppercase tracking-wider block mb-3">
                     Framework Engine
                   </label>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -138,7 +138,7 @@ export const WizardStepApps: React.FC<WizardStepAppsProps> = ({
                         className={`p-3 rounded-xl border transition-all text-left flex flex-col gap-1 ${
                           srv.framework === fw.value
                             ? "bg-emerald-500/10 border-emerald-500 text-emerald-300 shadow-sm shadow-emerald-500/10"
-                            : "bg-[#0f111a] border-[#32353d] hover:border-slate-600 hover:bg-[#1b1f2c]"
+                            : "bg-[var(--bg-surface)] border-[var(--border-outline)] hover:border-slate-600 hover:bg-[var(--bg-surface)]"
                         }`}
                       >
                         <span
@@ -147,7 +147,7 @@ export const WizardStepApps: React.FC<WizardStepAppsProps> = ({
                           {fw.type}
                         </span>
                         <span
-                          className={`text-sm font-semibold ${srv.framework === fw.value ? "text-emerald-300" : "text-slate-300"}`}
+                          className={`text-sm font-semibold ${srv.framework === fw.value ? "text-emerald-300" : "text-theme-muted"}`}
                         >
                           {fw.label}
                         </span>

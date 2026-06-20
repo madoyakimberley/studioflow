@@ -67,12 +67,12 @@ export default function SendPortalLinkButton({
       disabled={isPending || status === "success" || isMaxedOut}
       className={`flex items-center gap-1.5 px-2 py-1 border text-[9px] font-bold uppercase tracking-wider transition-colors rounded-md ${
         isMaxedOut
-          ? "bg-[rgba(255,180,171,0.05)] border-[rgba(255,180,171,0.1)] text-[#ffb4ab]/50 cursor-not-allowed"
+          ? "bg-[rgba(255,180,171,0.05)] border-[rgba(255,180,171,0.1)] text-[var(--color-danger)]/50 cursor-not-allowed"
           : status === "success"
-            ? "bg-[rgba(167,255,180,0.08)] border-[rgba(167,255,180,0.2)] text-[#a7ffb4]"
+            ? "bg-[rgba(167,255,180,0.08)] border-[rgba(167,255,180,0.2)] text-[var(--color-success)]"
             : status === "error"
-              ? "bg-[rgba(255,180,171,0.08)] border-[rgba(255,180,171,0.2)] text-[#ffb4ab]"
-              : "bg-[rgba(210,167,255,0.08)] hover:bg-[rgba(210,167,255,0.15)] border-[rgba(210,167,255,0.2)] text-[#d3d7ff]"
+              ? "bg-[rgba(255,180,171,0.08)] border-[rgba(255,180,171,0.2)] text-[var(--color-danger)]"
+              : "bg-[rgba(210,167,255,0.08)] hover:bg-[rgba(210,167,255,0.15)] border-[rgba(210,167,255,0.2)] text-[var(--color-theme-primary)]"
       } disabled:opacity-50 active:scale-95`}
       title={
         isMaxedOut

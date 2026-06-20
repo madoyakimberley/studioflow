@@ -45,7 +45,7 @@ export default async function LiveNodesPage({
       : 0;
 
   return (
-    <div className="flex h-screen bg-[#0c0f16] overflow-hidden">
+    <div className="flex h-screen bg-[var(--bg-main)] overflow-hidden">
       <SidebarConsole userSlug={user} />
 
       <main className="flex-1 overflow-y-auto custom-scrollbar relative">
@@ -53,7 +53,7 @@ export default async function LiveNodesPage({
           {/* Back Link */}
           <Link
             href={`/dashboard/${user}`}
-            className="inline-flex items-center gap-2 text-sm text-[#94a3b8] hover:text-[#d3d7ff] mb-6 transition-colors"
+            className="inline-flex items-center gap-2 text-sm text-[var(--text-muted)] hover:text-[var(--color-theme-primary)] mb-6 transition-colors"
           >
             ← Back to Core Systems Overview
           </Link>
@@ -62,9 +62,9 @@ export default async function LiveNodesPage({
           <div className="flex flex-col md:flex-row md:items-center justify-between mb-12">
             <div>
               <h1 className="headline-lg lilac-gradient">
-                Live <span className="text-[#e8b3ff]">Nodes</span>
+                Live <span className="text-[var(--color-theme-secondary)]">Nodes</span>
               </h1>
-              <p className="text-[#c6c5d1] mt-2 max-w-xl">
+              <p className="text-[var(--text-muted)] mt-2 max-w-xl">
                 Real-time telemetry and domain routing status.
               </p>
             </div>
@@ -78,22 +78,22 @@ export default async function LiveNodesPage({
               <div className="flex flex-col items-center justify-center h-full py-20 text-center">
                 <div className="relative w-48 h-48 mb-10">
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-36 h-36 border-2 border-dashed border-[#d3d7ff]/30 rounded-full flex items-center justify-center animate-[spin_25s_linear_infinite]">
-                      <span className="material-symbols-outlined text-[#d3d7ff]/40 text-6xl">
+                    <div className="w-36 h-36 border-2 border-dashed border-[var(--color-theme-primary)]/30 rounded-full flex items-center justify-center animate-[spin_25s_linear_infinite]">
+                      <span className="material-symbols-outlined text-[var(--color-theme-primary)]/40 text-6xl">
                         satellite_alt
                       </span>
                     </div>
                   </div>
                 </div>
-                <h3 className="headline-sm text-white mb-3">System Idle</h3>
-                <p className="text-[#c6c5d1] max-w-md mb-10">
+                <h3 className="headline-sm text-theme-text mb-3">System Idle</h3>
+                <p className="text-[var(--text-muted)] max-w-md mb-10">
                   No active production domains currently routed through this
                   node instance. Deploy a configuration to begin tracking live
                   telemetry.
                 </p>
                 <div className="flex gap-4">
                   <DeployNewNodeButton variant="primary" />
-                  <button className="px-8 py-3.5 border border-[#d3d7ff]/30 hover:border-[#d3d7ff] rounded-2xl flex items-center gap-3 text-[#d3d7ff] transition-colors">
+                  <button className="px-8 py-3.5 border border-[var(--color-theme-primary)]/30 hover:border-[var(--color-theme-primary)] rounded-2xl flex items-center gap-3 text-[var(--color-theme-primary)] transition-colors">
                     <span className="material-symbols-outlined">
                       upload_file
                     </span>
@@ -105,41 +105,41 @@ export default async function LiveNodesPage({
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-[#32353d]">
-                      <th className="label-caps text-left px-8 py-6 text-[#94a3b8]">
+                    <tr className="border-b border-[var(--border-outline)]">
+                      <th className="label-caps text-left px-8 py-6 text-[var(--text-muted)]">
                         Domain / Target
                       </th>
-                      <th className="label-caps text-left px-8 py-6 text-[#94a3b8]">
+                      <th className="label-caps text-left px-8 py-6 text-[var(--text-muted)]">
                         Status Matrix
                       </th>
-                      <th className="label-caps text-left px-8 py-6 text-[#94a3b8]">
+                      <th className="label-caps text-left px-8 py-6 text-[var(--text-muted)]">
                         Latency (ms)
                       </th>
-                      <th className="label-caps text-left px-8 py-6 text-[#94a3b8]">
+                      <th className="label-caps text-left px-8 py-6 text-[var(--text-muted)]">
                         Last Audit
                       </th>
-                      <th className="label-caps text-right px-8 py-6 text-[#94a3b8]">
+                      <th className="label-caps text-right px-8 py-6 text-[var(--text-muted)]">
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#32353d]">
+                  <tbody className="divide-y divide-[var(--border-outline)]">
                     {uniqueSites.map((site) => (
                       <tr
                         key={site.projectId}
                         className="hover:bg-white/5 transition-colors"
                       >
                         <td className="px-8 py-6">
-                          <div className="font-semibold text-white">
+                          <div className="font-semibold text-theme-text">
                             {site.name}
                           </div>
-                          <div className="mono-code text-sm text-[#d3d7ff] break-all">
+                          <div className="mono-code text-sm text-[var(--color-theme-primary)] break-all">
                             {site.liveUrl}
                           </div>
                         </td>
                         <td className="px-8 py-6">
                           {site.isUp === null ? (
-                            <span className="inline-flex items-center gap-2 px-4 py-1 bg-[#1d2027] border border-[#32353d] rounded-full text-xs label-caps">
+                            <span className="inline-flex items-center gap-2 px-4 py-1 bg-[var(--bg-surface)] border border-[var(--border-outline)] rounded-full text-xs label-caps">
                               <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
                               AWAITING_PING
                             </span>
@@ -154,10 +154,10 @@ export default async function LiveNodesPage({
                             </span>
                           )}
                         </td>
-                        <td className="px-8 py-6 mono-code text-[#e8b3ff]">
+                        <td className="px-8 py-6 mono-code text-[var(--color-theme-secondary)]">
                           {site.responseTime ? `${site.responseTime} ms` : "--"}
                         </td>
-                        <td className="px-8 py-6 mono-code text-[#94a3b8] text-sm">
+                        <td className="px-8 py-6 mono-code text-[var(--text-muted)] text-sm">
                           {site.checkedAt
                             ? new Date(site.checkedAt).toLocaleString()
                             : "PENDING"}
@@ -166,7 +166,7 @@ export default async function LiveNodesPage({
                           <a
                             href={site.liveUrl!}
                             target="_blank"
-                            className="text-[#d3d7ff] hover:underline flex items-center gap-1 justify-end"
+                            className="text-[var(--color-theme-primary)] hover:underline flex items-center gap-1 justify-end"
                           >
                             Visit Node
                             <span className="material-symbols-outlined text-lg">
@@ -185,38 +185,38 @@ export default async function LiveNodesPage({
           {/* Stats Footer */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
             <div className="glass-card p-8 rounded-2xl">
-              <div className="label-caps text-[#94a3b8]">Global Uptime</div>
+              <div className="label-caps text-[var(--text-muted)]">Global Uptime</div>
               <div className="text-4xl font-mono text-emerald-400 mt-3">
                 99.998%
               </div>
-              <div className="h-1.5 bg-[#1d2027] rounded-full mt-6 overflow-hidden">
-                <div className="h-full w-[99.998%] bg-gradient-to-r from-[#d3d7ff] to-[#e8b3ff]" />
+              <div className="h-1.5 bg-[var(--bg-surface)] rounded-full mt-6 overflow-hidden">
+                <div className="h-full w-[99.998%] bg-gradient-to-r from-[var(--color-theme-primary)] to-[var(--color-theme-secondary)]" />
               </div>
             </div>
             <div className="glass-card p-8 rounded-2xl">
-              <div className="label-caps text-[#94a3b8]">Active Instances</div>
-              <div className="text-4xl font-mono text-[#e8b3ff] mt-3">
+              <div className="label-caps text-[var(--text-muted)]">Active Instances</div>
+              <div className="text-4xl font-mono text-[var(--color-theme-secondary)] mt-3">
                 {activeCount} Active
               </div>
               <div className="flex gap-1 mt-6">
                 {[...Array(5)].map((_, i) => (
                   <div
                     key={i}
-                    className={`h-2 flex-1 rounded-full ${i < activeCount ? "bg-[#e8b3ff]" : "bg-[#32353d]"}`}
+                    className={`h-2 flex-1 rounded-full ${i < activeCount ? "bg-[var(--color-theme-secondary)]" : "bg-[var(--border-outline)]"}`}
                   />
                 ))}
               </div>
             </div>
             <div className="glass-card p-8 rounded-2xl">
-              <div className="label-caps text-[#94a3b8]">Avg. Latency</div>
-              <div className="text-4xl font-mono text-[#d3d7ff] mt-3">
+              <div className="label-caps text-[var(--text-muted)]">Avg. Latency</div>
+              <div className="text-4xl font-mono text-[var(--color-theme-primary)] mt-3">
                 {avgLatency} ms
               </div>
               <div className="h-8 flex items-end gap-1 mt-6">
                 {[40, 25, 55, 35, 45].map((h, i) => (
                   <div
                     key={i}
-                    className="bg-[#d3d7ff]/70 rounded-t w-full"
+                    className="bg-[var(--color-theme-primary)]/70 rounded-t w-full"
                     style={{ height: `${h}%` }}
                   />
                 ))}

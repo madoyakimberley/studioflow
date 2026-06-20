@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import ProjectWizard from "./ProjectWizard";
+import ThemeModal from "./ThemeSelector";
 
 export default function SidebarConsole({
   userSlug = "user", // fallback only
@@ -52,9 +53,9 @@ export default function SidebarConsole({
       icon: "queue_play_next",
     },
     {
-      href: `${baseRoute}/assets`, // The link to your new Assets Dashboard
+      href: `${baseRoute}/assets`,
       label: "Asset Vault",
-      icon: "folder_zip", // Material icon for assets/archives
+      icon: "folder_zip",
     },
   ];
 
@@ -90,7 +91,7 @@ export default function SidebarConsole({
           align-items: center;
           gap: 1rem;
           padding: 0.75rem 1rem;
-          color: #c6c5d1;
+          color: var(--color-theme-muted);
           border-left: 2px solid transparent;
           transition: all 0.3s ease;
           text-decoration: none;
@@ -98,30 +99,32 @@ export default function SidebarConsole({
         }
 
         .nav-link:hover {
-          background-color: rgba(255, 255, 255, 0.05);
-          color: #e0e2ec;
+          background-color: color-mix(in srgb, var(--color-theme-text) 5%, transparent);
+          color: var(--color-theme-text);
         }
 
         .nav-link.active {
-          background-color: rgba(175, 186, 255, 0.1);
-          color: #d3d7ff;
-          border-left-color: #d3d7ff;
+          background-color: color-mix(in srgb, var(--color-theme-primary) 10%, transparent);
+          color: var(--color-theme-primary);
+          border-left-color: var(--color-theme-primary);
         }
 
-        .lilac-pink-btn {
-          background: linear-gradient(90deg, #d3d7ff 0%, #ecb6e2 100%);
-          box-shadow: 0 0 20px rgba(236, 182, 226, 0.3);
-          color: #1f2b67;
+        .dynamic-btn {
+          background: var(--color-theme-primary);
+          color: var(--color-theme-on-primary);
+          box-shadow: 0 0 20px color-mix(in srgb, var(--color-theme-primary) 30%, transparent);
         }
 
-        .lilac-pink-btn:hover {
+        .dynamic-btn:hover {
           opacity: 0.9;
         }
       `}</style>
 
-      <aside className="w-[280px] h-full flex flex-col bg-[#0b0e15] border-r border-[rgba(175,186,255,0.15)] z-50">
-        <div className="p-8 pb-16">
-          <div className="headline-sm text-[#e0e2ec] flex items-center gap-3">
+      {/* ✨ Migrated to theme classes */}
+      <aside className="w-[280px] h-full flex flex-col bg-theme-surface border-r border-theme-outline z-50 transition-colors duration-300">
+        {/* ✨ Header: Contains Logo AND the ThemeModal Trigger */}
+        <div className="p-8 pb-16 flex justify-between items-center">
+          <div className="headline-sm text-theme-text flex items-center gap-3">
             <div className="relative h-6 w-6 flex-shrink-0">
               <Image
                 src="/images/logo.jpg"
@@ -134,6 +137,9 @@ export default function SidebarConsole({
             </div>
             <span className="font-bold">StudioFlow</span>
           </div>
+
+          {/* THE THEME SWITCHER UI */}
+          <ThemeModal />
         </div>
 
         <nav className="flex-1 px-4 space-y-1 custom-scrollbar overflow-y-auto">
@@ -155,10 +161,10 @@ export default function SidebarConsole({
         </nav>
 
         {/* Fixed New Project Button at Bottom */}
-        <div className="p-6 border-t border-[rgba(175,186,255,0.15)] mt-auto">
+        <div className="p-6 border-t border-theme-outline mt-auto">
           <button
             onClick={() => setWizardOpen(true)}
-            className="lilac-pink-btn w-full py-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 label-caps font-bold shadow-lg"
+            className="dynamic-btn w-full py-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 label-caps font-bold shadow-lg"
           >
             <span className="material-symbols-outlined">add</span>
             <span>New Project</span>
@@ -168,7 +174,7 @@ export default function SidebarConsole({
 
       <AnimatePresence>
         {wizardOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-[#030407]/90 backdrop-blur-md overflow-y-auto">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-theme-bg/90 backdrop-blur-md overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, scale: 0.98, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
