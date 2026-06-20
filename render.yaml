@@ -1,39 +1,70 @@
+# Exported & Hardened for StudioFlow on 2026-06-19
+# Implements Graceful Rollouts and Zero-Downtime routing for Render
+version: "1"
 services:
-  # 1. The Next.js Client Dashboard
   - type: web
     name: studioflow-dashboard
-    env: node
+    runtime: node
+    repo: https://github.com/madoyakimberley/studioflow
     plan: free
-    autoDeploy: true
+    region: oregon
+    rootDir: .
     buildCommand: pnpm install && pnpm build --filter client-dashboard
     startCommand: cd apps/client-dashboard && pnpm start
     healthCheckPath: /api/health
+    autoDeployTrigger: commit
     envVars:
-      - key: NODE_VERSION
-        value: 20.x
-      - key: PNPM_VERSION
-        value: 9.x
-      - key: API_BASE_URL
-        fromService:
-          type: web
-          name: studioflow-api
-          property: host
-
-  # 2. The Python FastAPI Core Engine
-  - type: web
-    name: studioflow-api
-    env: python
-    plan: free
-    autoDeploy: true
-    rootDir: apps/api-core
-    buildCommand: pip install -r requirements.txt
-    startCommand: python -m gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
-    # FIX: Updated to match main.py route
-    healthCheckPath: /api/v1/health
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.12.0
-      - key: DATABASE_URL
+      - key: UPLOADTHING_APP_ID
+        sync: false
+      - key: UPLOADTHING_SECRET
+        sync: false
+      - key: RENDER_OWNER_ID
+        sync: false
+      - key: RENDER_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_APP_URL
         sync: false
       - key: REDIS_URL
+        sync: false
+      - key: GITHUB_PAT
+        sync: false
+      - key: NEXT_PUBLIC_ADMIN_EMAILS
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: TARGET_OUTPUT_DIR
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+
+  - type: web
+    name: studioflow-api
+    runtime: python
+    repo: https://github.com/madoyakimberley/studioflow
+    plan: free
+    region: oregon
+    rootDir: apps/api-core
+    buildCommand: pip install -r requirements.txt
+    # Explicitly using the requested Gunicorn configuration for Uvicorn worker routing
+    startCommand: python -m gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+    healthCheckPath: /api/v1/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: RENDER_OWNER_ID
+        sync: false
+      - key: RENDER_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: GITHUB_PAT
+        sync: false
+      - key: NEXT_PUBLIC_ADMIN_EMAILS
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: TARGET_OUTPUT_DIR
+        sync: false
+      - key: DATABASE_URL
         sync: false

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { ProjectWizard } from "./ProjectWizard";
+import ProjectWizard from "./ProjectWizard";
 
 export default function SidebarConsole({
   userSlug = "user", // fallback only

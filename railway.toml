@@ -1,0 +1,21 @@
+[build]
+builder = "NIXPACKS"
+watchPatterns = ["apps/**", "packages/**", "package.json", "pnpm-workspace.yaml"]
+
+[deploy]
+healthcheckPath = "/api/v1/health"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+[[services]]
+name = "studioflow-api"
+rootDirectory = "apps/api-core"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[[services]]
+name = "studioflow-dashboard"
+rootDirectory = "apps/client-dashboard"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"

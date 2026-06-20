@@ -1,52 +1,56 @@
 import crypto from "crypto";
 
-// Ensure this 32-byte key is set in your main hosting platform's environment variables (e.g., Vercel/Render)
-const ENCRYPTION_KEY = process.env.STUDIOFLOW_MASTER_ENCRYPTION_KEY;
-const ALGORITHM = "aes-256-gcm";
-const IV_LENGTH = 12;
+const ALGORITHM = "aes-256-cbc";
 
-if (!ENCRYPTION_KEY || Buffer.from(ENCRYPTION_KEY, "hex").length !== 32) {
-  throw new Error(
-    "CRITICAL CONFIGURATION ERROR: STUDIOFLOW_MASTER_ENCRYPTION_KEY must be a valid 32-byte hex string.",
-  );
+/**
+ * Lazily resolves and validates the encryption key at runtime.
+ * Prevents module evaluation crashes during server boot or routing pipeline builds.
+ */
+function getEncryptionKey(): Buffer {
+  const keyEnv = process.env.STUDIOFLOW_MASTER_ENCRYPTION_KEY;
+
+  if (!keyEnv || Buffer.from(keyEnv, "hex").length !== 32) {
+    throw new Error(
+      "CRITICAL CONFIGURATION ERROR: STUDIOFLOW_MASTER_ENCRYPTION_KEY must be a valid 32-byte hex string (64 characters).",
+    );
+  }
+
+  return Buffer.from(keyEnv, "hex");
 }
 
+/**
+ * Encrypts cleartext payload strings using AES-256-CBC
+ */
 export function encryptSecret(text: string): string {
-  const iv = crypto.randomBytes(IV_LENGTH);
-  const cipher = crypto.createCipheriv(
-    ALGORITHM,
-    Buffer.from(ENCRYPTION_KEY!, "hex"),
-    iv,
-  );
+  if (!text) return "";
+
+  const key = getEncryptionKey();
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
 
   let encrypted = cipher.update(text, "utf8", "hex");
   encrypted += cipher.final("hex");
 
-  const authTag = cipher.getAuthTag().toString("hex");
-
-  // Combine all vectors safely using a secure delimiter
-  return `${iv.toString("hex")}:${authTag}:${encrypted}`;
+  return `${iv.toString("hex")}:${encrypted}`;
 }
 
-export function decryptSecret(ciphertext: string): string {
-  const parts = ciphertext.split(":");
-  if (parts.length !== 3) {
-    throw new Error("Invalid cipher structure tracking token.");
+/**
+ * Decrypts automated system credentials at runtime
+ */
+export function decryptSecret(encryptedText: string): string {
+  if (!encryptedText) return "";
+
+  const key = getEncryptionKey();
+  const [ivHex, encryptedHex] = encryptedText.split(":");
+
+  if (!ivHex || !encryptedHex) {
+    throw new Error("Invalid encrypted text token structural formatting.");
   }
 
-  const [ivHex, authTagHex, encryptedHex] = parts;
   const iv = Buffer.from(ivHex, "hex");
-  const authTag = Buffer.from(authTagHex, "hex");
+  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
 
-  const encrypted = Buffer.from(encryptedHex, "hex");
-  const decipher = crypto.createDecipheriv(
-    ALGORITHM,
-    Buffer.from(ENCRYPTION_KEY!, "hex"),
-    iv,
-  );
-  decipher.setAuthTag(authTag);
-
-  let decrypted = decipher.update(encrypted, undefined, "utf8");
+  let decrypted = decipher.update(encryptedHex, "hex", "utf8");
   decrypted += decipher.final("utf8");
 
   return decrypted;

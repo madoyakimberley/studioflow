@@ -8,8 +8,11 @@ import {
   json,
   index,
   uniqueIndex,
+  foreignKey,
 } from "drizzle-orm/mysql-core";
 import { relations } from "drizzle-orm";
+
+const isIsolatedDev = process.env.IS_ISOLATED_DEV === "true";
 
 // ==========================================
 // MULTI-TENANT CORE ARCHITECTURE
@@ -22,6 +25,7 @@ export const users = mysqlTable("users", {
   name: varchar("name", { length: 255 }),
   passwordHash: text("password_hash").notNull(),
   githubAccessToken: text("github_access_token"),
+  cliToken: varchar("cli_token", { length: 255 }).unique(), // NEW: CLI Authentication Token
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -36,6 +40,14 @@ export const workspaces = mysqlTable(
   },
   (table) => ({
     ownerIdx: index("owner_idx").on(table.ownerId),
+    ...(!isIsolatedDev
+      ? {
+          ownerFk: foreignKey({
+            columns: [table.ownerId],
+            foreignColumns: [users.id],
+          }),
+        }
+      : {}),
   }),
 );
 
@@ -54,6 +66,14 @@ export const workspaceIntegrations = mysqlTable(
       table.workspaceId,
       table.provider,
     ),
+    ...(!isIsolatedDev
+      ? {
+          workspaceFk: foreignKey({
+            columns: [table.workspaceId],
+            foreignColumns: [workspaces.id],
+          }),
+        }
+      : {}),
   }),
 );
 
@@ -80,6 +100,14 @@ export const clients = mysqlTable(
       table.workspaceId,
       table.slug,
     ),
+    ...(!isIsolatedDev
+      ? {
+          workspaceFk: foreignKey({
+            columns: [table.workspaceId],
+            foreignColumns: [workspaces.id],
+          }),
+        }
+      : {}),
   }),
 );
 
@@ -126,11 +154,23 @@ export const projects = mysqlTable(
     portalCodeExpiresAt: timestamp("portal_code_expires_at"),
     portalLastCodeSentAt: timestamp("portal_last_code_sent_at"),
     portalEmailsSentCount: int("portal_emails_sent_count").default(0),
-
+    portalLinkSentCount: int("portal_link_sent_count").default(0),
     createdAt: timestamp("created_at").defaultNow(),
   },
   (table) => ({
     workspaceProjectIdx: index("workspace_project_idx").on(table.workspaceId),
+    ...(!isIsolatedDev
+      ? {
+          workspaceFk: foreignKey({
+            columns: [table.workspaceId],
+            foreignColumns: [workspaces.id],
+          }),
+          clientFk: foreignKey({
+            columns: [table.clientId],
+            foreignColumns: [clients.id],
+          }),
+        }
+      : {}),
   }),
 );
 
@@ -152,43 +192,103 @@ export const projectAssets = mysqlTable(
   },
   (table) => ({
     projectAssetIdx: index("project_asset_idx").on(table.projectId),
+    ...(!isIsolatedDev
+      ? {
+          projectFk: foreignKey({
+            columns: [table.projectId],
+            foreignColumns: [projects.id],
+          }),
+        }
+      : {}),
   }),
 );
 
-export const checklistItems = mysqlTable("checklist_items", {
-  id: int("id").autoincrement().primaryKey(),
-  projectId: int("project_id").notNull(),
-  title: varchar("title", { length: 255 }).notNull(),
-  status: varchar("status", { length: 50 }).default("pending"), // 'pending', 'pending_client_review', 'completed'
-  proofUrl: text("proof_url"),
-  type: varchar("type", { length: 50 }).default("MVP"), // 'MVP' or 'Added Feature'
-  createdAt: timestamp("created_at").defaultNow(),
-});
+export const checklistItems = mysqlTable(
+  "checklist_items",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    projectId: int("project_id").notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    status: varchar("status", { length: 50 }).default("pending"), // 'pending', 'pending_client_review', 'completed'
+    proofUrl: text("proof_url"),
+    type: varchar("type", { length: 50 }).default("MVP"), // 'MVP' or 'Added Feature'
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    ...(!isIsolatedDev
+      ? {
+          projectFk: foreignKey({
+            columns: [table.projectId],
+            foreignColumns: [projects.id],
+          }),
+        }
+      : {}),
+  }),
+);
 
-export const portalMessages = mysqlTable("portal_messages", {
-  id: int("id").autoincrement().primaryKey(),
-  projectId: int("project_id").notNull(),
-  sender: varchar("sender", { length: 50 }).notNull(),
-  content: text("content").notNull(),
-  isRead: boolean("is_read").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+export const portalMessages = mysqlTable(
+  "portal_messages",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    projectId: int("project_id").notNull(),
+    sender: varchar("sender", { length: 50 }).notNull(),
+    content: text("content").notNull(),
+    isRead: boolean("is_read").default(false),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    ...(!isIsolatedDev
+      ? {
+          projectFk: foreignKey({
+            columns: [table.projectId],
+            foreignColumns: [projects.id],
+          }),
+        }
+      : {}),
+  }),
+);
 
-export const chatPresence = mysqlTable("chat_presence", {
-  projectId: int("project_id").primaryKey(),
-  clientTyping: boolean("client_typing").default(false),
-  adminTyping: boolean("admin_typing").default(false),
-  lastUpdated: timestamp("last_updated").defaultNow().onUpdateNow(),
-});
+export const chatPresence = mysqlTable(
+  "chat_presence",
+  {
+    projectId: int("project_id").primaryKey(),
+    clientTyping: boolean("client_typing").default(false),
+    adminTyping: boolean("admin_typing").default(false),
+    lastUpdated: timestamp("last_updated").defaultNow().onUpdateNow(),
+  },
+  (table) => ({
+    ...(!isIsolatedDev
+      ? {
+          projectFk: foreignKey({
+            columns: [table.projectId],
+            foreignColumns: [projects.id],
+          }),
+        }
+      : {}),
+  }),
+);
 
-export const clientRequests = mysqlTable("client_requests", {
-  id: int("id").autoincrement().primaryKey(),
-  projectId: int("project_id").notNull(),
-  title: varchar("title", { length: 255 }).notNull(),
-  description: text("description").notNull(),
-  status: varchar("status", { length: 50 }).default("pending"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+export const clientRequests = mysqlTable(
+  "client_requests",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    projectId: int("project_id").notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    description: text("description").notNull(),
+    status: varchar("status", { length: 50 }).default("pending"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    ...(!isIsolatedDev
+      ? {
+          projectFk: foreignKey({
+            columns: [table.projectId],
+            foreignColumns: [projects.id],
+          }),
+        }
+      : {}),
+  }),
+);
 
 // ==========================================
 // AUTOMATION & INFRASTRUCTURE QUEUES
@@ -211,6 +311,14 @@ export const provisioningJobs = mysqlTable(
   },
   (table) => ({
     projectJobIdx: index("project_job_idx").on(table.projectId),
+    ...(!isIsolatedDev
+      ? {
+          projectFk: foreignKey({
+            columns: [table.projectId],
+            foreignColumns: [projects.id],
+          }),
+        }
+      : {}),
   }),
 );
 
@@ -235,36 +343,61 @@ export const siteMonitoring = mysqlTable(
   },
   (table) => ({
     projMonitoringIdx: index("proj_monitoring_idx").on(table.projectId),
+    ...(!isIsolatedDev
+      ? {
+          projectFk: foreignKey({
+            columns: [table.projectId],
+            foreignColumns: [projects.id],
+          }),
+        }
+      : {}),
   }),
 );
 
-export const workspaceEnvironments = mysqlTable("workspace_environments", {
-  id: int("id").autoincrement().primaryKey(),
-  workspaceId: int("workspace_id").notNull().unique(),
+export const workspaceEnvironments = mysqlTable(
+  "workspace_environments",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    workspaceId: int("workspace_id").notNull().unique(),
 
-  databaseUrl: text("database_url"),
-  redisUrl: text("redis_url"),
-  targetOutputDir: varchar("target_output_dir", { length: 255 }).default(
-    "~/StudioFlow/projects",
-  ),
+    databaseUrl: text("database_url"),
+    databaseEngine: varchar("database_engine", { length: 50 }).default(
+      "postgresql",
+    ),
+    databaseOrm: varchar("database_orm", { length: 50 }).default("drizzle"),
+    redisUrl: text("redis_url"),
+    targetOutputDir: varchar("target_output_dir", { length: 255 }).default(
+      "~/StudioFlow/projects",
+    ),
 
-  githubToken: text("github_token"),
+    githubToken: text("github_token"),
 
-  deploymentProvider: varchar("deployment_provider", { length: 50 }).default(
-    "none",
-  ),
-  deploymentApiKey: text("deployment_api_key"),
-  deploymentOwnerId: varchar("deployment_owner_id", { length: 255 }),
+    deploymentProvider: varchar("deployment_provider", { length: 50 }).default(
+      "none",
+    ),
+    deploymentApiKey: text("deployment_api_key"),
+    deploymentOwnerId: varchar("deployment_owner_id", { length: 255 }),
 
-  smtpHost: varchar("smtp_host", { length: 255 }),
-  smtpPort: varchar("smtp_port", { length: 50 }),
-  smtpUser: varchar("smtp_user", { length: 255 }),
-  smtpPass: text("smtp_pass"),
-  adminAlertEmail: varchar("admin_alert_email", { length: 255 }),
+    smtpHost: varchar("smtp_host", { length: 255 }),
+    smtpPort: varchar("smtp_port", { length: 50 }),
+    smtpUser: varchar("smtp_user", { length: 255 }),
+    smtpPass: text("smtp_pass"),
+    adminAlertEmail: varchar("admin_alert_email", { length: 255 }),
 
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
-});
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+  },
+  (table) => ({
+    ...(!isIsolatedDev
+      ? {
+          workspaceFk: foreignKey({
+            columns: [table.workspaceId],
+            foreignColumns: [workspaces.id],
+          }),
+        }
+      : {}),
+  }),
+);
 
 // ==========================================
 // SYSTEM RELATIONSHIPS MAPS
