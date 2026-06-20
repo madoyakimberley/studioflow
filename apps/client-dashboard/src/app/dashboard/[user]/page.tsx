@@ -472,22 +472,12 @@ export default async function SystemsOverviewDashboard({
 
                                 {/* PORTAL LINK & EMAIL BUTTON */}
                                 <div className="ml-1 flex items-center gap-3 border-l border-[rgba(175,186,255,0.1)] pl-3">
-                                  {/* <Link
-                                    href={`https://${project.slug}.studioflow.dev`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-1 text-[#e8b3ff] hover:underline text-[10px]"
-                                  >
-                                    <span className="material-symbols-outlined text-[11px]">
-                                      open_in_new
-                                    </span>
-                                    Live Link
-                                  </Link> */}
-
+                                  {/* THE FIX IS RIGHT HERE: Passing projectId and portalSlug correctly! */}
                                   <SendPortalLinkButton
+                                    projectId={project.id}
                                     clientEmail={project.clientEmail || ""}
-                                    projectSlug={project.slug}
-                                    projectName={project.name}
+                                    portalSlug={project.slug}
+                                    sentCount={project.portalLinkSentCount || 0}
                                   />
                                 </div>
                               </div>

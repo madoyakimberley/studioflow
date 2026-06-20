@@ -13,6 +13,7 @@ const connectionPool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  connectTimeout: 15000,
   ssl: { rejectUnauthorized: true },
   // FIX: Protects against silent database engine drop-offs and ETIMEDOUT socket exceptions
   enableKeepAlive: true,

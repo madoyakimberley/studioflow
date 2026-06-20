@@ -1,7 +1,11 @@
 import { spawn } from "child_process";
 
 export class CommandProcessExecutor {
-  execute(shellStatementText, activeExecutionDirectoryPath) {
+  execute(
+    shellStatementText,
+    activeExecutionDirectoryPath,
+    streamOutput = false,
+  ) {
     return new Promise((resolve) => {
       const stringifiedSanitizedStatement = String(shellStatementText);
 
@@ -14,11 +18,17 @@ export class CommandProcessExecutor {
       let logsOutputBufferString = "";
 
       instantiatedProcessChild.stdout.on("data", (chunkBytes) => {
-        logsOutputBufferString += chunkBytes.toString();
+        const text = chunkBytes.toString();
+        logsOutputBufferString += text;
+        if (streamOutput)
+          process.stdout.write(`\x1b[2m    → ${text.trim()}\x1b[0m\n`);
       });
 
       instantiatedProcessChild.stderr.on("data", (chunkBytes) => {
-        logsOutputBufferString += chunkBytes.toString();
+        const text = chunkBytes.toString();
+        logsOutputBufferString += text;
+        if (streamOutput)
+          process.stderr.write(`\x1b[2m    → ${text.trim()}\x1b[0m\n`);
       });
 
       instantiatedProcessChild.on("close", (terminationExitCode) => {

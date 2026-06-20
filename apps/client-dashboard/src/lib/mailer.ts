@@ -1,12 +1,47 @@
 "use server";
 
 import nodemailer from "nodemailer";
+import { db, workspaceEnvironments } from "@studioflow/db";
+import { eq } from "drizzle-orm";
+import { decryptSecret } from "@/lib/crypto";
 
 // ==========================================
 // --- MAILER CONFIGURATION & TEMPLATES ---
 // ==========================================
 
-function createTransporter() {
+// 1. NEW: Dynamic Multi-Tenant Transporter
+async function createDynamicTransporter(workspaceId: number) {
+  const config = await db
+    .select()
+    .from(workspaceEnvironments)
+    .where(eq(workspaceEnvironments.workspaceId, workspaceId))
+    .then((res) => res[0]);
+
+  if (!config || !config.smtpHost || !config.smtpUser || !config.smtpPass) {
+    throw new Error(
+      `SMTP configuration missing or incomplete for workspace ${workspaceId}`,
+    );
+  }
+
+  const cleartextPassword = decryptSecret(config.smtpPass);
+
+  return {
+    transporter: nodemailer.createTransport({
+      host: config.smtpHost,
+      port: parseInt(config.smtpPort || "587"),
+      secure: config.smtpPort === "465",
+      auth: {
+        user: config.smtpUser,
+        pass: cleartextPassword,
+      },
+    }),
+    senderEmail: config.smtpUser,
+    adminAlertEmail: config.adminAlertEmail || config.smtpUser,
+  };
+}
+
+// Fallback for generic portal emails if no workspace config is defined yet
+function createFallbackTransporter() {
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || "smtp.mailtrap.io",
     port: parseInt(process.env.SMTP_PORT || "2525"),
@@ -18,6 +53,7 @@ function createTransporter() {
 }
 
 interface AlertEmailPayload {
+  workspaceId: number; // NEW: Required to fetch dynamic credentials
   projectName: string;
   statusCode: number | null;
   errorTrace: string | null;
@@ -37,31 +73,40 @@ interface PortalWelcomePayload {
 }
 
 export async function sendSystemAlertEmail(payload: AlertEmailPayload) {
-  const adminEmail = process.env.ADMIN_ALERT_EMAIL || "admin@studioflow.dev";
-  const transporter = createTransporter();
+  try {
+    // Dynamically boot the transport based on the workspace ID
+    const { transporter, senderEmail, adminAlertEmail } =
+      await createDynamicTransporter(payload.workspaceId);
 
-  const mailOptions = {
-    from: `"StudioFlow Core" <alerts@studioflow.dev>`,
-    to: adminEmail,
-    subject: `🚨 CRITICAL ALERT: Outage Detected on [${payload.projectName}]`,
-    html: `
-      <div style="font-family: sans-serif; padding: 20px; background-color: #0b1326; color: #dae2fd;">
-        <h2 style="color: #e364a7; border-bottom: 1px solid #171f33; padding-bottom: 10px;">StudioFlow Incident Response</h2>
-        <p><strong>Target Node Instance:</strong> ${payload.projectName}</p>
-        <p><strong>HTTP Status Code:</strong> ${payload.statusCode || "UNKNOWN"}</p>
-        <div style="background-color: #131b2e; padding: 15px; border-radius: 8px; border-left: 4px solid #ef4444; font-family: monospace; margin-top: 15px;">
-          <strong>Error Stack Trace:</strong><br/>
-          <pre style="white-space: pre-wrap; margin-top: 5px; color: #f87171;">${payload.errorTrace || "No trace dumped."}</pre>
+    const mailOptions = {
+      from: `"StudioFlow Core" <${senderEmail}>`,
+      to: adminAlertEmail,
+      subject: `🚨 CRITICAL ALERT: Outage Detected on [${payload.projectName}]`,
+      html: `
+        <div style="font-family: sans-serif; padding: 20px; background-color: #0b1326; color: #dae2fd;">
+          <h2 style="color: #e364a7; border-bottom: 1px solid #171f33; padding-bottom: 10px;">StudioFlow Incident Response</h2>
+          <p><strong>Target Node Instance:</strong> ${payload.projectName}</p>
+          <p><strong>HTTP Status Code:</strong> ${payload.statusCode || "UNKNOWN"}</p>
+          <div style="background-color: #131b2e; padding: 15px; border-radius: 8px; border-left: 4px solid #ef4444; font-family: monospace; margin-top: 15px;">
+            <strong>Error Stack Trace:</strong><br/>
+            <pre style="white-space: pre-wrap; margin-top: 5px; color: #f87171;">${payload.errorTrace || "No trace dumped."}</pre>
+          </div>
         </div>
-      </div>
-    `,
-  };
+      `,
+    };
 
-  return transporter.sendMail(mailOptions);
+    return await transporter.sendMail(mailOptions);
+  } catch (error) {
+    console.error(
+      "🚨 [SMTP GATEWAY FAILURE]: Could not dispatch alert.",
+      error,
+    );
+    return false;
+  }
 }
 
 export async function sendPortalAccessCodeEmail(payload: PortalCodePayload) {
-  const transporter = createTransporter();
+  const transporter = createFallbackTransporter();
   const systemSender =
     process.env.SMTP_FROM_EMAIL ||
     `"StudioFlow Delivery" <delivery@studioflow.dev>`;
@@ -94,7 +139,7 @@ export async function sendPortalAccessCodeEmail(payload: PortalCodePayload) {
 }
 
 export async function sendPortalWelcomeEmail(payload: PortalWelcomePayload) {
-  const transporter = createTransporter();
+  const transporter = createFallbackTransporter();
   const systemSender =
     process.env.SMTP_FROM_EMAIL ||
     `"StudioFlow Delivery" <delivery@studioflow.dev>`;

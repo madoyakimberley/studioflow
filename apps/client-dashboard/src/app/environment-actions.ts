@@ -1,8 +1,9 @@
 "use server";
 
-import { db, workspaceEnvironments } from "@studioflow/db";
+import { db, workspaceEnvironments, workspaces, users } from "@studioflow/db";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import crypto from "crypto";
 
 export interface EnvironmentPayload {
   workspaceId: number;
@@ -24,6 +25,7 @@ export interface EnvironmentPayload {
 
 export async function saveWorkspaceEnvironment(payload: EnvironmentPayload) {
   try {
+    // 1. Persist or update the main infrastructure environment records
     const existingEnv = await db.query.workspaceEnvironments.findFirst({
       where: eq(workspaceEnvironments.workspaceId, payload.workspaceId),
     });
@@ -64,16 +66,48 @@ export async function saveWorkspaceEnvironment(payload: EnvironmentPayload) {
       });
     }
 
+    // 2. Resolve token-provisioning context for CLI integration
+    const targetWorkspace = await db.query.workspaces.findFirst({
+      where: eq(workspaces.id, payload.workspaceId),
+    });
+
+    let activeCliToken = "";
+
+    if (targetWorkspace) {
+      const ownerUser = await db.query.users.findFirst({
+        where: eq(users.id, targetWorkspace.ownerId),
+      });
+
+      if (ownerUser) {
+        if (ownerUser.cliToken) {
+          // Keep using their existing token so they don't have to re-login on their machine
+          activeCliToken = ownerUser.cliToken;
+        } else {
+          // Generate an elegant, highly identifiable personal access token string
+          const secureEntropy = crypto.randomBytes(24).toString("hex");
+          activeCliToken = `sf_pat_${secureEntropy}`;
+
+          await db
+            .update(users)
+            .set({ cliToken: activeCliToken })
+            .where(eq(users.id, ownerUser.id));
+        }
+      }
+    }
+
     revalidatePath("/dashboard");
+
     return {
       success: true,
       message: "Environment setup saved successfully.",
+      cliToken: activeCliToken,
     };
   } catch (error: any) {
     console.error("❌ [ENVIRONMENT SYNC FAULT]:", error);
     return {
       success: false,
       message: error.message || "Failed to save infrastructure configuration.",
+      cliToken: "",
     };
   }
 }

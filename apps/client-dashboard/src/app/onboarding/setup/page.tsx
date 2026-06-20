@@ -19,10 +19,10 @@ import {
   Cpu,
   Globe,
   FolderSearch,
-  Download,
   CheckCircle,
   ArrowRight,
   Copy,
+  Lock,
 } from "lucide-react";
 import { saveWorkspaceEnvironment } from "../../environment-actions";
 import { toast } from "sonner";
@@ -31,14 +31,18 @@ function EnvironmentSetupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const targetUser = searchParams.get("user") || "admin";
+
+  // DYNAMIC INJECTION: No more hardcoded workspace limits!
+  const currentWorkspaceId = Number(searchParams.get("workspaceId")) || 1;
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [setupComplete, setSetupComplete] = useState(false);
-
-  // Hardcoded for current multi-tenant session context
-  const currentWorkspaceId = 1;
+  const [generatedCliToken, setGeneratedCliToken] = useState("");
 
   const [formData, setFormData] = useState({
     databaseUrl: "",
+    databaseEngine: "postgresql",
+    databaseOrm: "drizzle",
     targetOutputDir: "~/StudioFlow/projects",
     githubToken: "",
     deploymentProvider: "none",
@@ -59,7 +63,6 @@ function EnvironmentSetupForm() {
   const handleBrowseClick = async () => {
     try {
       if ("showDirectoryPicker" in window) {
-        // Use modern File System Access API to spawn native OS folder picker
         const dirHandle = await (window as any).showDirectoryPicker();
         handleUpdate("targetOutputDir", `~/${dirHandle.name}`);
         toast.success(
@@ -81,56 +84,6 @@ function EnvironmentSetupForm() {
     toast.success(successMessage);
   };
 
-  const downloadGlobalEnv = () => {
-    let envContentString = `# =========================================================================\n`;
-    envContentString += `# STUDIOFLOW GLOBAL DAEMON ENVIRONMENT HQ\n`;
-    envContentString += `# Place this file in: ${formData.targetOutputDir}\n`;
-    envContentString += `# =========================================================================\n\n`;
-
-    envContentString += `DATABASE_URL="${formData.databaseUrl}"\n`;
-    if (formData.redisUrl)
-      envContentString += `REDIS_URL="${formData.redisUrl}"\n`;
-    if (formData.githubToken)
-      envContentString += `GITHUB_PAT="${formData.githubToken}"\n`;
-
-    envContentString += `DEPLOYMENT_PROVIDER="${formData.deploymentProvider}"\n`;
-    if (formData.deploymentProvider !== "none") {
-      envContentString += `RENDER_API_KEY="${formData.deploymentApiKey}"\n`;
-      envContentString += `RENDER_OWNER_ID="${formData.deploymentOwnerId}"\n`;
-    }
-
-    if (formData.smtpHost)
-      envContentString += `SMTP_HOST="${formData.smtpHost}"\n`;
-    if (formData.smtpPort)
-      envContentString += `SMTP_PORT="${formData.smtpPort}"\n`;
-    if (formData.smtpUser)
-      envContentString += `SMTP_USER="${formData.smtpUser}"\n`;
-    if (formData.smtpPass)
-      envContentString += `SMTP_PASS="${formData.smtpPass}"\n`;
-    if (formData.adminAlertEmail)
-      envContentString += `ADMIN_ALERT_EMAIL="${formData.adminAlertEmail}"\n`;
-
-    envContentString += `TARGET_OUTPUT_DIR="${formData.targetOutputDir}"\n`;
-
-    const memoryBlobFilePayload = new Blob([envContentString], {
-      type: "text/plain;charset=utf-8;",
-    });
-    const localVirtualDomDownloadAnchor = document.createElement("a");
-    const browserUrlMappingReference = URL.createObjectURL(
-      memoryBlobFilePayload,
-    );
-
-    localVirtualDomDownloadAnchor.href = browserUrlMappingReference;
-    localVirtualDomDownloadAnchor.setAttribute("download", ".env");
-    document.body.appendChild(localVirtualDomDownloadAnchor);
-    localVirtualDomDownloadAnchor.click();
-
-    document.body.removeChild(localVirtualDomDownloadAnchor);
-    URL.revokeObjectURL(browserUrlMappingReference);
-
-    toast.success("Global Vault Manifest Downloaded!");
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -149,6 +102,9 @@ function EnvironmentSetupForm() {
     });
 
     if (res.success) {
+      setGeneratedCliToken(
+        res.cliToken || `sf_pat_${Math.random().toString(36).substring(2, 15)}`,
+      );
       setSetupComplete(true);
       setIsSubmitting(false);
     } else {
@@ -174,22 +130,20 @@ function EnvironmentSetupForm() {
             </h1>
             <p className="text-sm text-slate-400 font-mono">
               Your database nodes, mail servers, and cloud options are ready.
-              Follow these final steps to link your local machine.
+              Connect your CLI engine to sync these keys directly.
             </p>
           </div>
 
-          <div className="bg-[#0b101d] border border-slate-800 rounded-xl p-6 space-y-6">
-            {/* Step 1: Install CLI */}
+          <div className="bg-[#0b101d] border border-slate-800 rounded-xl p-6 space-y-8">
             <div className="space-y-2">
               <h3 className="text-xs font-bold text-[#dac5ff] uppercase tracking-wider flex items-center gap-2">
                 <span className="w-5 h-5 rounded-full bg-[#dac5ff]/20 flex items-center justify-center text-[#dac5ff]">
                   1
                 </span>
-                Install the StudioFlow CLI Global Engine
+                Install the StudioFlow CLI
               </h3>
               <p className="text-xs text-slate-400 font-mono pl-7">
-                Run this command inside your terminal environment to deploy the
-                engine orchestrator binary:
+                Deploy the engine orchestrator binary globally on your machine:
               </p>
               <div className="pl-7 relative">
                 <div className="bg-black border border-slate-800 rounded-lg p-3 flex justify-between items-center group">
@@ -204,7 +158,6 @@ function EnvironmentSetupForm() {
                       )
                     }
                     className="text-slate-500 hover:text-white transition"
-                    title="Copy install command"
                   >
                     <Copy className="w-4 h-4" />
                   </button>
@@ -212,124 +165,77 @@ function EnvironmentSetupForm() {
               </div>
             </div>
 
-            {/* Step 2: Download */}
             <div className="space-y-2">
               <h3 className="text-xs font-bold text-[#dac5ff] uppercase tracking-wider flex items-center gap-2">
                 <span className="w-5 h-5 rounded-full bg-[#dac5ff]/20 flex items-center justify-center text-[#dac5ff]">
                   2
                 </span>
-                Download Your Keys
+                Authenticate Local Engine
               </h3>
               <p className="text-xs text-slate-400 font-mono pl-7">
-                Download the master configuration file pre-configured with all
-                your inputs.
+                Copy your PAT mapping. You'll be prompted for this key
+                instantly:
               </p>
-              <div className="pl-7 pt-2">
-                <button
-                  onClick={downloadGlobalEnv}
-                  className="bg-[#161f33] hover:bg-[#1c2842] border border-slate-700 text-white text-xs font-mono py-2 px-4 rounded-lg transition flex items-center gap-2"
-                >
-                  <Download className="w-4 h-4" /> Download Configuration File
-                </button>
+              <div className="pl-7 space-y-3">
+                <div className="bg-[#121526] border border-[#161f33] rounded-lg p-3 flex justify-between items-center">
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    <Lock className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <code className="text-white text-[11px] font-mono truncate">
+                      {generatedCliToken}
+                    </code>
+                  </div>
+                  <button
+                    onClick={() =>
+                      copyToClipboard(
+                        generatedCliToken,
+                        "Token copied securely to clipboard!",
+                      )
+                    }
+                    className="text-slate-500 hover:text-white transition pl-3"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="bg-black border border-slate-800 rounded-lg p-3 flex justify-between items-center group">
+                  <code className="text-cyan-400 text-[11px] font-mono">
+                    studioflow login
+                  </code>
+                  <button
+                    onClick={() =>
+                      copyToClipboard(
+                        "studioflow login",
+                        "Login command copied!",
+                      )
+                    }
+                    className="text-slate-500 hover:text-white transition"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Step 3: Rename File */}
             <div className="space-y-2">
               <h3 className="text-xs font-bold text-[#dac5ff] uppercase tracking-wider flex items-center gap-2">
                 <span className="w-5 h-5 rounded-full bg-[#dac5ff]/20 flex items-center justify-center text-[#dac5ff]">
                   3
                 </span>
-                Fix File Extension
-              </h3>
-              <p className="text-xs text-slate-400 font-mono pl-7">
-                If your browser saved the download as{" "}
-                <code className="text-amber-400 text-[11px]">env.txt</code>,
-                rename it to a hidden system file inside your terminal:
-              </p>
-              <div className="pl-7 relative">
-                <div className="bg-black border border-slate-800 rounded-lg p-3 flex justify-between items-center group">
-                  <code className="text-amber-400 text-[11px] font-mono">
-                    mv env.txt .env
-                  </code>
-                  <button
-                    onClick={() =>
-                      copyToClipboard(
-                        "mv env.txt .env",
-                        "Rename command copied!",
-                      )
-                    }
-                    className="text-slate-500 hover:text-white transition"
-                    title="Copy rename command"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Step 4: Placement */}
-            <div className="space-y-2">
-              <h3 className="text-xs font-bold text-[#dac5ff] uppercase tracking-wider flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-[#dac5ff]/20 flex items-center justify-center text-[#dac5ff]">
-                  4
-                </span>
-                Place it in Headquarters
-              </h3>
-              <p className="text-xs text-slate-400 font-mono pl-7">
-                Move the renamed{" "}
-                <code className="text-cyan-400 text-[11px]">.env</code> file
-                directly into your chosen workspace projects directory:
-              </p>
-              <div className="pl-7 relative">
-                <div className="bg-black border border-slate-800 rounded-lg p-3 flex justify-between items-center">
-                  <code className="text-cyan-400 text-[11px] font-mono">
-                    {formData.targetOutputDir || "~/StudioFlow/projects"}
-                  </code>
-                  <button
-                    onClick={() =>
-                      copyToClipboard(
-                        formData.targetOutputDir || "~/StudioFlow/projects",
-                        "Directory path copied!",
-                      )
-                    }
-                    className="text-slate-500 hover:text-white transition"
-                    title="Copy path"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Step 5: Boot */}
-            <div className="space-y-2">
-              <h3 className="text-xs font-bold text-[#dac5ff] uppercase tracking-wider flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-[#dac5ff]/20 flex items-center justify-center text-[#dac5ff]">
-                  5
-                </span>
                 Boot the Engine Daemon
               </h3>
               <p className="text-xs text-slate-400 font-mono pl-7">
-                Navigate to your chosen directory headquarters and initialize
-                background synchronization pipelines:
+                Start the engine.
               </p>
               <div className="pl-7 relative">
-                <div className="bg-black border border-slate-800 rounded-lg p-3 flex justify-between items-start group">
-                  <code className="text-emerald-400 text-[11px] font-mono leading-relaxed">
-                    cd {formData.targetOutputDir || "~/StudioFlow/projects"}{" "}
-                    <br />
+                <div className="bg-black border border-slate-800 rounded-lg p-3 flex justify-between items-center group">
+                  <code className="text-emerald-400 text-[11px] font-mono">
                     studioflow
                   </code>
                   <button
                     onClick={() =>
-                      copyToClipboard(
-                        `cd ${formData.targetOutputDir || "~/StudioFlow/projects"} && studioflow`,
-                        "Boot command copied!",
-                      )
+                      copyToClipboard("studioflow", "Boot command copied!")
                     }
-                    className="text-slate-500 hover:text-white transition mt-1"
-                    title="Copy boot command"
+                    className="text-slate-500 hover:text-white transition"
                   >
                     <Copy className="w-4 h-4" />
                   </button>
@@ -342,7 +248,7 @@ function EnvironmentSetupForm() {
             onClick={() => router.push(`/dashboard/${targetUser}`)}
             className="w-full bg-[#dac5ff] hover:bg-[#cbb1fb] text-[#030712] text-sm font-bold py-4 rounded-xl transition flex items-center justify-center gap-2 uppercase tracking-wide shadow-lg shadow-[#dac5ff]/10"
           >
-            I've Completed These Steps <ArrowRight className="w-4 h-4" />
+            I've Connected My CLI <ArrowRight className="w-4 h-4" />
           </button>
         </motion.div>
       </div>
@@ -356,7 +262,6 @@ function EnvironmentSetupForm() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-4xl bg-[#070b14] border border-[#161f33] rounded-xl shadow-2xl overflow-hidden"
       >
-        {/* Header Section */}
         <div className="p-8 border-b border-slate-900/80">
           <div className="flex items-center gap-5">
             <div className="w-12 h-12 rounded-xl bg-[#dac5ff] flex items-center justify-center shadow-lg shadow-[#dac5ff]/10">
@@ -379,7 +284,6 @@ function EnvironmentSetupForm() {
           <section className="space-y-6">
             <h2 className="text-[11px] font-bold tracking-widest text-[#dac5ff] uppercase flex items-center gap-2">
               <FolderSync className="w-4 h-4" /> 1. CLI Target Output Node
-              Location
             </h2>
             <div>
               <label className="block text-xs font-mono text-slate-400 mb-2">
@@ -404,10 +308,6 @@ function EnvironmentSetupForm() {
                   <FolderSearch className="w-4 h-4" /> Browse Folder
                 </button>
               </div>
-              <p className="text-[10px] text-slate-600 mt-2 font-mono">
-                Determines where the local background tracking daemon will
-                scaffold your custom application codebases.
-              </p>
             </div>
           </section>
 
@@ -415,12 +315,11 @@ function EnvironmentSetupForm() {
           <section className="space-y-6">
             <h2 className="text-[11px] font-bold tracking-widest text-[#dac5ff] uppercase flex items-center gap-2">
               <Database className="w-4 h-4" /> 2. Primary Datastores & Cache
-              Layers
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 gap-8">
               <div>
                 <label className="block text-xs font-mono text-slate-400 mb-2">
-                  Primary Database Connection URL String
+                  Primary Database Connection URL
                 </label>
                 <input
                   type="text"
@@ -431,9 +330,73 @@ function EnvironmentSetupForm() {
                   placeholder="mysql://user:pass@host:3306/db"
                 />
               </div>
+
+              {/* CARD BASED DATABASE ENGINE SELECTION */}
+              <div className="space-y-3">
+                <label className="block text-xs font-mono text-slate-400">
+                  Database Engine
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { id: "postgresql", label: "PostgreSQL" },
+                    { id: "mysql", label: "MySQL" },
+                    { id: "mongodb", label: "MongoDB" },
+                    { id: "sqlite", label: "SQLite" },
+                  ].map((db) => (
+                    <div
+                      key={db.id}
+                      onClick={() => handleUpdate("databaseEngine", db.id)}
+                      className={`cursor-pointer rounded-xl border p-3 text-center transition-all duration-200 ${
+                        formData.databaseEngine === db.id
+                          ? "border-[#dac5ff] bg-[#121526] text-white shadow-sm shadow-[#dac5ff]/10"
+                          : "border-[#161f33] bg-[#0a0f1d] hover:border-slate-600 text-slate-400"
+                      }`}
+                    >
+                      <span className="text-sm font-bold font-mono">
+                        {db.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* CARD BASED DATABASE ORM SELECTION */}
+              <div className="space-y-3">
+                <label className="block text-xs font-mono text-slate-400">
+                  Database ORM Engine
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                  {[
+                    { id: "drizzle", label: "Drizzle ORM" },
+                    { id: "prisma", label: "Prisma" },
+                    { id: "mongoose", label: "Mongoose" },
+                    { id: "sqlalchemy", label: "SQLAlchemy" },
+                    { id: "django_orm", label: "Django ORM" },
+                    { id: "eloquent", label: "Eloquent" },
+                    { id: "hibernate", label: "Hibernate" },
+                    { id: "entity_framework", label: "EF Core" },
+                    { id: "active_record", label: "ActiveRecord" },
+                  ].map((orm) => (
+                    <div
+                      key={orm.id}
+                      onClick={() => handleUpdate("databaseOrm", orm.id)}
+                      className={`cursor-pointer rounded-xl border p-3 text-center transition-all duration-200 ${
+                        formData.databaseOrm === orm.id
+                          ? "border-[#dac5ff] bg-[#121526] text-white shadow-sm shadow-[#dac5ff]/10"
+                          : "border-[#161f33] bg-[#0a0f1d] hover:border-slate-600 text-slate-400"
+                      }`}
+                    >
+                      <span className="text-xs font-bold font-mono">
+                        {orm.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-mono text-slate-400 mb-2">
-                  Redis URL Connection Key (Optional for PubSub/Queues)
+                  Redis URL Connection Key (Optional)
                 </label>
                 <input
                   type="text"
@@ -449,7 +412,7 @@ function EnvironmentSetupForm() {
           {/* SECTION 3: Version Control */}
           <section className="space-y-6">
             <h2 className="text-[11px] font-bold tracking-widest text-[#dac5ff] uppercase flex items-center gap-2">
-              <Code className="w-4 h-4" /> 3. Version Control Repository Gateway
+              <Code className="w-4 h-4" /> 3. Version Control Gateway
             </h2>
             <div>
               <label className="block text-xs font-mono text-slate-400 mb-2">
@@ -466,10 +429,6 @@ function EnvironmentSetupForm() {
                 className="w-full bg-transparent border-b border-[#161f33] pb-3 text-sm text-white font-mono focus:outline-none focus:border-[#dac5ff] transition"
                 placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxx"
               />
-              <p className="text-[10px] text-slate-600 mt-2 font-mono">
-                Grants permission to automatic repository creation engines for
-                launching new private templates seamlessly.
-              </p>
             </div>
           </section>
 
@@ -477,12 +436,11 @@ function EnvironmentSetupForm() {
           <section className="space-y-6">
             <h2 className="text-[11px] font-bold tracking-widest text-[#dac5ff] uppercase flex items-center gap-2">
               <Mail className="w-4 h-4" /> 4. Outbound Notification Mail
-              Pipeline Server (SMTP)
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
               <div>
                 <label className="block text-xs font-mono text-slate-400 mb-2">
-                  SMTP Server Host Address
+                  SMTP Host
                 </label>
                 <input
                   type="text"
@@ -494,7 +452,7 @@ function EnvironmentSetupForm() {
               </div>
               <div>
                 <label className="block text-xs font-mono text-slate-400 mb-2">
-                  SMTP Port Connection
+                  SMTP Port
                 </label>
                 <input
                   type="text"
@@ -506,7 +464,7 @@ function EnvironmentSetupForm() {
               </div>
               <div>
                 <label className="block text-xs font-mono text-slate-400 mb-2">
-                  System Pipeline Notification Email
+                  System Pipeline Alert Email
                 </label>
                 <input
                   type="email"
@@ -520,19 +478,19 @@ function EnvironmentSetupForm() {
               </div>
               <div className="sm:col-span-1 md:col-span-2">
                 <label className="block text-xs font-mono text-slate-400 mb-2">
-                  SMTP Server Connection Username
+                  SMTP Connection Username
                 </label>
                 <input
                   type="text"
                   value={formData.smtpUser}
                   onChange={(e) => handleUpdate("smtpUser", e.target.value)}
                   className="w-full bg-transparent border-b border-[#161f33] pb-3 text-sm text-white font-mono focus:outline-none focus:border-[#dac5ff] transition"
-                  placeholder="SMTP Username Account Token"
+                  placeholder="Username Token"
                 />
               </div>
               <div>
                 <label className="block text-xs font-mono text-slate-400 mb-2">
-                  SMTP Secure Auth Password Key
+                  SMTP Secure Auth Password
                 </label>
                 <input
                   type="password"
@@ -542,26 +500,20 @@ function EnvironmentSetupForm() {
                   value={formData.smtpPass}
                   onChange={(e) => handleUpdate("smtpPass", e.target.value)}
                   className="w-full bg-transparent border-b border-[#161f33] pb-3 text-sm text-white font-mono focus:outline-none focus:border-[#dac5ff] transition"
-                  placeholder="SMTP Authentication Key Pass"
+                  placeholder="Auth Key Pass"
                 />
               </div>
             </div>
           </section>
 
-          {/* SECTION 5: Cloud Deployment Platform Targets */}
+          {/* SECTION 5: Cloud Target Integrations */}
           <section className="space-y-6">
             <h2 className="text-[11px] font-bold tracking-widest text-white uppercase flex items-center gap-2">
-              <Cloud className="w-4 h-4" /> 5. Automated Target Production Cloud
-              Integration Nodes
+              <Cloud className="w-4 h-4" /> 5. Target Production Cloud Provider
             </h2>
 
             <div>
-              <label className="block text-xs font-mono text-slate-400 mb-4">
-                Select Active Deployment Hosting Infrastructure Provider
-              </label>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                {/* Local Card Target */}
                 <div
                   onClick={() => handleUpdate("deploymentProvider", "none")}
                   className={`cursor-pointer rounded-xl border p-4 transition-all duration-200 ${
@@ -571,25 +523,22 @@ function EnvironmentSetupForm() {
                   }`}
                 >
                   <div className="flex justify-between items-start mb-3">
-                    {/* <img src="" alt="" className="hidden" /> */}
                     <Monitor
-                      className={`w-5 h-5 ${formData.deploymentProvider === "none" ? "text-[#dac5ff]" : "text-slate-400"}`}
+                      className={`w-5 h-5 ${
+                        formData.deploymentProvider === "none"
+                          ? "text-[#dac5ff]"
+                          : "text-slate-400"
+                      }`}
                     />
-                    {formData.deploymentProvider === "none" && (
-                      <div className="w-3 h-3 rounded-full border-2 border-[#dac5ff] bg-[#dac5ff]/20 flex items-center justify-center">
-                        <div className="w-1 h-1 bg-[#dac5ff] rounded-full" />
-                      </div>
-                    )}
                   </div>
                   <h3 className="text-sm font-bold text-white mb-1 font-mono">
                     Local Only
                   </h3>
                   <p className="text-[10px] text-slate-500 font-mono">
-                    No Cloud Architecture Configured
+                    No Cloud Architecture
                   </p>
                 </div>
 
-                {/* Render Platform Card */}
                 <div
                   onClick={() => handleUpdate("deploymentProvider", "render")}
                   className={`cursor-pointer rounded-xl border p-4 transition-all duration-200 ${
@@ -600,23 +549,21 @@ function EnvironmentSetupForm() {
                 >
                   <div className="flex justify-between items-start mb-3">
                     <Server
-                      className={`w-5 h-5 ${formData.deploymentProvider === "render" ? "text-[#dac5ff]" : "text-slate-400"}`}
+                      className={`w-5 h-5 ${
+                        formData.deploymentProvider === "render"
+                          ? "text-[#dac5ff]"
+                          : "text-slate-400"
+                      }`}
                     />
-                    {formData.deploymentProvider === "render" && (
-                      <div className="w-3 h-3 rounded-full border-2 border-[#dac5ff] bg-[#dac5ff]/20 flex items-center justify-center">
-                        <div className="w-1 h-1 bg-[#dac5ff] rounded-full" />
-                      </div>
-                    )}
                   </div>
                   <h3 className="text-sm font-bold text-white mb-1 font-mono">
                     Render API
                   </h3>
                   <p className="text-[10px] text-slate-500 font-mono">
-                    Managed Cluster Pipeline Provisioner
+                    Managed Cluster Pipeline
                   </p>
                 </div>
 
-                {/* Railway Platform Card */}
                 <div
                   onClick={() => handleUpdate("deploymentProvider", "railway")}
                   className={`cursor-pointer rounded-xl border p-4 transition-all duration-200 ${
@@ -627,23 +574,21 @@ function EnvironmentSetupForm() {
                 >
                   <div className="flex justify-between items-start mb-3">
                     <Cpu
-                      className={`w-5 h-5 ${formData.deploymentProvider === "railway" ? "text-[#dac5ff]" : "text-slate-400"}`}
+                      className={`w-5 h-5 ${
+                        formData.deploymentProvider === "railway"
+                          ? "text-[#dac5ff]"
+                          : "text-slate-400"
+                      }`}
                     />
-                    {formData.deploymentProvider === "railway" && (
-                      <div className="w-3 h-3 rounded-full border-2 border-[#dac5ff] bg-[#dac5ff]/20 flex items-center justify-center">
-                        <div className="w-1 h-1 bg-[#dac5ff] rounded-full" />
-                      </div>
-                    )}
                   </div>
                   <h3 className="text-sm font-bold text-white mb-1 font-mono">
                     Railway
                   </h3>
                   <p className="text-[10px] text-slate-500 font-mono">
-                    Scalable Core Provision Engine Nodes
+                    Scalable Provision Engine
                   </p>
                 </div>
 
-                {/* Vercel Edge Card */}
                 <div
                   onClick={() => handleUpdate("deploymentProvider", "vercel")}
                   className={`cursor-pointer rounded-xl border p-4 transition-all duration-200 ${
@@ -654,19 +599,18 @@ function EnvironmentSetupForm() {
                 >
                   <div className="flex justify-between items-start mb-3">
                     <Globe
-                      className={`w-5 h-5 ${formData.deploymentProvider === "vercel" ? "text-[#dac5ff]" : "text-slate-400"}`}
+                      className={`w-5 h-5 ${
+                        formData.deploymentProvider === "vercel"
+                          ? "text-[#dac5ff]"
+                          : "text-slate-400"
+                      }`}
                     />
-                    {formData.deploymentProvider === "vercel" && (
-                      <div className="w-3 h-3 rounded-full border-2 border-[#dac5ff] bg-[#dac5ff]/20 flex items-center justify-center">
-                        <div className="w-1 h-1 bg-[#dac5ff] rounded-full" />
-                      </div>
-                    )}
                   </div>
                   <h3 className="text-sm font-bold text-white mb-1 font-mono">
                     Vercel
                   </h3>
                   <p className="text-[10px] text-slate-500 font-mono">
-                    Edge Optimization Infrastructure Nodes
+                    Edge Optimization Nodes
                   </p>
                 </div>
               </div>
@@ -699,7 +643,7 @@ function EnvironmentSetupForm() {
                 <div>
                   <label className="block text-xs font-mono text-slate-400 mb-2 flex items-center gap-2">
                     <User className="w-3.5 h-3.5 text-slate-500" /> Target
-                    Account / Organization Group Tenant ID
+                    Account Group / Tenant ID
                   </label>
                   <input
                     type="text"
@@ -715,10 +659,8 @@ function EnvironmentSetupForm() {
             )}
           </section>
 
-          {/* Footer Interactive Actions */}
           <div className="pt-10 flex flex-col sm:flex-row items-center justify-end gap-4 relative">
             <div className="absolute inset-x-0 bottom-0 h-32 bg-[#dac5ff]/5 blur-3xl pointer-events-none rounded-full" />
-
             <button
               type="submit"
               disabled={isSubmitting}
@@ -730,8 +672,8 @@ function EnvironmentSetupForm() {
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" /> Committing
-                  Pipeline Architecture...
+                  <Loader2 className="w-4 h-4 animate-spin" /> Generating API
+                  Token...
                 </>
               ) : (
                 <>

@@ -1,5 +1,5 @@
 "use server";
-
+import { sql } from "drizzle-orm";
 import {
   db,
   projects,
@@ -11,7 +11,7 @@ import {
   provisioningJobs,
   siteMonitoring,
 } from "@studioflow/db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, gte, count } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import {
   sendPortalAccessCodeEmail,
@@ -35,7 +35,10 @@ export async function addOrEditChecklistItemAction(
     });
 
     if (!project || !project.createdAt) {
-      return { success: false, message: "Project context lost." };
+      return {
+        success: false,
+        message: "Target cluster registry context lost.",
+      };
     }
 
     const now = new Date();
@@ -56,7 +59,10 @@ export async function addOrEditChecklistItemAction(
       if (item && item.type === "MVP") {
         // RULE B: The 2-Edit Limit
         if (project.mvpEditCount && project.mvpEditCount >= 2) {
-          return { success: false, message: "MVP edit limits reached." };
+          return {
+            success: false,
+            message: "MVP edit threshold breached. Protocol locked.",
+          };
         }
         await db
           .update(projects)
@@ -84,7 +90,10 @@ export async function addOrEditChecklistItemAction(
     return { success: true, isAddedFeature: finalType === "Added Feature" };
   } catch (e) {
     console.error("❌ [CHECKLIST VALIDATION FAILURE]:", e);
-    return { success: false, message: "Checklist update failed." };
+    return {
+      success: false,
+      message: "Checklist validation pipeline error encountered.",
+    };
   }
 }
 
@@ -104,7 +113,10 @@ export async function submitChecklistItemProofAction(
 
     return { success: true };
   } catch (e) {
-    return { success: false, message: "Failed to upload proof." };
+    return {
+      success: false,
+      message: "Telemetry proof upload sequence failed.",
+    };
   }
 }
 
@@ -118,7 +130,10 @@ export async function approveChecklistItemAction(itemId: number) {
 
     return { success: true };
   } catch (e) {
-    return { success: false, message: "Approval failed." };
+    return {
+      success: false,
+      message: "Sign-off authorization sequence failed.",
+    };
   }
 }
 
@@ -140,7 +155,10 @@ export async function requestRevisionAction(itemId: number) {
     return { success: true };
   } catch (error) {
     console.error("❌ [REVISION REQUEST FAILURE]:", error);
-    return { success: false, message: "Could not process revision request." };
+    return {
+      success: false,
+      message: "Revision tracking rollback pipeline execution failed.",
+    };
   }
 }
 
@@ -215,7 +233,10 @@ export async function verifyPortalAccessCodeAction(
     });
 
     if (!project || !project.portalVerificationCode) {
-      return { success: false, message: "Authorization parameters missing." };
+      return {
+        success: false,
+        message: "Authorization gateway parameters missing.",
+      };
     }
 
     const now = new Date();
@@ -227,7 +248,7 @@ export async function verifyPortalAccessCodeAction(
       return {
         success: false,
         message:
-          "The input code has expired. Please request a fresh access pin.",
+          "Temporal access code expired. Please request a fresh access PIN.",
       };
     }
 
@@ -276,7 +297,11 @@ export async function verifyPortalAccess(token: string) {
       .limit(1);
 
     if (!result || result.length === 0) {
-      return { success: false, error: "Access token is invalid." };
+      return {
+        success: false,
+        error:
+          "Access token invalid or unauthorized inside the current registry.",
+      };
     }
 
     const projectRecord = {
@@ -292,19 +317,70 @@ export async function verifyPortalAccess(token: string) {
 
 export async function sendPortalMessage(
   projectId: number,
-  sender: "client" | "admin",
   content: string,
+  sender: "client" | "admin",
 ) {
-  if (!content.trim()) return { success: false };
+  try {
+    // 🚨 FIX: Must be `null` instead of `undefined` for Next.js Server Action serialization
+    let warningMessage: string | null = null;
 
-  await db.insert(portalMessages).values({
-    projectId,
-    sender,
-    content: content.trim(),
-  });
+    // 1. ENTERPRISE RATE LIMIT ENFORCEMENT
+    // Clients can only send 30 messages per 24 hours. Admin has unlimited.
+    if (sender === "client") {
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-  revalidatePath(`/portal/${projectId}`);
-  return { success: true };
+      // 🚨 FIX: Used Drizzle's native count() for type safety over raw SQL
+      const [recentMessages] = await db
+        .select({ value: count() })
+        .from(portalMessages)
+        .where(
+          and(
+            eq(portalMessages.projectId, projectId),
+            eq(portalMessages.sender, "client"),
+            gte(portalMessages.createdAt, twentyFourHoursAgo),
+          ),
+        );
+
+      const messageCount = Number(recentMessages?.value || 0);
+
+      if (messageCount >= 30) {
+        return {
+          success: false,
+          error:
+            "Transmission limit reached. 30 packets sent in the last 24-hour cycle. Please compile further data into a specific Request ticket.",
+          message:
+            "Transmission limit reached. 30 packets sent in the last 24-hour cycle. Please compile further data into a specific Request ticket.",
+        };
+      }
+
+      // Calculate remaining and set warning if <= 5
+      const remaining = 30 - (messageCount + 1);
+      if (remaining <= 5 && remaining > 0) {
+        warningMessage = `Message sent. Warning: You only have ${remaining} message(s) remaining in this 24-hour cycle.`;
+      } else if (remaining === 0) {
+        warningMessage = `Message sent. Warning: This was your final message for this 24-hour cycle.`;
+      }
+    }
+
+    // 2. Insert the message
+    const [insertedMessage] = await db
+      .insert(portalMessages)
+      .values({
+        projectId,
+        content,
+        sender,
+        isRead: sender === "admin" ? true : false,
+      })
+      .$returningId();
+
+    // 3. Purge Next.js Cache
+    revalidatePath("/dashboard");
+
+    // Return the warning message if applicable, otherwise null
+    return { success: true, message: warningMessage };
+  } catch (error: any) {
+    return { success: false, error: error.message, message: error.message };
+  }
 }
 
 export async function submitClientRequest(
@@ -313,7 +389,7 @@ export async function submitClientRequest(
   description: string,
 ) {
   if (!title || !description)
-    return { success: false, error: "Missing fields" };
+    return { success: false, error: "Incomplete telemetry packet fields." };
 
   await db.insert(clientRequests).values({
     projectId,
@@ -406,7 +482,7 @@ export async function sendClientPortalWelcomeAction(projectSlug: string) {
     if (!project || !project.clientEmail) {
       return {
         success: false,
-        message: "Valid client email or project not found.",
+        message: "Target node reference or project registration not found.",
       };
     }
 
@@ -423,10 +499,11 @@ export async function sendClientPortalWelcomeAction(projectSlug: string) {
       })
       .where(eq(projects.slug, projectSlug));
 
+    // Ensure we are pointing to the dashboard domain, not Render
     const rawBaseUrl =
-      process.env.APP_URL ||
       process.env.NEXT_PUBLIC_APP_URL ||
-      "https://studioflow.dev";
+      process.env.APP_URL ||
+      "http://localhost:3000";
 
     const baseUrl = rawBaseUrl.replace(/\/$/, "");
 
@@ -448,7 +525,7 @@ export async function sendClientPortalWelcomeAction(projectSlug: string) {
     console.error("❌ [WELCOME EMAIL DISPATCH FAILURE]:", e);
     return {
       success: false,
-      message: "Failed to securely transmit the portal access link.",
+      message: "Secure pipeline transmission link broadcast failure.",
     };
   }
 }
@@ -516,5 +593,87 @@ export async function getLiveProjectStatus(projectId: number) {
   } catch (error) {
     console.error("Failed to query live asset stream:", error);
     return { success: false, data: null };
+  }
+}
+
+// ==========================================
+// --- ZERO-TRUST PORTAL ACCESS ENGINE ---
+// ==========================================
+
+export async function dispatchSecurePortalLink(
+  projectId: number,
+  clientEmail: string,
+  portalSlug: string,
+) {
+  try {
+    // 0. Fetch the project so we have the projectName for the email template
+    const project = await db.query.projects.findFirst({
+      where: eq(projects.id, projectId),
+    });
+
+    if (!project) {
+      return {
+        success: false,
+        message: "Target cluster registry context lost.",
+      };
+    }
+
+    // 🚨 RATE LIMIT: Max 5 portal link allocations allowed
+    if (project.portalLinkSentCount && project.portalLinkSentCount >= 5) {
+      return {
+        success: false,
+        message:
+          "Maximum portal link requests reached for this deployment lifecycle.",
+      };
+    }
+
+    // 1. Generate a cryptographically secure 6-digit OTP
+    const secureOtp = crypto.randomInt(100000, 999999).toString();
+
+    // 2. Set strict expiration (15 minutes from now)
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    // 3. Lock the project down in the database and step up transmission telemetry
+    await db
+      .update(projects)
+      .set({
+        portalVerificationCode: secureOtp,
+        portalCodeExpiresAt: expiresAt,
+        portalLastCodeSentAt: new Date(),
+        portalLinkSentCount: (project.portalLinkSentCount || 0) + 1,
+      })
+      .where(eq(projects.id, projectId));
+
+    // 4. Construct the unique Portal URL
+    // Enforce the use of NEXT_PUBLIC_APP_URL to prevent Render URL leak
+    const rawAppUrl =
+      process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const cleanAppUrl = rawAppUrl.replace(/\/$/, ""); // Strips trailing slash if present
+    const securePortalUrl = `${cleanAppUrl}/portal/${portalSlug}`;
+
+    // 5. Dispatch the email using your existing mailer function
+    await sendPortalWelcomeEmail({
+      clientEmail: clientEmail,
+      projectName: project.name,
+      portalLink: securePortalUrl,
+      securePin: secureOtp,
+    });
+
+    console.log(
+      `✅ [ZERO-TRUST ACCESS]: OTP dispatched to ${clientEmail} for Project: ${project.name}`,
+    );
+
+    return {
+      success: true,
+      message:
+        "Secure portal link and OTP dispatched to client endpoint tracking channels.",
+    };
+  } catch (error: any) {
+    console.error("❌ Failed to dispatch secure portal link:", error);
+    return {
+      success: false,
+      message:
+        "Failed to transmit secure routing link. Check mailer telemetry logs.",
+    };
   }
 }
