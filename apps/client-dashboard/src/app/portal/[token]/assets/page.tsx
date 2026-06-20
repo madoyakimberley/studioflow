@@ -35,10 +35,10 @@ export default async function AssetsPage({
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
       <div>
-        <h1 className="text-4xl font-serif font-bold text-white mb-2">
+        <h1 className="text-4xl font-serif font-bold text-theme-text mb-2">
           Asset Vault
         </h1>
-        <p className="text-[#958ea0]">
+        <p className="text-[var(--text-muted)]">
           Securely access your raw files, brand assets, and uploads.
         </p>
       </div>

@@ -72,24 +72,24 @@ export function CliSetupCard() {
     <div className="glass-card rounded-2xl p-8 group relative overflow-hidden">
       <div className="flex justify-between items-start mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-white">StudioFlow CLI</h3>
-          <p className="text-sm text-[#94a3b8] mt-1 max-w-sm">
+          <h3 className="text-lg font-semibold text-theme-text">StudioFlow CLI</h3>
+          <p className="text-sm text-[var(--text-muted)] mt-1 max-w-sm">
             Install the global daemon to provision architectures and sync
             environments directly from your local terminal.
           </p>
         </div>
-        <span className="material-symbols-outlined text-[#d3d7ff] text-3xl">
+        <span className="material-symbols-outlined text-[var(--color-theme-primary)] text-3xl">
           terminal
         </span>
       </div>
 
-      <div className="bg-black/40 border border-[#32353d] rounded-xl p-4 flex justify-between items-center group-hover:border-[#5a617a] transition-colors">
-        <code className="text-[#e8b3ff] text-sm font-mono">
+      <div className="bg-black/40 border border-[var(--border-outline)] rounded-xl p-4 flex justify-between items-center group-hover:border-[#5a617a] transition-colors">
+        <code className="text-[var(--color-theme-secondary)] text-sm font-mono">
           {installCommand}
         </code>
         <button
           onClick={handleCopy}
-          className="text-[#94a3b8] hover:text-white transition p-2 rounded-lg hover:bg-white/10 flex items-center justify-center"
+          className="text-[var(--text-muted)] hover:text-theme-text transition p-2 rounded-lg hover:bg-white/10 flex items-center justify-center"
           title="Copy to clipboard"
         >
           <span className="material-symbols-outlined text-[18px]">

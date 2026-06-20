@@ -141,12 +141,12 @@ export default function InteractiveChat({
   };
 
   return (
-    <div className="flex flex-col h-[500px] bg-[#05070c] rounded-xl border border-[#171f33] overflow-hidden shadow-2xl relative">
+    <div className="flex flex-col h-[500px] bg-[#05070c] rounded-xl border border-[var(--border-outline)] overflow-hidden shadow-2xl relative">
       {/* Sleep Mode Overlay */}
       {isAsleep && (
-        <div className="absolute inset-0 z-10 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center text-slate-400">
+        <div className="absolute inset-0 z-10 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center text-theme-muted">
           <Moon className="w-8 h-8 mb-3 opacity-50 animate-pulse" />
-          <p className="text-sm font-semibold text-white">
+          <p className="text-sm font-semibold text-theme-text">
             Chat paused to save resources.
           </p>
           <p className="text-xs opacity-60 mt-1">
@@ -156,14 +156,14 @@ export default function InteractiveChat({
       )}
 
       {/* Header */}
-      <div className="bg-[#0b1326] px-4 py-3 border-b border-[#171f33] flex justify-between items-center">
+      <div className="bg-[var(--bg-surface)] px-4 py-3 border-b border-[var(--border-outline)] flex justify-between items-center">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <h3 className="text-sm font-semibold text-white">
+          <h3 className="text-sm font-semibold text-theme-text">
             Live Operations Chat
           </h3>
         </div>
-        <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold bg-[#131b2e] px-2 py-1 rounded">
+        <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold bg-[var(--bg-surface)] px-2 py-1 rounded">
           Encrypted Channel
         </span>
       </div>
@@ -171,7 +171,7 @@ export default function InteractiveChat({
       {/* Chat Area */}
       <div
         ref={scrollRef}
-        className="flex-1 p-4 overflow-y-auto space-y-4 scrollbar-thin scrollbar-thumb-[#212d4a] scrollbar-track-transparent"
+        className="flex-1 p-4 overflow-y-auto space-y-4 scrollbar-thin scrollbar-thumb-[var(--border-outline)] scrollbar-track-transparent"
       >
         {messages.map((msg, index) => {
           const isClient = msg.sender === "client";
@@ -183,8 +183,8 @@ export default function InteractiveChat({
               <div
                 className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm shadow-sm ${
                   isClient
-                    ? "bg-[#1f2937] text-white rounded-tr-sm border border-[#374151]"
-                    : "bg-gradient-to-br from-[#9d4edd] to-[#e364a7] text-white rounded-tl-sm shadow-[0_0_15px_rgba(227,100,167,0.15)]"
+                    ? "bg-[#1f2937] text-theme-text rounded-tr-sm border border-[#374151]"
+                    : "bg-gradient-to-br from-[var(--color-theme-primary)] to-[var(--color-theme-secondary)] text-theme-text rounded-tl-sm shadow-[0_0_15px_rgba(227,100,167,0.15)]"
                 }`}
               >
                 <p className="leading-relaxed">{msg.content}</p>
@@ -205,17 +205,17 @@ export default function InteractiveChat({
         })}
 
         {adminIsTyping && (
-          <div className="flex items-center gap-1.5 p-3 w-fit bg-[#0b1326] rounded-2xl rounded-tl-sm border border-[#171f33]">
+          <div className="flex items-center gap-1.5 p-3 w-fit bg-[var(--bg-surface)] rounded-2xl rounded-tl-sm border border-[var(--border-outline)]">
             <span
-              className="w-1.5 h-1.5 bg-[#e364a7] rounded-full animate-bounce"
+              className="w-1.5 h-1.5 bg-[var(--color-theme-secondary)] rounded-full animate-bounce"
               style={{ animationDelay: "0ms" }}
             />
             <span
-              className="w-1.5 h-1.5 bg-[#e364a7] rounded-full animate-bounce"
+              className="w-1.5 h-1.5 bg-[var(--color-theme-secondary)] rounded-full animate-bounce"
               style={{ animationDelay: "150ms" }}
             />
             <span
-              className="w-1.5 h-1.5 bg-[#e364a7] rounded-full animate-bounce"
+              className="w-1.5 h-1.5 bg-[var(--color-theme-secondary)] rounded-full animate-bounce"
               style={{ animationDelay: "300ms" }}
             />
           </div>
@@ -223,24 +223,24 @@ export default function InteractiveChat({
       </div>
 
       {/* Input Form */}
-      <div className="p-4 bg-[#0b1326] border-t border-[#171f33]">
+      <div className="p-4 bg-[var(--bg-surface)] border-t border-[var(--border-outline)]">
         <form onSubmit={handleSendMessage} className="flex items-center gap-3">
           <input
             type="text"
             value={inputValue}
             onChange={handleInputChange}
             placeholder="Type a message..."
-            className={`flex-1 bg-[#131b2e] border border-[#212d4a] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#9d4edd] transition-colors ${
-              isPending ? "text-slate-500" : "text-white"
+            className={`flex-1 bg-[var(--bg-surface)] border border-[var(--border-outline)] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[var(--color-theme-primary)] transition-colors ${
+              isPending ? "text-slate-500" : "text-theme-text"
             }`}
           />
           <button
             type="submit"
             disabled={!inputValue.trim() || isPending}
-            className="bg-gradient-to-r from-[#e364a7] to-[#9d4edd] p-3 rounded-xl text-white hover:brightness-110 transition-all disabled:opacity-50 disabled:grayscale flex items-center justify-center min-w-[48px]"
+            className="bg-gradient-to-r from-[var(--color-theme-secondary)] to-[var(--color-theme-primary)] p-3 rounded-xl text-theme-text hover:brightness-110 transition-all disabled:opacity-50 disabled:grayscale flex items-center justify-center min-w-[48px]"
           >
             {isPending ? (
-              <Loader2 className="w-4 h-4 animate-spin text-white/70" />
+              <Loader2 className="w-4 h-4 animate-spin text-theme-text/70" />
             ) : (
               <Send className="w-4 h-4" />
             )}

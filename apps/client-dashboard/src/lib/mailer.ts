@@ -83,13 +83,13 @@ export async function sendSystemAlertEmail(payload: AlertEmailPayload) {
       to: adminAlertEmail,
       subject: `🚨 CRITICAL ALERT: Outage Detected on [${payload.projectName}]`,
       html: `
-        <div style="font-family: sans-serif; padding: 20px; background-color: #0b1326; color: #dae2fd;">
-          <h2 style="color: #e364a7; border-bottom: 1px solid #171f33; padding-bottom: 10px;">StudioFlow Incident Response</h2>
+        <div style="font-family: sans-serif; padding: 20px; background-color: var(--bg-surface); color: var(--text-main);">
+          <h2 style="color: var(--color-theme-secondary); border-bottom: 1px solid var(--border-outline); padding-bottom: 10px;">StudioFlow Incident Response</h2>
           <p><strong>Target Node Instance:</strong> ${payload.projectName}</p>
           <p><strong>HTTP Status Code:</strong> ${payload.statusCode || "UNKNOWN"}</p>
-          <div style="background-color: #131b2e; padding: 15px; border-radius: 8px; border-left: 4px solid #ef4444; font-family: monospace; margin-top: 15px;">
+          <div style="background-color: var(--bg-surface); padding: 15px; border-radius: 8px; border-left: 4px solid var(--color-danger); font-family: monospace; margin-top: 15px;">
             <strong>Error Stack Trace:</strong><br/>
-            <pre style="white-space: pre-wrap; margin-top: 5px; color: #f87171;">${payload.errorTrace || "No trace dumped."}</pre>
+            <pre style="white-space: pre-wrap; margin-top: 5px; color: var(--color-danger);">${payload.errorTrace || "No trace dumped."}</pre>
           </div>
         </div>
       `,
@@ -116,19 +116,19 @@ export async function sendPortalAccessCodeEmail(payload: PortalCodePayload) {
     to: payload.clientEmail,
     subject: `🔑 Secure Access Passcode for ${payload.projectName} Shared Portal`,
     html: `
-      <div style="font-family: 'Plus Jakarta Sans', sans-serif; padding: 32px; background-color: #0c0f16; color: #e0e2ec; max-width: 550px; margin: 0 auto; border-radius: 12px; border: 1px solid rgba(175, 186, 255, 0.1);">
-        <h2 style="font-size: 20px; color: #dac5ff; margin-bottom: 4px; font-weight: 600;">Secure Portal Authorization Request</h2>
-        <p style="font-size: 13px; color: #94a3b8; margin-top: 0; margin-bottom: 24px;">StudioFlow Verification Gateway Infrastructure</p>
+      <div style="font-family: 'Plus Jakarta Sans', sans-serif; padding: 32px; background-color: var(--bg-main); color: var(--text-main); max-width: 550px; margin: 0 auto; border-radius: 12px; border: 1px solid rgba(175, 186, 255, 0.1);">
+        <h2 style="font-size: 20px; color: var(--color-theme-primary); margin-bottom: 4px; font-weight: 600;">Secure Portal Authorization Request</h2>
+        <p style="font-size: 13px; color: var(--text-muted); margin-top: 0; margin-bottom: 24px;">StudioFlow Verification Gateway Infrastructure</p>
         
-        <p style="font-size: 14px; line-height: 1.6; color: #c6c5d1;">A request was made to unlock the shared interactive workspace for project <strong>${payload.projectName}</strong>.</p>
+        <p style="font-size: 14px; line-height: 1.6; color: var(--text-muted);">A request was made to unlock the shared interactive workspace for project <strong>${payload.projectName}</strong>.</p>
         
         <div style="background: rgba(20, 24, 36, 0.5); border: 1px solid rgba(175, 186, 255, 0.15); padding: 20px; border-radius: 8px; text-align: center; margin: 28px 0;">
-          <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.15em; color: #94a3b8; display: block; margin-bottom: 8px;">Single-Use Access Pin</span>
-          <span style="font-family: 'JetBrains Mono', monospace; font-size: 34px; font-weight: 700; color: #e8b3ff; letter-spacing: 0.2em; display: inline-block; padding-left: 0.2em;">${payload.securePin}</span>
+          <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-muted); display: block; margin-bottom: 8px;">Single-Use Access Pin</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 34px; font-weight: 700; color: var(--color-theme-secondary); letter-spacing: 0.2em; display: inline-block; padding-left: 0.2em;">${payload.securePin}</span>
         </div>
         
-        <p style="font-size: 11px; color: #94a3b8; line-height: 1.5;">This verification pin is locked to your email address and remains valid for <strong>15 minutes</strong>. If you did not trigger this request, safely discard this record.</p>
-        <div style="border-top: 1px solid rgba(175, 186, 255, 0.08); margin-top: 32px; padding-top: 16px; text-align: center; font-size: 10px; color: #64748b;">
+        <p style="font-size: 11px; color: var(--text-muted); line-height: 1.5;">This verification pin is locked to your email address and remains valid for <strong>15 minutes</strong>. If you did not trigger this request, safely discard this record.</p>
+        <div style="border-top: 1px solid rgba(175, 186, 255, 0.08); margin-top: 32px; padding-top: 16px; text-align: center; font-size: 10px; color: var(--text-muted);">
           Powered securely via StudioFlow Universal Telemetry Clusters.
         </div>
       </div>
@@ -149,24 +149,24 @@ export async function sendPortalWelcomeEmail(payload: PortalWelcomePayload) {
     to: payload.clientEmail,
     subject: `🔮 Your Client Portal Access - ${payload.projectName}`,
     html: `
-      <div style="font-family: 'Plus Jakarta Sans', sans-serif; padding: 32px; background-color: #0c0f16; color: #e0e2ec; max-width: 550px; margin: 0 auto; border-radius: 12px; border: 1px solid rgba(175, 186, 255, 0.1);">
-        <h2 style="font-size: 20px; color: #dac5ff; margin-bottom: 4px; font-weight: 600;">Welcome to your StudioFlow Portal</h2>
-        <p style="font-size: 13px; color: #94a3b8; margin-top: 0; margin-bottom: 24px;">StudioFlow Onboarding Infrastructure Gateway</p>
+      <div style="font-family: 'Plus Jakarta Sans', sans-serif; padding: 32px; background-color: var(--bg-main); color: var(--text-main); max-width: 550px; margin: 0 auto; border-radius: 12px; border: 1px solid rgba(175, 186, 255, 0.1);">
+        <h2 style="font-size: 20px; color: var(--color-theme-primary); margin-bottom: 4px; font-weight: 600;">Welcome to your StudioFlow Portal</h2>
+        <p style="font-size: 13px; color: var(--text-muted); margin-top: 0; margin-bottom: 24px;">StudioFlow Onboarding Infrastructure Gateway</p>
         
-        <p style="font-size: 14px; line-height: 1.6; color: #c6c5d1;">Your dedicated interactive client workspace for project <strong>${payload.projectName}</strong> has been provisioned and is ready for secure engagement.</p>
-        <p style="font-size: 14px; line-height: 1.6; color: #c6c5d1;">You can view and upload project assets, track pipeline updates, and chat with engineering teams directly inside your workspace console:</p>
+        <p style="font-size: 14px; line-height: 1.6; color: var(--text-muted);">Your dedicated interactive client workspace for project <strong>${payload.projectName}</strong> has been provisioned and is ready for secure engagement.</p>
+        <p style="font-size: 14px; line-height: 1.6; color: var(--text-muted);">You can view and upload project assets, track pipeline updates, and chat with engineering teams directly inside your workspace console:</p>
         
         <div style="text-align: center; margin: 32px 0;">
-          <a href="${payload.portalLink}" style="display: inline-block; padding: 12px 28px; background-color: #dac5ff; color: #030712; text-decoration: none; border-radius: 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; box-shadow: 0 4px 12px rgba(218, 197, 255, 0.15);">Access Secure Portal</a>
+          <a href="${payload.portalLink}" style="display: inline-block; padding: 12px 28px; background-color: var(--color-theme-primary); color: var(--bg-main); text-decoration: none; border-radius: 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; box-shadow: 0 4px 12px rgba(218, 197, 255, 0.15);">Access Secure Portal</a>
         </div>
         
         <div style="background: rgba(20, 24, 36, 0.5); border: 1px solid rgba(175, 186, 255, 0.15); padding: 16px; border-radius: 8px; text-align: center; margin: 28px 0;">
-          <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.15em; color: #94a3b8; display: block; margin-bottom: 8px;">Your 6-Digit Auto-Login Pin</span>
-          <span style="font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700; color: #e8b3ff; letter-spacing: 0.2em;">${payload.securePin}</span>
+          <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-muted); display: block; margin-bottom: 8px;">Your 6-Digit Auto-Login Pin</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700; color: var(--color-theme-secondary); letter-spacing: 0.2em;">${payload.securePin}</span>
         </div>
 
-        <p style="font-size: 11px; color: #94a3b8; line-height: 1.5;">Clicking the link above will automatically apply your pin. If you are prompted manually, use the code provided.</p>
-        <div style="border-top: 1px solid rgba(175, 186, 255, 0.08); margin-top: 32px; padding-top: 16px; text-align: center; font-size: 10px; color: #64748b;">
+        <p style="font-size: 11px; color: var(--text-muted); line-height: 1.5;">Clicking the link above will automatically apply your pin. If you are prompted manually, use the code provided.</p>
+        <div style="border-top: 1px solid rgba(175, 186, 255, 0.08); margin-top: 32px; padding-top: 16px; text-align: center; font-size: 10px; color: var(--text-muted);">
           Powered securely via StudioFlow Universal Telemetry Clusters.
         </div>
       </div>

@@ -20,7 +20,7 @@ export default async function ActiveSystemsPage({
     .orderBy(desc(projects.createdAt));
 
   return (
-    <div className="flex h-screen bg-[#0c0f16] overflow-hidden">
+    <div className="flex h-screen bg-[var(--bg-main)] overflow-hidden">
       <SidebarConsole userSlug={user} />
 
       <main className="flex-1 overflow-y-auto custom-scrollbar">
@@ -28,7 +28,7 @@ export default async function ActiveSystemsPage({
           {/* Back Link */}
           <Link
             href={`/dashboard/${user}`}
-            className="inline-flex items-center gap-2 text-sm text-[#94a3b8] hover:text-[#d3d7ff] mb-8 transition-colors group"
+            className="inline-flex items-center gap-2 text-sm text-[var(--text-muted)] hover:text-[var(--color-theme-primary)] mb-8 transition-colors group"
           >
             ← Back to Core Systems Overview
           </Link>
@@ -37,9 +37,9 @@ export default async function ActiveSystemsPage({
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-12">
             <div>
               <h1 className="headline-lg lilac-gradient">
-                Active <span className="text-[#e8b3ff]">Systems</span>
+                Active <span className="text-[var(--color-theme-secondary)]">Systems</span>
               </h1>
-              <p className="text-[#c6c5d1] mt-2 max-w-xl">
+              <p className="text-[var(--text-muted)] mt-2 max-w-xl">
                 Ecosystem overview and deployment matrices. Real-time telemetry
                 across distributed nodes.
               </p>
@@ -54,25 +54,25 @@ export default async function ActiveSystemsPage({
               allProjects.map((project) => (
                 <div
                   key={project.id}
-                  className="glass-card rounded-3xl p-8 group hover:border-[#d3d7ff]/40 transition-all duration-300 relative overflow-hidden border border-[#1f2538]"
+                  className="glass-card rounded-3xl p-8 group hover:border-[var(--color-theme-primary)]/40 transition-all duration-300 relative overflow-hidden border border-[#1f2538]"
                 >
                   <div className="flex justify-between items-start mb-6">
                     <div>
                       <span
                         className={`inline-block font-mono text-xs tracking-widest px-3 py-1 rounded-full ${
                           project.status === "active"
-                            ? "bg-[#d3d7ff]/10 text-[#d3d7ff]"
+                            ? "bg-[var(--color-theme-primary)]/10 text-[var(--color-theme-primary)]"
                             : project.status === "unhealthy"
-                              ? "bg-[#ffb4ab]/10 text-[#ffb4ab]"
-                              : "bg-[#e8b3ff]/10 text-[#e8b3ff]"
+                              ? "bg-[var(--color-danger)]/10 text-[var(--color-danger)]"
+                              : "bg-[var(--color-theme-secondary)]/10 text-[var(--color-theme-secondary)]"
                         }`}
                       >
                         {project.status?.toUpperCase() || "STABLE"}
                       </span>
-                      <h3 className="headline-sm mt-4 text-white leading-tight">
+                      <h3 className="headline-sm mt-4 text-theme-text leading-tight">
                         {project.name}
                       </h3>
-                      <p className="text-xs text-[#94a3b8] font-mono mt-1">
+                      <p className="text-xs text-[var(--text-muted)] font-mono mt-1">
                         apps/{project.slug}
                       </p>
                     </div>
@@ -81,23 +81,23 @@ export default async function ActiveSystemsPage({
                   {/* Metrics Row */}
                   <div className="grid grid-cols-3 gap-4 mb-8 text-center">
                     <div>
-                      <p className="label-caps text-[#94a3b8] text-[10px]">
+                      <p className="label-caps text-[var(--text-muted)] text-[10px]">
                         CPU
                       </p>
-                      <p className="text-[#d3d7ff] text-xl font-mono font-semibold">
+                      <p className="text-[var(--color-theme-primary)] text-xl font-mono font-semibold">
                         {Math.floor(Math.random() * 35 + 55)}%
                       </p>
                     </div>
                     <div>
-                      <p className="label-caps text-[#94a3b8] text-[10px]">
+                      <p className="label-caps text-[var(--text-muted)] text-[10px]">
                         MEM
                       </p>
-                      <p className="text-[#e8b3ff] text-xl font-mono font-semibold">
+                      <p className="text-[var(--color-theme-secondary)] text-xl font-mono font-semibold">
                         8.4GB
                       </p>
                     </div>
                     <div>
-                      <p className="label-caps text-[#94a3b8] text-[10px]">
+                      <p className="label-caps text-[var(--text-muted)] text-[10px]">
                         LAT
                       </p>
                       <p className="text-[#ffcaf5] text-xl font-mono font-semibold">
@@ -109,14 +109,14 @@ export default async function ActiveSystemsPage({
                   {/* Progress */}
                   <div className="mb-8">
                     <div className="flex justify-between text-xs mb-2 font-mono">
-                      <span className="text-[#94a3b8]">ALLOCATION</span>
-                      <span className="text-[#d3d7ff]">
+                      <span className="text-[var(--text-muted)]">ALLOCATION</span>
+                      <span className="text-[var(--color-theme-primary)]">
                         {project.progressPercentage}%
                       </span>
                     </div>
-                    <div className="w-full bg-[#1d2027] h-1.5 rounded-full overflow-hidden">
+                    <div className="w-full bg-[var(--bg-surface)] h-1.5 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-gradient-to-r from-[#d3d7ff] via-[#c4b5fd] to-[#a078ff] transition-all"
+                        className="h-full bg-gradient-to-r from-[var(--color-theme-primary)] via-[#c4b5fd] to-[#a078ff] transition-all"
                         style={{ width: `${project.progressPercentage}%` }}
                       />
                     </div>
@@ -125,7 +125,7 @@ export default async function ActiveSystemsPage({
                   {/* Access Button */}
                   <Link
                     href={`/dashboard/${user}/projects/${project.slug}`}
-                    className="block w-full text-center py-4 border border-[#d3d7ff]/30 hover:border-[#d3d7ff] rounded-2xl text-sm font-medium hover:bg-white/5 transition-all"
+                    className="block w-full text-center py-4 border border-[var(--color-theme-primary)]/30 hover:border-[var(--color-theme-primary)] rounded-2xl text-sm font-medium hover:bg-white/5 transition-all"
                   >
                     ACCESS CORE MATRIX →
                   </Link>
@@ -133,10 +133,10 @@ export default async function ActiveSystemsPage({
               ))
             ) : (
               <div className="col-span-full glass-card p-20 text-center rounded-3xl">
-                <p className="text-[#94a3b8] text-lg">
+                <p className="text-[var(--text-muted)] text-lg">
                   No active systems found
                 </p>
-                <p className="text-sm text-[#6b7280] mt-2">
+                <p className="text-sm text-[var(--text-muted)] mt-2">
                   Initialize your first project to begin orchestration.
                 </p>
               </div>

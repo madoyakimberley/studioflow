@@ -9,7 +9,8 @@ import {
   UserCheck,
   AlertOctagon,
   Terminal,
-  Server,
+  ShieldCheck,
+  Cpu,
 } from "lucide-react";
 
 const SIMULATED_PIPELINE_STEPS = [
@@ -80,8 +81,6 @@ function IngressSecurityProtocolScanner() {
           await new Promise((r) => setTimeout(r, 800));
 
           if (needsOnboarding) {
-            // ✅ FIXED: Updated to point to /onboarding
-            // If your folder is named something else (like "setup"), change "onboarding" to match it!
             router.push(`/onboarding/setup/?user=${targetUser}`);
           } else {
             router.push(`/dashboard/${targetUser}`);
@@ -101,85 +100,139 @@ function IngressSecurityProtocolScanner() {
     executeIngressHandshake();
   }, [searchParams, router]);
 
+  const progressPercentage =
+    protocolState === "ready"
+      ? 100
+      : protocolState === "failed"
+        ? 100
+        : Math.round(
+            ((currentStepIndex + 1) / SIMULATED_PIPELINE_STEPS.length) * 100,
+          );
+
   return (
-    <div className="text-center space-y-6 max-w-md w-full px-4">
-      <div className="relative w-28 h-28 mx-auto mb-8 flex items-center justify-center">
+    <div className="relative z-10 w-full max-w-lg bg-theme-surface/80 backdrop-blur-2xl border border-theme-outline rounded-3xl shadow-2xl p-8 md:p-10 text-center flex flex-col items-center transition-colors duration-300">
+      {/* Dynamic Animated Core */}
+      <div className="relative w-32 h-32 mx-auto mb-10 flex items-center justify-center">
+        {/* Outer rotating gradient ring */}
         <motion.div
-          className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-[#a078ff] via-cyan-500 to-[#e364a7] blur-lg opacity-40"
+          className="absolute inset-0 rounded-full bg-gradient-to-tr from-theme-primary via-theme-secondary to-theme-primary blur-xl opacity-30"
           animate={{ rotate: 360 }}
-          transition={{ repeat: Infinity, duration: 3.5, ease: "linear" }}
+          transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
         />
+        {/* Pulsing inner ring */}
         <motion.div
-          className="absolute inset-1 rounded-2xl bg-gradient-to-bl from-cyan-500/20 via-transparent to-fuchsia-500/20 animate-pulse border border-slate-800"
-          animate={{ scale: [1, 1.05, 1] }}
+          className="absolute inset-2 rounded-2xl bg-theme-primary/10 border border-theme-primary/30"
+          animate={{ scale: [1, 1.05, 1], opacity: [0.5, 0.8, 0.5] }}
           transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
         />
+        {/* Solid Center Hardware Block */}
         <motion.div
-          className="relative w-20 h-20 rounded-2xl bg-[#0a0c16] border border-slate-800 flex items-center justify-center shadow-2xl"
-          initial={{ scale: 0.3, opacity: 0 }}
+          className="relative w-20 h-20 rounded-2xl bg-theme-bg border border-theme-outline flex items-center justify-center shadow-inner overflow-hidden"
+          initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", stiffness: 140, damping: 15 }}
         >
-          <Workflow className="w-10 h-10 text-white drop-shadow-[0_0_10px_rgba(160,120,255,0.6)]" />
+          {protocolState === "evaluating" && (
+            <Workflow className="w-10 h-10 text-theme-primary animate-pulse" />
+          )}
+          {protocolState === "ready" && (
+            <ShieldCheck className="w-10 h-10 text-emerald-500" />
+          )}
+          {protocolState === "failed" && (
+            <AlertOctagon className="w-10 h-10 text-rose-500" />
+          )}
         </motion.div>
       </div>
 
-      <div className="space-y-3">
-        <h2 className="text-sm font-bold tracking-wider text-white uppercase font-mono flex items-center justify-center gap-2">
-          {protocolState === "evaluating" && (
-            <>
-              <Loader2 className="w-4 h-4 text-[#a078ff] animate-spin" />
-              Evaluating Cluster State...
-            </>
-          )}
-          {protocolState === "ready" && "Session Integrity Verified"}
-          {protocolState === "failed" && "Ingress Guard Deflection"}
-        </h2>
-
-        {/* Live Active Log Output Window Block */}
-        <div className="bg-[#070b14] border border-[#161f33] rounded-xl p-4 text-left font-mono text-xs text-slate-400 space-y-2 shadow-inner max-w-sm mx-auto">
-          <div className="flex items-center justify-between border-b border-slate-900 pb-2 mb-2 text-[10px] text-slate-500 tracking-tight">
-            <span className="flex items-center gap-1.5">
-              <Terminal className="w-3 h-3" /> PIPELINE LOGS
-            </span>
-            <span>NODE_V2_ACTIVE</span>
-          </div>
-
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentStepIndex}
-              initial={{ opacity: 0, x: -4 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 4 }}
-              className="text-cyan-400 font-medium min-h-[32px] flex items-start gap-2"
-            >
-              <span className="text-[#e364a7] shrink-0">❯</span>
-              <span>
-                {protocolState === "evaluating"
-                  ? SIMULATED_PIPELINE_STEPS[currentStepIndex]
-                  : "Process lifecycle completed successfully."}
-              </span>
-            </motion.div>
-          </AnimatePresence>
+      <div className="space-y-6 w-full">
+        {/* Status Header */}
+        <div className="space-y-2">
+          <h2 className="text-sm font-bold tracking-widest text-theme-text uppercase font-mono flex items-center justify-center gap-2">
+            {protocolState === "evaluating" && (
+              <>
+                <Loader2 className="w-4 h-4 text-theme-primary animate-spin" />
+                Negotiating Handshake
+              </>
+            )}
+            {protocolState === "ready" && "Session Integrity Verified"}
+            {protocolState === "failed" && "Ingress Guard Deflection"}
+          </h2>
+          <p className="text-xs text-theme-muted font-mono max-w-xs mx-auto leading-relaxed">
+            {protocolState === "evaluating" &&
+              "Establishing encrypted tunnel to core matrix..."}
+            {protocolState === "ready" &&
+              "Redirecting to primary operations terminal..."}
+            {protocolState === "failed" &&
+              (errorMessage || "Access Token signature validation failure.")}
+          </p>
         </div>
 
-        <p className="text-xs text-slate-500 font-mono leading-relaxed max-w-xs mx-auto">
-          {protocolState === "evaluating" &&
-            "This process isolates data nodes and mounts configurations. Please remain connected."}
-          {protocolState === "ready" &&
-            "Redirecting to primary multi-tenant operations terminal framework..."}
-          {protocolState === "failed" &&
-            (errorMessage || "Access Token signature validation failure.")}
-        </p>
-      </div>
+        {/* High-End Terminal Log Window */}
+        <div className="w-full bg-theme-bg border border-theme-outline rounded-xl overflow-hidden shadow-inner flex flex-col text-left">
+          {/* Terminal Header */}
+          <div className="bg-theme-surface border-b border-theme-outline/50 px-4 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-[10px] font-bold text-theme-muted tracking-widest uppercase">
+              <Terminal className="w-3.5 h-3.5" />
+              <span>Boot Sequence</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                {protocolState === "evaluating" && (
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-theme-primary opacity-75"></span>
+                )}
+                <span
+                  className={`relative inline-flex rounded-full h-2 w-2 ${protocolState === "failed" ? "bg-rose-500" : "bg-theme-primary"}`}
+                ></span>
+              </span>
+              <span className="text-[10px] font-mono text-theme-muted">
+                NODE_V2
+              </span>
+            </div>
+          </div>
 
-      <div className="h-4 flex items-center justify-center">
-        {protocolState === "ready" && (
-          <UserCheck className="w-5 h-5 text-emerald-400" />
-        )}
-        {protocolState === "failed" && (
-          <AlertOctagon className="w-5 h-5 text-rose-500" />
-        )}
+          {/* Terminal Body */}
+          <div className="p-4 h-20 flex flex-col justify-end relative">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={
+                  protocolState === "evaluating"
+                    ? currentStepIndex
+                    : protocolState
+                }
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                transition={{ duration: 0.2 }}
+                className="font-mono text-xs flex items-start gap-3"
+              >
+                <span
+                  className={`shrink-0 mt-0.5 ${protocolState === "failed" ? "text-rose-500" : "text-theme-secondary"}`}
+                >
+                  {protocolState === "failed" ? "✖" : "❯"}
+                </span>
+                <span
+                  className={`leading-relaxed ${protocolState === "failed" ? "text-rose-400" : "text-theme-text"}`}
+                >
+                  {protocolState === "evaluating"
+                    ? SIMULATED_PIPELINE_STEPS[currentStepIndex]
+                    : protocolState === "ready"
+                      ? "Process lifecycle completed successfully. Access granted."
+                      : "FATAL: Connection securely terminated by host."}
+                </span>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="h-1 w-full bg-theme-surface/50">
+            <motion.div
+              className={`h-full ${protocolState === "failed" ? "bg-rose-500" : "bg-theme-primary"}`}
+              initial={{ width: "0%" }}
+              animate={{ width: `${progressPercentage}%` }}
+              transition={{ ease: "easeInOut", duration: 0.5 }}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -187,9 +240,19 @@ function IngressSecurityProtocolScanner() {
 
 export default function StudioFlowAuthGate() {
   return (
-    <div className="min-h-screen bg-[#030407] flex flex-col items-center justify-center p-6 text-slate-300 antialiased selection:bg-cyan-500/20">
+    <div className="min-h-screen bg-theme-bg flex flex-col items-center justify-center p-6 antialiased selection:bg-theme-primary/20 relative overflow-hidden transition-colors duration-300">
+      {/* Ambient background glow to match the theme */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-theme-primary/10 via-theme-bg/0 to-theme-bg/0 pointer-events-none transition-colors duration-300" />
+
       <Suspense
-        fallback={<Loader2 className="w-6 h-6 text-slate-700 animate-spin" />}
+        fallback={
+          <div className="flex flex-col items-center gap-4 text-theme-primary">
+            <Loader2 className="w-8 h-8 animate-spin" />
+            <span className="font-mono text-xs tracking-widest uppercase">
+              Initializing Secure Gate...
+            </span>
+          </div>
+        }
       >
         <IngressSecurityProtocolScanner />
       </Suspense>

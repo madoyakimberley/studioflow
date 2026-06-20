@@ -63,8 +63,8 @@ export default function ProjectsClientMatrix({
       toast.success("Matrix synchronized successfully.", {
         icon: "🔄",
         style: {
-          background: "#12151d",
-          color: "#e8b3ff",
+          background: "var(--bg-surface)",
+          color: "var(--color-theme-secondary)",
           border: "1px solid rgba(210,167,255,0.2)",
         },
       });
@@ -89,7 +89,7 @@ export default function ProjectsClientMatrix({
       <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 mb-6">
         <div>
           <div className="flex items-center gap-3 mb-3">
-            <h1 className="text-5xl font-serif font-bold text-white tracking-tight">
+            <h1 className="text-5xl font-serif font-bold text-theme-text tracking-tight">
               Project Matrix
             </h1>
             <button
@@ -98,11 +98,11 @@ export default function ProjectsClientMatrix({
               title="Force Database Sync"
             >
               <RefreshCw
-                className={`w-4 h-4 text-[#afbaff] ${isSyncing ? "animate-spin" : "group-hover:rotate-180 transition-transform duration-500"}`}
+                className={`w-4 h-4 text-[var(--color-theme-primary)] ${isSyncing ? "animate-spin" : "group-hover:rotate-180 transition-transform duration-500"}`}
               />
             </button>
           </div>
-          <p className="text-[#958ea0] text-lg">
+          <p className="text-[var(--text-muted)] text-lg">
             Live pipeline tracking, engineering milestones, and your requests.
           </p>
         </div>
@@ -112,20 +112,20 @@ export default function ProjectsClientMatrix({
             href={liveUrl.startsWith("http") ? liveUrl : `https://${liveUrl}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="group flex items-center gap-3 bg-[#0e1224] border border-[#1e2338] hover:border-[#8b5cf6]/50 px-5 py-3 rounded-xl transition-all shadow-lg"
+            className="group flex items-center gap-3 bg-[var(--bg-main)] border border-[var(--bg-surface)] hover:border-[var(--color-theme-primary)]/50 px-5 py-3 rounded-xl transition-all shadow-lg"
           >
-            <div className="w-8 h-8 rounded-lg bg-[#171c30] border border-[#2a3048] flex items-center justify-center group-hover:bg-[#8b5cf6]/10 transition-colors relative overflow-hidden">
-              <span className="absolute inset-0 bg-[#8b5cf6]/20 animate-pulse" />
-              <Globe className="w-4 h-4 text-[#8b5cf6] group-hover:text-[#c084fc] relative z-10" />
+            <div className="w-8 h-8 rounded-lg bg-[var(--bg-surface)] border border-[#2a3048] flex items-center justify-center group-hover:bg-[var(--color-theme-primary)]/10 transition-colors relative overflow-hidden">
+              <span className="absolute inset-0 bg-[var(--color-theme-primary)]/20 animate-pulse" />
+              <Globe className="w-4 h-4 text-[var(--color-theme-primary)] group-hover:text-[var(--color-theme-secondary)] relative z-10" />
             </div>
             <div className="flex flex-col">
-              <span className="text-[10px] font-bold text-[#7a849c] uppercase tracking-widest group-hover:text-cyan-400 transition-colors flex items-center gap-1">
+              <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest group-hover:text-cyan-400 transition-colors flex items-center gap-1">
                 <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full" />{" "}
                 Production Environment
               </span>
-              <span className="text-sm font-medium text-white flex items-center gap-1.5">
+              <span className="text-sm font-medium text-theme-text flex items-center gap-1.5">
                 View Live Site
-                <ExternalLink className="w-3.5 h-3.5 text-[#5c657a] group-hover:text-white transition-colors" />
+                <ExternalLink className="w-3.5 h-3.5 text-[var(--text-muted)] group-hover:text-theme-text transition-colors" />
               </span>
             </div>
           </a>
@@ -134,24 +134,24 @@ export default function ProjectsClientMatrix({
 
       {/* ROW 1: LIVE HEALTH STATUS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-[#0b0e15]/90 border border-[rgba(175,186,255,0.08)] rounded-xl p-5 shadow-lg">
-          <span className="text-xs text-slate-400 flex items-center gap-2 mb-3 font-semibold uppercase tracking-wider">
-            <UserCheck className="w-4 h-4 text-[#e8b3ff]" />
+        <div className="bg-[var(--bg-surface)]/90 border border-[rgba(175,186,255,0.08)] rounded-xl p-5 shadow-lg">
+          <span className="text-xs text-theme-muted flex items-center gap-2 mb-3 font-semibold uppercase tracking-wider">
+            <UserCheck className="w-4 h-4 text-[var(--color-theme-secondary)]" />
             Developer Status
           </span>
           <span
             className={`inline-flex text-xs px-3 py-1 rounded-full font-mono font-bold ${
               presence?.adminTyping
                 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
-                : "bg-slate-800 text-slate-400 border border-slate-700"
+                : "bg-slate-800 text-theme-muted border border-slate-700"
             }`}
           >
             {presence?.adminTyping ? "● Active in Workspace" : "Offline / Idle"}
           </span>
         </div>
 
-        <div className="bg-[#0b0e15]/90 border border-[rgba(175,186,255,0.08)] rounded-xl p-5 shadow-lg">
-          <span className="text-xs text-slate-400 flex items-center gap-2 mb-3 font-semibold uppercase tracking-wider">
+        <div className="bg-[var(--bg-surface)]/90 border border-[rgba(175,186,255,0.08)] rounded-xl p-5 shadow-lg">
+          <span className="text-xs text-theme-muted flex items-center gap-2 mb-3 font-semibold uppercase tracking-wider">
             <Radio className="w-4 h-4 text-cyan-400" />
             Node Connection
           </span>
@@ -168,18 +168,18 @@ export default function ProjectsClientMatrix({
           </span>
         </div>
 
-        <div className="bg-[#0b0e15]/90 border border-[rgba(175,186,255,0.08)] rounded-xl p-5 shadow-lg flex flex-col justify-center">
+        <div className="bg-[var(--bg-surface)]/90 border border-[rgba(175,186,255,0.08)] rounded-xl p-5 shadow-lg flex flex-col justify-center">
           <div className="flex items-baseline justify-between mb-2">
             <span className="text-[10px] text-slate-500 font-mono tracking-widest uppercase">
               Build Progress
             </span>
-            <span className="text-lg font-bold text-white tracking-tight">
+            <span className="text-lg font-bold text-theme-text tracking-tight">
               {project?.progressPercentage || 0}%
             </span>
           </div>
           <div className="w-full bg-[#161a23] h-2 rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-[#d3d7ff] to-[#e8b3ff] transition-all duration-1000 ease-out"
+              className="h-full bg-gradient-to-r from-[var(--color-theme-primary)] to-[var(--color-theme-secondary)] transition-all duration-1000 ease-out"
               style={{ width: `${project?.progressPercentage || 0}%` }}
             />
           </div>
@@ -188,18 +188,18 @@ export default function ProjectsClientMatrix({
 
       {/* ROW 2: CLIENT REQUESTS */}
       <div className="space-y-6">
-        <h2 className="text-2xl font-serif text-white flex items-center gap-3">
-          <GitPullRequest className="w-6 h-6 text-[#c084fc]" />
+        <h2 className="text-2xl font-serif text-theme-text flex items-center gap-3">
+          <GitPullRequest className="w-6 h-6 text-[var(--color-theme-secondary)]" />
           Your Requests
         </h2>
 
         {requests.length === 0 ? (
-          <div className="bg-[#0e1224]/50 border border-dashed border-[#1e2338] rounded-2xl p-8 flex items-center gap-4 text-[#7a849c]">
-            <div className="p-3 bg-[#171c30] rounded-xl border border-[#2a3048]">
-              <AlertCircle className="w-5 h-5 text-[#5c657a]" />
+          <div className="bg-[var(--bg-main)]/50 border border-dashed border-[var(--bg-surface)] rounded-2xl p-8 flex items-center gap-4 text-[var(--text-muted)]">
+            <div className="p-3 bg-[var(--bg-surface)] rounded-xl border border-[#2a3048]">
+              <AlertCircle className="w-5 h-5 text-[var(--text-muted)]" />
             </div>
             <div>
-              <p className="text-sm font-medium text-[#958ea0]">
+              <p className="text-sm font-medium text-[var(--text-muted)]">
                 No requests submitted.
               </p>
               <p className="text-xs">
@@ -212,7 +212,7 @@ export default function ProjectsClientMatrix({
             {requests.map((req) => (
               <div
                 key={req.id}
-                className="bg-gradient-to-br from-[#0e1224] to-[#0a0d18] border border-[#1e2338] p-5 rounded-2xl hover:border-[#8b5cf6]/40 transition-all flex flex-col justify-between"
+                className="bg-gradient-to-br from-[var(--bg-main)] to-[#0a0d18] border border-[var(--bg-surface)] p-5 rounded-2xl hover:border-[var(--color-theme-primary)]/40 transition-all flex flex-col justify-between"
               >
                 <div>
                   <div className="flex justify-between items-start mb-3">
@@ -227,16 +227,16 @@ export default function ProjectsClientMatrix({
                     >
                       {req.status?.replace("_", " ") || "Pending"}
                     </span>
-                    <span className="text-[10px] font-mono text-[#5c657a]">
+                    <span className="text-[10px] font-mono text-[var(--text-muted)]">
                       {req.createdAt
                         ? new Date(req.createdAt).toLocaleDateString()
                         : ""}
                     </span>
                   </div>
-                  <h3 className="text-sm font-medium text-white mb-2 line-clamp-1">
+                  <h3 className="text-sm font-medium text-theme-text mb-2 line-clamp-1">
                     {req.title}
                   </h3>
-                  <p className="text-xs text-[#7a849c] line-clamp-2 leading-relaxed">
+                  <p className="text-xs text-[var(--text-muted)] line-clamp-2 leading-relaxed">
                     {req.description}
                   </p>
                 </div>
@@ -246,19 +246,19 @@ export default function ProjectsClientMatrix({
         )}
       </div>
 
-      <hr className="border-[#1e2338]" />
+      <hr className="border-[var(--bg-surface)]" />
 
       {/* ROW 3: AUTOMATION & PIPELINE */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Active Engineering */}
         <div className="space-y-6 lg:col-span-1">
-          <h2 className="text-xl font-serif text-white flex items-center gap-2">
-            <Activity className="w-5 h-5 text-[#ec4899]" />
+          <h2 className="text-xl font-serif text-theme-text flex items-center gap-2">
+            <Activity className="w-5 h-5 text-[var(--color-theme-secondary)]" />
             Pipeline
           </h2>
           {pendingTasks.length === 0 ? (
-            <div className="border border-dashed border-[#1e2338] rounded-2xl flex flex-col items-center text-center p-6 bg-[#0e1224]/30">
-              <span className="text-sm text-[#7a849c] font-serif italic">
+            <div className="border border-dashed border-[var(--bg-surface)] rounded-2xl flex flex-col items-center text-center p-6 bg-[var(--bg-main)]/30">
+              <span className="text-sm text-[var(--text-muted)] font-serif italic">
                 No active objectives
               </span>
             </div>
@@ -267,19 +267,19 @@ export default function ProjectsClientMatrix({
               {pendingTasks.map((task) => (
                 <div
                   key={task.id}
-                  className="bg-[#0e1224] border border-[#1e2338] p-4 rounded-xl shadow-lg relative overflow-hidden group"
+                  className="bg-[var(--bg-main)] border border-[var(--bg-surface)] p-4 rounded-xl shadow-lg relative overflow-hidden group"
                 >
-                  <div className="absolute top-0 left-0 w-1 h-full bg-[#8b5cf6] opacity-50 group-hover:opacity-100 transition-opacity" />
+                  <div className="absolute top-0 left-0 w-1 h-full bg-[var(--color-theme-primary)] opacity-50 group-hover:opacity-100 transition-opacity" />
                   <div className="flex justify-between items-center mb-2">
-                    <span className="bg-[#8b5cf6]/10 text-[#c084fc] border border-[#8b5cf6]/20 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 bg-[#c084fc] rounded-full animate-pulse" />{" "}
+                    <span className="bg-[var(--color-theme-primary)]/10 text-[var(--color-theme-secondary)] border border-[var(--color-theme-primary)]/20 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 bg-[var(--color-theme-secondary)] rounded-full animate-pulse" />{" "}
                       Active
                     </span>
                   </div>
-                  <h3 className="text-sm font-serif text-white mb-1">
+                  <h3 className="text-sm font-serif text-theme-text mb-1">
                     {task.title}
                   </h3>
-                  <p className="text-[11px] text-[#7a849c] leading-relaxed line-clamp-2">
+                  <p className="text-[11px] text-[var(--text-muted)] leading-relaxed line-clamp-2">
                     {task.type} Scope{" "}
                     {/* Replaced non-existent description with MVP Type */}
                   </p>
@@ -291,13 +291,13 @@ export default function ProjectsClientMatrix({
 
         {/* Resolved Deliverables */}
         <div className="space-y-6 lg:col-span-1">
-          <h2 className="text-xl font-serif text-white flex items-center gap-2 opacity-80">
-            <Download className="w-5 h-5 text-[#7a849c]" />
+          <h2 className="text-xl font-serif text-theme-text flex items-center gap-2 opacity-80">
+            <Download className="w-5 h-5 text-[var(--text-muted)]" />
             Resolved
           </h2>
           {completedTasks.length === 0 ? (
-            <div className="border border-dashed border-[#1e2338] rounded-2xl flex flex-col items-center text-center p-6 bg-gradient-to-b from-transparent to-[#0e1224]/50">
-              <span className="text-sm text-[#7a849c] font-serif italic">
+            <div className="border border-dashed border-[var(--bg-surface)] rounded-2xl flex flex-col items-center text-center p-6 bg-gradient-to-b from-transparent to-[var(--bg-main)]/50">
+              <span className="text-sm text-[var(--text-muted)] font-serif italic">
                 Awaiting completion
               </span>
             </div>
@@ -306,11 +306,11 @@ export default function ProjectsClientMatrix({
               {completedTasks.map((task) => (
                 <div
                   key={task.id}
-                  className="bg-[#0e1224]/30 border border-[#1e2338]/40 p-3 rounded-xl flex items-start gap-3"
+                  className="bg-[var(--bg-main)]/30 border border-[var(--bg-surface)]/40 p-3 rounded-xl flex items-start gap-3"
                 >
                   <CheckCircle className="text-emerald-500/50 w-4 h-4 flex-shrink-0 mt-0.5" />
                   <div>
-                    <h3 className="text-xs font-medium text-[#958ea0] line-through decoration-[#7a849c]/30">
+                    <h3 className="text-xs font-medium text-[var(--text-muted)] line-through decoration-[var(--text-muted)]/30">
                       {task.title}
                     </h3>
                   </div>
@@ -322,12 +322,12 @@ export default function ProjectsClientMatrix({
 
         {/* Live Terminal */}
         <div className="space-y-6 lg:col-span-1 flex flex-col h-full">
-          <h2 className="text-xl font-serif text-white flex items-center gap-2">
+          <h2 className="text-xl font-serif text-theme-text flex items-center gap-2">
             <Terminal className="w-5 h-5 text-cyan-400" />
             Live Logs
           </h2>
           <div className="flex-grow bg-[#05070c] rounded-xl border border-slate-900 p-4 font-mono text-[10px] leading-relaxed flex flex-col justify-between min-h-[250px] shadow-inner">
-            <div className="space-y-2 text-slate-300 max-h-[180px] overflow-y-auto scrollbar-thin">
+            <div className="space-y-2 text-theme-muted max-h-[180px] overflow-y-auto scrollbar-thin">
               {activeJob ? (
                 <>
                   <div className="text-cyan-400/90 flex items-center justify-between">
@@ -336,7 +336,7 @@ export default function ProjectsClientMatrix({
                       {activeJob.status}
                     </span>
                   </div>
-                  <div className="text-slate-400 bg-black/40 p-2 rounded border border-slate-900 whitespace-pre-wrap line-clamp-6">
+                  <div className="text-theme-muted bg-black/40 p-2 rounded border border-slate-900 whitespace-pre-wrap line-clamp-6">
                     {activeJob.executionLogs || "Awaiting stream buffers..."}
                   </div>
                 </>

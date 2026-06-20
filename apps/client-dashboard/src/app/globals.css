@@ -1,66 +1,95 @@
 /* 1. External Font Imports (Must be at the absolute top) */
 @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap");
 
-/* 2. Tailwind Core Import */
+/* 2. Tailwind Core Import (Tailwind v4 Syntax) */
 @import "tailwindcss";
 
-/* 3. Base Configurations & Variable Matrices */
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* 3. Multi-Theme Matrices */
+@layer base {
+  :root,
+  [data-theme="active-systems-light"] {
+    --bg-main: #f7f9fb;
+    --bg-surface: #eceef0;
+    --text-main: #191c1e;
+    --text-muted: #494454;
+    --border-outline: #7b7486;
+    --color-primary: #6b38d4;
+    --color-on-primary: #ffffff;
+    --color-secondary: #b61722;
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  [data-theme="aetheric-foundry"] {
+    --bg-main: #10131a;
+    --bg-surface: #1d2027;
+    --text-main: #e0e2ec;
+    --text-muted: #c6c5d1;
+    --border-outline: #90909b;
+    --color-primary: #d3d7ff;
+    --color-on-primary: #1f2b67;
+    --color-secondary: #e8b3ff;
+  }
+
+  [data-theme="aetheric-foundry-light"] {
+    --bg-main: #f7f9fb;
+    --bg-surface: #eceef0;
+    --text-main: #191c1e;
+    --text-muted: #43474e;
+    --border-outline: #73777e;
+    --color-primary: #143353;
+    --color-on-primary: #ffffff;
+    --color-secondary: #5a5f67;
+  }
+
+  [data-theme="night-matrix"] {
+    --bg-main: #051424;
+    --bg-surface: #122131;
+    --text-main: #d4e4fa;
+    --text-muted: #bccabb;
+    --border-outline: #869486;
+    --color-primary: #6bfb9a;
+    --color-on-primary: #003919;
+    --color-secondary: #c0c1ff;
   }
 }
 
-/* 4. Unified Tailwind v4 Theme Configuration */
+/* 4. Global CSS Variable Mappings (MUST BE IN @theme FOR TAILWIND V4) */
 @theme {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* This tells Tailwind to generate the dynamic classes */
+  --color-theme-bg: var(--bg-main);
+  --color-theme-surface: var(--bg-surface);
+  --color-theme-text: var(--text-main);
+  --color-theme-muted: var(--text-muted);
+  --color-theme-outline: var(--border-outline);
+  --color-theme-primary: var(--color-primary);
+  --color-theme-on-primary: var(--color-on-primary);
+  --color-theme-secondary: var(--color-secondary);
 }
 
 /* 5. Custom Global Elements */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(
-    --font-sans
-  ); /* Updated from Arial to dynamically utilize the high-fidelity Plus Jakarta Sans theme */
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
 }
 
-/* Custom subtle scrollbar styling */
+/* Custom scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.3);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.2);
-  border-radius: 9999px;
+  background: var(--border-outline);
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.4);
-}
-
-/* 6. Custom Animations & Ambient Utilities */
-@keyframes float-ambient {
-  0%,
-  100% {
-    transform: translateY(0px) scale(1);
-  }
-  50% {
-    transform: translateY(-10px) scale(1.02);
-  }
-}
-
-.ambient-glow {
-  animation: float-ambient 8s ease-in-out infinite;
+  background: var(--color-primary);
 }

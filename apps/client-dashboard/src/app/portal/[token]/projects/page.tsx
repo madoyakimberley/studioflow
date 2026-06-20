@@ -24,7 +24,7 @@ export default async function ProjectsPage({
 
   if (!livePayload.success || !livePayload.data) {
     return (
-      <div className="flex items-center justify-center h-64 text-red-400 border border-red-900/30 bg-red-950/20 rounded-2xl max-w-2xl mx-auto">
+      <div className="flex items-center justify-center h-64 text-rose-400 border border-rose-500/30 bg-rose-500/10 rounded-2xl max-w-2xl mx-auto shadow-inner">
         Fatal Error: Failed to initialize project data streams.
       </div>
     );

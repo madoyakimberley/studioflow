@@ -31,45 +31,45 @@ export default function SmtpConfigForm({
 
   return (
     <form onSubmit={handleUpdate} className="space-y-5 text-sm">
-      <div className="bg-[#1d2027] p-5 rounded-xl space-y-4">
+      <div className="bg-[var(--bg-surface)] p-5 rounded-xl space-y-4">
         <div>
-          <label className="text-xs text-[#94a3b8] block mb-1">
+          <label className="text-xs text-[var(--text-muted)] block mb-1">
             SMTP GATEWAY HOST
           </label>
           <input
             name="smtpHost"
             defaultValue={config?.smtpHost || ""}
             placeholder="smtp.gmail.com"
-            className="w-full bg-[#0c0f16] border border-[#32353d] px-3 py-2 rounded-lg text-white font-mono focus:outline-none focus:border-pink-500"
+            className="w-full bg-[var(--bg-main)] border border-[var(--border-outline)] px-3 py-2 rounded-lg text-theme-text font-mono focus:outline-none focus:border-pink-500"
             required
           />
         </div>
         <div>
-          <label className="text-xs text-[#94a3b8] block mb-1">
+          <label className="text-xs text-[var(--text-muted)] block mb-1">
             ACTIVE PORT VECTOR
           </label>
           <input
             name="smtpPort"
             defaultValue={config?.smtpPort || ""}
             placeholder="465"
-            className="w-full bg-[#0c0f16] border border-[#32353d] px-3 py-2 rounded-lg text-white font-mono focus:outline-none focus:border-pink-500"
+            className="w-full bg-[var(--bg-main)] border border-[var(--border-outline)] px-3 py-2 rounded-lg text-theme-text font-mono focus:outline-none focus:border-pink-500"
             required
           />
         </div>
         <div>
-          <label className="text-xs text-[#94a3b8] block mb-1">
+          <label className="text-xs text-[var(--text-muted)] block mb-1">
             SMTP USER AUTH
           </label>
           <input
             name="smtpUser"
             defaultValue={config?.smtpUser || ""}
             placeholder="user@gmail.com"
-            className="w-full bg-[#0c0f16] border border-[#32353d] px-3 py-2 rounded-lg text-white font-mono focus:outline-none focus:border-pink-500"
+            className="w-full bg-[var(--bg-main)] border border-[var(--border-outline)] px-3 py-2 rounded-lg text-theme-text font-mono focus:outline-none focus:border-pink-500"
             required
           />
         </div>
         <div>
-          <label className="text-xs text-[#94a3b8] block mb-1">
+          <label className="text-xs text-[var(--text-muted)] block mb-1">
             SMTP PASS VECTOR
           </label>
           <input
@@ -77,19 +77,19 @@ export default function SmtpConfigForm({
             type="password"
             defaultValue={config?.smtpPass ? "••••••••••••" : ""}
             placeholder="Enter Account Secret Key Token"
-            className="w-full bg-[#0c0f16] border border-[#32353d] px-3 py-2 rounded-lg text-white font-mono focus:outline-none focus:border-pink-500"
+            className="w-full bg-[var(--bg-main)] border border-[var(--border-outline)] px-3 py-2 rounded-lg text-theme-text font-mono focus:outline-none focus:border-pink-500"
             required
           />
         </div>
         <div>
-          <label className="text-xs text-[#94a3b8] block mb-1">
+          <label className="text-xs text-[var(--text-muted)] block mb-1">
             TARGET ADMIN RECEIVER
           </label>
           <input
             name="adminAlertEmail"
             defaultValue={config?.adminAlertEmail || ""}
             placeholder="kimmadoya@gmail.com"
-            className="w-full bg-[#0c0f16] border border-[#32353d] px-3 py-2 rounded-lg text-[#e8b3ff] font-mono focus:outline-none focus:border-pink-500"
+            className="w-full bg-[var(--bg-main)] border border-[var(--border-outline)] px-3 py-2 rounded-lg text-[var(--color-theme-secondary)] font-mono focus:outline-none focus:border-pink-500"
             required
           />
         </div>
@@ -105,7 +105,7 @@ export default function SmtpConfigForm({
           : "SAVE APPLICATION CONFIGURATION MATRIX"}
       </button>
       {msg && (
-        <p className="text-center text-xs mt-2 font-mono text-slate-300">
+        <p className="text-center text-xs mt-2 font-mono text-theme-muted">
           {msg}
         </p>
       )}

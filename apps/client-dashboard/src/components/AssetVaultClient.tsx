@@ -57,26 +57,26 @@ export default function AssetVaultClient({
         <div className="absolute inset-0 bg-gradient-to-b from-[rgba(210,167,255,0.05)] to-transparent pointer-events-none"></div>
         <div className="grid-overlay"></div>
 
-        <div className="bg-[#0b0e15]/90 rounded-xl p-6 relative z-10 border border-[rgba(175,186,255,0.05)]">
+        <div className="bg-[var(--bg-surface)]/90 rounded-xl p-6 relative z-10 border border-[rgba(175,186,255,0.05)]">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="headline-sm text-[#e0e2ec] text-lg flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#e8b3ff]">
+              <h3 className="headline-sm text-[var(--text-main)] text-lg flex items-center gap-2">
+                <span className="material-symbols-outlined text-[var(--color-theme-secondary)]">
                   cloud_upload
                 </span>
                 Secure Data Ingestion Port
               </h3>
-              <p className="body-md text-[#94a3b8] text-[12px] mt-1">
+              <p className="body-md text-[var(--text-muted)] text-[12px] mt-1">
                 Drag and drop payloads: Images, PDFs, JSON, and Archives (Max
                 16MB)
               </p>
             </div>
             {isUploading && (
               <div className="px-4 py-1.5 rounded-full flex items-center gap-2 text-[11px] bg-[rgba(232,179,255,0.1)] border border-[rgba(232,179,255,0.2)]">
-                <span className="material-symbols-outlined text-[14px] animate-spin text-[#e8b3ff]">
+                <span className="material-symbols-outlined text-[14px] animate-spin text-[var(--color-theme-secondary)]">
                   sync
                 </span>
-                <span className="mono-code text-[#e8b3ff]">
+                <span className="mono-code text-[var(--color-theme-secondary)]">
                   Processing Payload...
                 </span>
               </div>
@@ -101,9 +101,9 @@ export default function AssetVaultClient({
                 alert(`Upload system halted: ${error.message}`);
               }}
               className="
-                ut-button:bg-[rgba(175,186,255,0.1)] ut-button:text-[#d3d7ff] ut-button:border ut-button:border-[rgba(175,186,255,0.2)] 
+                ut-button:bg-[rgba(175,186,255,0.1)] ut-button:text-[var(--color-theme-primary)] ut-button:border ut-button:border-[rgba(175,186,255,0.2)] 
                 ut-button:transition-all ut-button:hover:bg-[rgba(210,167,255,0.2)] ut-button:hover:text-[#fff]
-                ut-label:text-[#afbaff] ut-label:font-medium ut-allowed-content:text-[#94a3b8] 
+                ut-label:text-[var(--color-theme-primary)] ut-label:font-medium ut-allowed-content:text-[var(--text-muted)] 
                 w-full border-2 border-dashed border-[rgba(175,186,255,0.15)] hover:border-[rgba(210,167,255,0.4)] 
                 rounded-xl bg-[rgba(12,15,22,0.4)] transition-all py-8 cursor-pointer
               "
@@ -118,17 +118,17 @@ export default function AssetVaultClient({
           <div className="flex items-center gap-3">
             <div className="bg-[rgba(175,186,255,0.08)] p-2 rounded-lg">
               <span
-                className="material-symbols-outlined text-[#afbaff] text-xl"
+                className="material-symbols-outlined text-[var(--color-theme-primary)] text-xl"
                 style={{ fontVariationSettings: "'wght' 200" }}
               >
                 folder_open
               </span>
             </div>
             <div>
-              <h2 className="headline-sm text-[#e0e2ec] text-lg">
+              <h2 className="headline-sm text-[var(--text-main)] text-lg">
                 Synchronized Vault Records
               </h2>
-              <p className="mono-code text-[10px] text-[#94a3b8] mt-0.5">
+              <p className="mono-code text-[10px] text-[var(--text-muted)] mt-0.5">
                 MATRIX DOMAIN // ASSET VISUALIZATION
               </p>
             </div>
@@ -138,8 +138,8 @@ export default function AssetVaultClient({
             onClick={() => setFilterClientOnly(!filterClientOnly)}
             className={`px-4 py-2 rounded-lg text-[11px] label-caps transition-all border cursor-pointer flex items-center gap-2 ${
               filterClientOnly
-                ? "bg-[rgba(210,167,255,0.15)] border-[rgba(210,167,255,0.3)] text-[#e8b3ff] shadow-[0_0_15px_rgba(210,167,255,0.1)]"
-                : "bg-[#1d2027] border-[#32353d] text-[#c6c5d1] hover:bg-[#272a32] hover:border-[#4a4e5a]"
+                ? "bg-[rgba(210,167,255,0.15)] border-[rgba(210,167,255,0.3)] text-[var(--color-theme-secondary)] shadow-[0_0_15px_rgba(210,167,255,0.1)]"
+                : "bg-[var(--bg-surface)] border-[var(--border-outline)] text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:border-[var(--border-outline)]"
             }`}
           >
             <span className="material-symbols-outlined text-[14px]">
@@ -154,12 +154,12 @@ export default function AssetVaultClient({
             <div className="grid-overlay"></div>
             <div className="relative z-10 flex flex-col items-center">
               <div className="mb-6 inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[rgba(175,186,255,0.05)] border border-[rgba(175,186,255,0.1)]">
-                <span className="material-symbols-outlined text-3xl text-[#afbaff]/50">
+                <span className="material-symbols-outlined text-3xl text-[var(--color-theme-primary)]/50">
                   find_in_page
                 </span>
               </div>
-              <h4 className="headline-sm text-[#e0e2ec] mb-2">Vault Empty</h4>
-              <p className="body-md text-[#94a3b8] max-w-sm text-center leading-relaxed opacity-80">
+              <h4 className="headline-sm text-[var(--text-main)] mb-2">Vault Empty</h4>
+              <p className="body-md text-[var(--text-muted)] max-w-sm text-center leading-relaxed opacity-80">
                 No matching assets found in the matrix. Upload a file via the
                 ingestion port above to initialize the storage grid.
               </p>
@@ -173,8 +173,8 @@ export default function AssetVaultClient({
                 className="glass-card rounded-xl flex flex-col group relative overflow-hidden transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.5)] hover:-translate-y-1 hover:border-[rgba(210,167,255,0.3)]"
               >
                 {/* Visual Preview / Thumbnail Area */}
-                <div className="h-40 w-full bg-[#12151d] relative overflow-hidden border-b border-[rgba(175,186,255,0.05)] flex items-center justify-center">
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0c0f16] to-transparent opacity-60 z-10"></div>
+                <div className="h-40 w-full bg-[var(--bg-surface)] relative overflow-hidden border-b border-[rgba(175,186,255,0.05)] flex items-center justify-center">
+                  <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-main)] to-transparent opacity-60 z-10"></div>
 
                   {asset.fileType?.toLowerCase().includes("image") ? (
                     // REAL IMAGE THUMBNAIL
@@ -186,7 +186,7 @@ export default function AssetVaultClient({
                   ) : (
                     // ICON FALLBACK
                     <span
-                      className="material-symbols-outlined text-5xl text-[#d3d7ff]/20 group-hover:text-[#e8b3ff]/40 transition-colors duration-300"
+                      className="material-symbols-outlined text-5xl text-[var(--color-theme-primary)]/20 group-hover:text-[var(--color-theme-secondary)]/40 transition-colors duration-300"
                       style={{ fontVariationSettings: "'FILL' 1" }}
                     >
                       {getIconForType(asset.fileType)}
@@ -208,9 +208,9 @@ export default function AssetVaultClient({
                 </div>
 
                 {/* Card Details Area */}
-                <div className="p-4 flex flex-col flex-grow bg-gradient-to-b from-transparent to-[#0a0d13]">
+                <div className="p-4 flex flex-col flex-grow bg-gradient-to-b from-transparent to-[var(--bg-surface)]">
                   <h3
-                    className="headline-sm text-[15px] text-[#e0e2ec] mb-3 truncate group-hover:text-[#d3d7ff] transition-colors"
+                    className="headline-sm text-[15px] text-[var(--text-main)] mb-3 truncate group-hover:text-[var(--color-theme-primary)] transition-colors"
                     title={asset.name}
                   >
                     {asset.name}
@@ -218,10 +218,10 @@ export default function AssetVaultClient({
 
                   <div className="mt-auto flex items-end justify-between pt-3 border-t border-[rgba(175,186,255,0.08)]">
                     <div className="flex flex-col space-y-1">
-                      <span className="mono-code text-[10px] text-[#afbaff]/80">
+                      <span className="mono-code text-[10px] text-[var(--color-theme-primary)]/80">
                         {asset.fileSize || "Unknown size"}
                       </span>
-                      <span className="mono-code text-[9px] text-[#94a3b8]">
+                      <span className="mono-code text-[9px] text-[var(--text-muted)]">
                         {asset.createdAt
                           ? new Date(asset.createdAt).toLocaleDateString(
                               undefined,
@@ -239,7 +239,7 @@ export default function AssetVaultClient({
                       href={asset.fileUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="h-8 w-8 rounded-lg bg-[rgba(175,186,255,0.05)] border border-[rgba(175,186,255,0.1)] text-[#c6c5d1] flex items-center justify-center hover:text-[#0c0f16] hover:bg-gradient-to-r hover:from-[#d3d7ff] hover:to-[#e8b3ff] hover:border-transparent transition-all shadow-lg"
+                      className="h-8 w-8 rounded-lg bg-[rgba(175,186,255,0.05)] border border-[rgba(175,186,255,0.1)] text-[var(--text-muted)] flex items-center justify-center hover:text-[var(--bg-main)] hover:bg-gradient-to-r hover:from-[var(--color-theme-primary)] hover:to-[var(--color-theme-secondary)] hover:border-transparent transition-all shadow-lg"
                       title="Open Secure Link"
                     >
                       <span className="material-symbols-outlined text-[16px]">

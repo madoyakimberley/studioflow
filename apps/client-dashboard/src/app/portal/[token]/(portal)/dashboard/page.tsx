@@ -118,10 +118,10 @@ export default async function DashboardPage({
       {/* Header */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 mb-2 mt-6 px-4 md:px-0">
         <div>
-          <h1 className="text-5xl font-serif font-bold text-white mb-3 tracking-tight">
+          <h1 className="text-5xl font-serif font-bold text-theme-text mb-3 tracking-tight">
             Mission Control
           </h1>
-          <p className="text-[#958ea0] text-lg">
+          <p className="text-[var(--text-muted)] text-lg">
             High-level overview of your project's health, progress, and active
             tasks.
           </p>
@@ -147,30 +147,30 @@ export default async function DashboardPage({
       {/* Dynamic Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 px-4 md:px-0">
         {/* Progress Card */}
-        <div className="bg-[#0e1224] border border-[#1e2338] rounded-2xl p-6 flex flex-col justify-between shadow-xl relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-[#ec4899]/5 rounded-full blur-2xl -mr-10 -mt-10 transition-all group-hover:bg-[#ec4899]/10" />
+        <div className="bg-[var(--bg-main)] border border-[var(--bg-surface)] rounded-2xl p-6 flex flex-col justify-between shadow-xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--color-theme-secondary)]/5 rounded-full blur-2xl -mr-10 -mt-10 transition-all group-hover:bg-[var(--color-theme-secondary)]/10" />
           <div className="flex justify-between items-start mb-4 relative z-10">
-            <h3 className="text-xs font-bold tracking-widest text-[#7a849c] uppercase">
+            <h3 className="text-xs font-bold tracking-widest text-[var(--text-muted)] uppercase">
               Project Progress
             </h3>
-            <BadgeCheck className="text-[#ec4899] w-5 h-5" />
+            <BadgeCheck className="text-[var(--color-theme-secondary)] w-5 h-5" />
           </div>
           <div className="relative z-10">
             <div className="flex items-baseline gap-2 mb-3">
-              <div className="text-4xl font-serif text-white">
+              <div className="text-4xl font-serif text-theme-text">
                 {overallProgress}%
               </div>
-              <span className="text-xs text-[#7a849c] uppercase tracking-wider font-mono">
+              <span className="text-xs text-[var(--text-muted)] uppercase tracking-wider font-mono">
                 Complete
               </span>
             </div>
-            <div className="h-1.5 w-full bg-[#171c30] rounded-full overflow-hidden mb-2">
+            <div className="h-1.5 w-full bg-[var(--bg-surface)] rounded-full overflow-hidden mb-2">
               <div
-                className="h-full bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] transition-all duration-1000"
+                className="h-full bg-gradient-to-r from-[var(--color-theme-secondary)] to-[var(--color-theme-primary)] transition-all duration-1000"
                 style={{ width: `${overallProgress}%` }}
               />
             </div>
-            <p className="text-[11px] text-[#ec4899] font-medium flex items-center gap-1.5">
+            <p className="text-[11px] text-[var(--color-theme-secondary)] font-medium flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5" /> {completedTasks.length}{" "}
               of {totalTasks} objectives met
             </p>
@@ -178,21 +178,21 @@ export default async function DashboardPage({
         </div>
 
         {/* Client Requests Card */}
-        <div className="bg-[#0e1224] border border-[#1e2338] rounded-2xl p-6 flex flex-col justify-between shadow-xl relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-[#8b5cf6]/5 rounded-full blur-2xl -mr-10 -mt-10 transition-all group-hover:bg-[#8b5cf6]/10" />
+        <div className="bg-[var(--bg-main)] border border-[var(--bg-surface)] rounded-2xl p-6 flex flex-col justify-between shadow-xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--color-theme-primary)]/5 rounded-full blur-2xl -mr-10 -mt-10 transition-all group-hover:bg-[var(--color-theme-primary)]/10" />
           <div className="flex justify-between items-start mb-4 relative z-10">
-            <h3 className="text-xs font-bold tracking-widest text-[#7a849c] uppercase">
+            <h3 className="text-xs font-bold tracking-widest text-[var(--text-muted)] uppercase">
               Active Requests
             </h3>
-            <Rocket className="text-[#8b5cf6] w-5 h-5" />
+            <Rocket className="text-[var(--color-theme-primary)] w-5 h-5" />
           </div>
           <div className="relative z-10">
-            <div className="text-4xl font-serif text-white mb-2">
+            <div className="text-4xl font-serif text-theme-text mb-2">
               {pendingRequestsCount.toString().padStart(2, "0")}
             </div>
             <Link
               href={`/portal/${token}/projects`}
-              className="text-[11px] text-[#8b5cf6] font-medium hover:text-[#c084fc] flex items-center gap-1 transition-colors w-max"
+              className="text-[11px] text-[var(--color-theme-primary)] font-medium hover:text-[var(--color-theme-secondary)] flex items-center gap-1 transition-colors w-max"
             >
               Review your requests <ArrowRight className="w-3 h-3" />
             </Link>
@@ -200,22 +200,22 @@ export default async function DashboardPage({
         </div>
 
         {/* System Health Card */}
-        <div className="bg-[#0e1224] border border-[#1e2338] rounded-2xl p-6 flex flex-col justify-between shadow-xl relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-400/5 rounded-full blur-2xl -mr-10 -mt-10 transition-all group-hover:bg-cyan-400/10" />
+        <div className="bg-[var(--bg-main)] border border-[var(--bg-surface)] rounded-2xl p-6 flex flex-col justify-between shadow-xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--color-theme-primary)]/5 rounded-full blur-2xl -mr-10 -mt-10 transition-all group-hover:bg-[var(--color-theme-primary)]/10" />
           <div className="flex justify-between items-start mb-4 relative z-10">
-            <h3 className="text-xs font-bold tracking-widest text-[#7a849c] uppercase">
+            <h3 className="text-xs font-bold tracking-widest text-[var(--text-muted)] uppercase">
               Environment Status
             </h3>
             {isDeploying ? (
               <RefreshCw className="text-amber-400 w-5 h-5 animate-spin" />
             ) : isSystemHealthy ? (
-              <Globe className="text-cyan-400 w-5 h-5" />
+              <Globe className="text-[var(--color-theme-primary)] w-5 h-5" />
             ) : (
-              <AlertTriangle className="text-red-400 w-5 h-5" />
+              <AlertTriangle className="text-rose-400 w-5 h-5" />
             )}
           </div>
           <div className="relative z-10">
-            <div className="text-2xl font-serif text-white mb-1">
+            <div className="text-2xl font-serif text-theme-text mb-1">
               {isDeploying
                 ? "Deploying..."
                 : isSystemHealthy
@@ -231,12 +231,12 @@ export default async function DashboardPage({
                 }
                 target="_blank"
                 rel="noreferrer"
-                className="text-[11px] text-cyan-400 font-medium hover:text-cyan-300 flex items-center gap-1 transition-colors w-max mt-2"
+                className="text-[11px] text-[var(--color-theme-primary)] font-medium hover:brightness-125 flex items-center gap-1 transition-all w-max mt-2"
               >
                 Open Production Link <ArrowRight className="w-3 h-3" />
               </a>
             ) : (
-              <p className="text-[11px] text-[#7a849c] font-medium mt-2">
+              <p className="text-[11px] text-[var(--text-muted)] font-medium mt-2">
                 Awaiting initial deployment phase.
               </p>
             )}
@@ -249,11 +249,11 @@ export default async function DashboardPage({
         {/* Dynamic Project Pipeline */}
         <div className="lg:col-span-2 space-y-6">
           <div className="flex justify-between items-end mb-2">
-            <h2 className="text-2xl font-serif text-white flex items-center gap-3">
-              <Activity className="w-5 h-5 text-[#8b5cf6]" />
+            <h2 className="text-2xl font-serif text-theme-text flex items-center gap-3">
+              <Activity className="w-5 h-5 text-[var(--color-theme-primary)]" />
               Implementation Tracker
             </h2>
-            <span className="text-[10px] font-bold text-[#8b5cf6] uppercase tracking-widest bg-[#8b5cf6]/10 px-3 py-1 rounded-full border border-[#8b5cf6]/20">
+            <span className="text-[10px] font-bold text-[var(--color-theme-primary)] uppercase tracking-widest bg-[var(--color-theme-primary)]/10 px-3 py-1 rounded-full border border-[var(--color-theme-primary)]/20">
               {project.status || "In Progress"}
             </span>
           </div>
@@ -261,7 +261,7 @@ export default async function DashboardPage({
           {/* INPUT FORM: Client adds to MVP / Scope here */}
           <form
             action={handleAddFeature}
-            className="flex items-center gap-3 bg-[#0e1224] p-2 rounded-xl border border-[#1e2338] shadow-inner mb-6"
+            className="flex items-center gap-3 bg-[var(--bg-main)] p-2 rounded-xl border border-[var(--bg-surface)] shadow-inner mb-6"
           >
             <input
               type="text"
@@ -271,13 +271,13 @@ export default async function DashboardPage({
                   ? "Request a new added feature..."
                   : "Add a core MVP feature..."
               }
-              className="flex-1 bg-transparent px-4 py-2 text-sm text-white focus:outline-none placeholder:text-[#7a849c]"
+              className="flex-1 bg-transparent px-4 py-2 text-sm text-theme-text focus:outline-none placeholder:text-[var(--text-muted)]"
               required
               maxLength={150}
             />
             <button
               type="submit"
-              className="bg-gradient-to-r from-[#8b5cf6] to-[#6d28d9] hover:from-[#9c73f7] hover:to-[#7c3aed] text-white px-5 py-2.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-all flex items-center gap-2 shadow-lg shadow-[#8b5cf6]/20"
+              className="bg-gradient-to-r from-[var(--color-theme-primary)] to-[var(--color-theme-secondary)] hover:brightness-110 text-white px-5 py-2.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-all flex items-center gap-2 shadow-lg shadow-[var(--color-theme-primary)]/20"
             >
               <PlusSquare className="w-4 h-4" /> Add to Scope
             </button>
@@ -286,7 +286,7 @@ export default async function DashboardPage({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Core MVP Bucket */}
             <div className="space-y-4">
-              <h3 className="text-sm font-bold tracking-widest text-[#7a849c] uppercase flex items-center gap-2 mb-4">
+              <h3 className="text-sm font-bold tracking-widest text-[var(--text-muted)] uppercase flex items-center gap-2 mb-4">
                 🚀 Core MVP Bucket{" "}
                 {mvpIsLocked && (
                   <span
@@ -300,10 +300,10 @@ export default async function DashboardPage({
               {mvpItems.map((task) => (
                 <div
                   key={task.id}
-                  className="bg-gradient-to-r from-[#0e1224] to-[#13182b] border border-[#1e2338] rounded-xl p-4 transition-all hover:border-[#2a3048] relative overflow-hidden"
+                  className="bg-gradient-to-r from-[var(--bg-main)] to-[var(--bg-surface)] border border-[var(--bg-surface)] hover:border-[var(--color-theme-primary)]/40 rounded-xl p-4 transition-all relative overflow-hidden"
                 >
                   <div
-                    className={`absolute left-0 top-0 bottom-0 w-1 ${task.status === "completed" ? "bg-emerald-400" : task.status === "pending_client_review" ? "bg-amber-400" : "bg-[#8b5cf6]"}`}
+                    className={`absolute left-0 top-0 bottom-0 w-1 ${task.status === "completed" ? "bg-emerald-400" : task.status === "pending_client_review" ? "bg-amber-400" : "bg-[var(--color-theme-primary)]"}`}
                   />
                   <div className="flex flex-col gap-2">
                     <div className="flex items-start gap-3">
@@ -313,16 +313,16 @@ export default async function DashboardPage({
                         ) : task.status === "pending_client_review" ? (
                           <AlertTriangle className="w-4 h-4 text-amber-400" />
                         ) : (
-                          <div className="w-4 h-4 border-2 border-[#8b5cf6] rounded-full flex items-center justify-center">
-                            <div className="w-1.5 h-1.5 bg-[#8b5cf6] rounded-full animate-pulse" />
+                          <div className="w-4 h-4 border-2 border-[var(--color-theme-primary)] rounded-full flex items-center justify-center">
+                            <div className="w-1.5 h-1.5 bg-[var(--color-theme-primary)] rounded-full animate-pulse" />
                           </div>
                         )}
                       </div>
                       <div>
-                        <h4 className="text-sm font-medium text-white">
+                        <h4 className="text-sm font-medium text-theme-text">
                           {task.title}
                         </h4>
-                        <p className="text-[10px] text-[#7a849c] uppercase tracking-wider mt-1">
+                        <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mt-1">
                           {task.status === "pending_client_review"
                             ? "Awaiting Review in Proofs"
                             : "Active Task"}
@@ -336,13 +336,13 @@ export default async function DashboardPage({
 
             {/* Added Features Bucket */}
             <div className="space-y-4">
-              <h3 className="text-sm font-bold tracking-widest text-[#7a849c] uppercase flex items-center gap-2 mb-4">
+              <h3 className="text-sm font-bold tracking-widest text-[var(--text-muted)] uppercase flex items-center gap-2 mb-4">
                 ➕ Added Features Bucket
               </h3>
               {addedFeatureItems.length === 0 ? (
-                <div className="bg-[#0e1224]/50 border border-dashed border-[#1e2338] p-6 rounded-xl flex flex-col items-center text-center">
-                  <PlusSquare className="w-8 h-8 text-[#7a849c] mb-2 opacity-50" />
-                  <p className="text-[#7a849c] text-xs">
+                <div className="bg-[var(--bg-main)]/50 border border-dashed border-[var(--bg-surface)] p-6 rounded-xl flex flex-col items-center text-center">
+                  <PlusSquare className="w-8 h-8 text-[var(--text-muted)] mb-2 opacity-50" />
+                  <p className="text-[var(--text-muted)] text-xs">
                     No additional scoped features yet.
                   </p>
                 </div>
@@ -350,7 +350,7 @@ export default async function DashboardPage({
                 addedFeatureItems.map((task) => (
                   <div
                     key={task.id}
-                    className="bg-[#0e1224] border border-[#1e2338] rounded-xl p-4 transition-all hover:border-[#2a3048] relative"
+                    className="bg-[var(--bg-main)] border border-[var(--bg-surface)] hover:border-[var(--color-theme-primary)]/40 rounded-xl p-4 transition-all relative"
                   >
                     <div className="flex flex-col gap-2">
                       <div className="flex items-start gap-3">
@@ -360,14 +360,14 @@ export default async function DashboardPage({
                           ) : task.status === "pending_client_review" ? (
                             <AlertTriangle className="w-4 h-4 text-amber-400" />
                           ) : (
-                            <div className="w-4 h-4 border-2 border-[#1e2338] rounded-full" />
+                            <div className="w-4 h-4 border-2 border-[var(--bg-surface)] rounded-full" />
                           )}
                         </div>
                         <div>
-                          <h4 className="text-sm font-medium text-slate-300">
+                          <h4 className="text-sm font-medium text-theme-text">
                             {task.title}
                           </h4>
-                          <p className="text-[10px] text-[#7a849c] uppercase tracking-wider mt-1">
+                          <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mt-1">
                             {task.status === "pending_client_review"
                               ? "Awaiting Review in Proofs"
                               : "Active Task"}
@@ -386,54 +386,54 @@ export default async function DashboardPage({
         <div className="lg:col-span-1 space-y-8">
           {unreadMessagesCount > 0 && (
             <Link href={`/portal/${token}/messages`} className="block">
-              <div className="bg-gradient-to-r from-[#ec4899]/10 to-[#8b5cf6]/10 border border-[#ec4899]/30 rounded-2xl p-5 flex items-center justify-between hover:bg-[#ec4899]/20 transition-all">
+              <div className="bg-gradient-to-r from-[var(--color-theme-secondary)]/10 to-[var(--color-theme-primary)]/10 border border-[var(--color-theme-secondary)]/30 rounded-2xl p-5 flex items-center justify-between hover:bg-[var(--color-theme-secondary)]/20 transition-all">
                 <div className="flex items-center gap-3">
                   <div className="relative">
-                    <MessageSquare className="text-[#ec4899] w-6 h-6" />
+                    <MessageSquare className="text-[var(--color-theme-secondary)] w-6 h-6" />
                     <span className="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full flex items-center justify-center animate-bounce">
-                      <span className="w-2 h-2 bg-[#ec4899] rounded-full" />
+                      <span className="w-2 h-2 bg-[var(--color-theme-secondary)] rounded-full" />
                     </span>
                   </div>
                   <div>
-                    <h3 className="text-white font-medium text-sm">
+                    <h3 className="text-theme-text font-medium text-sm">
                       New Messages
                     </h3>
-                    <p className="text-[#ec4899] text-xs">
+                    <p className="text-[var(--color-theme-secondary)] text-xs">
                       You have {unreadMessagesCount} unread update(s)
                     </p>
                   </div>
                 </div>
-                <ArrowRight className="text-[#ec4899] w-4 h-4" />
+                <ArrowRight className="text-[var(--color-theme-secondary)] w-4 h-4" />
               </div>
             </Link>
           )}
 
           {/* Infrastructure Activity */}
-          <div className="bg-[#0b0e15]/90 border border-[rgba(175,186,255,0.08)] rounded-2xl p-6">
-            <h2 className="text-sm font-bold text-[#e0e2ec] tracking-wide flex items-center gap-2 mb-6 uppercase">
-              <GitCommit className="w-4 h-4 text-[#afbaff]" />
+          <div className="bg-[var(--bg-surface)]/90 border border-[var(--border-outline)] rounded-2xl p-6">
+            <h2 className="text-sm font-bold text-[var(--text-main)] tracking-wide flex items-center gap-2 mb-6 uppercase">
+              <GitCommit className="w-4 h-4 text-[var(--color-theme-primary)]" />
               Recent System Activity
             </h2>
 
             {recentJobs.length === 0 ? (
-              <p className="text-xs text-[#7a849c] italic text-center py-4">
+              <p className="text-xs text-[var(--text-muted)] italic text-center py-4">
                 No recent background operations.
               </p>
             ) : (
-              <div className="space-y-6 relative before:absolute before:inset-0 before:ml-[11px] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-[#1e2338] before:to-transparent">
+              <div className="space-y-6 relative before:absolute before:inset-0 before:ml-[11px] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-[var(--bg-surface)] before:to-transparent">
                 {recentJobs.map((job) => (
                   <div
                     key={job.id}
                     className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active"
                   >
-                    <div className="flex items-center justify-center w-6 h-6 rounded-full border border-[#1e2338] bg-[#0b0e15] text-slate-500 shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
+                    <div className="flex items-center justify-center w-6 h-6 rounded-full border border-[var(--bg-surface)] bg-[var(--bg-surface)] text-[var(--text-muted)] shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
                       <div
-                        className={`w-2 h-2 rounded-full ${job.status === "completed" || job.status === "success" ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : job.status === "failed" ? "bg-red-400" : "bg-cyan-400 animate-pulse"}`}
+                        className={`w-2 h-2 rounded-full ${job.status === "completed" || job.status === "success" ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : job.status === "failed" ? "bg-rose-400" : "bg-[var(--color-theme-primary)] animate-pulse"}`}
                       />
                     </div>
-                    <div className="w-[calc(100%-2.5rem)] md:w-[calc(50%-1.5rem)] p-3 rounded-xl bg-[#12151d] border border-[rgba(175,186,255,0.05)] shadow-sm">
+                    <div className="w-[calc(100%-2.5rem)] md:w-[calc(50%-1.5rem)] p-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-outline)] shadow-sm">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="font-mono text-[9px] text-[#7a849c]">
+                        <span className="font-mono text-[9px] text-[var(--text-muted)]">
                           {job.createdAt
                             ? new Date(job.createdAt).toLocaleTimeString([], {
                                 hour: "2-digit",
@@ -442,12 +442,12 @@ export default async function DashboardPage({
                             : "Recently"}
                         </span>
                         <span
-                          className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${job.status === "completed" || job.status === "success" ? "bg-emerald-400/10 text-emerald-400" : job.status === "failed" ? "bg-red-400/10 text-red-400" : "bg-cyan-400/10 text-cyan-400"}`}
+                          className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${job.status === "completed" || job.status === "success" ? "bg-emerald-400/10 text-emerald-400" : job.status === "failed" ? "bg-rose-400/10 text-rose-400" : "bg-[var(--color-theme-primary)]/10 text-[var(--color-theme-primary)]"}`}
                         >
                           {job.status}
                         </span>
                       </div>
-                      <h4 className="text-xs font-medium text-slate-300 truncate">
+                      <h4 className="text-xs font-medium text-theme-text truncate">
                         System Build Deployment
                       </h4>
                     </div>

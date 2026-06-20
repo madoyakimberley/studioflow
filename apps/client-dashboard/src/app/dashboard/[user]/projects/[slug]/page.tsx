@@ -49,12 +49,12 @@ export default async function ProjectDetailsWorkspaceConsole({
   const isUnhealthy = projectNode.status === "unhealthy";
 
   return (
-    <div className="min-h-screen bg-[#05070f] text-[#dae2fd] p-6 md:p-10">
+    <div className="min-h-screen bg-[#05070f] text-[var(--text-main)] p-6 md:p-10">
       <div className="max-w-7xl mx-auto space-y-10">
         {/* Back Navigation */}
         <Link
           href={`/dashboard/${currentUser}/projects`}
-          className="inline-flex items-center gap-2 text-sm text-[#94a3b8] hover:text-[#d3d7ff] transition group"
+          className="inline-flex items-center gap-2 text-sm text-[var(--text-muted)] hover:text-[var(--color-theme-primary)] transition group"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" />
           BACK TO PROJECTS
@@ -72,7 +72,7 @@ export default async function ProjectDetailsWorkspaceConsole({
             >
               {isUnhealthy ? "SYSTEM ANOMALY" : "OPERATIONAL"}
             </div>
-            <h1 className="text-5xl font-bold tracking-tighter text-white mt-3">
+            <h1 className="text-5xl font-bold tracking-tighter text-theme-text mt-3">
               {projectNode.name}
             </h1>
             <p className="text-[#a078ff] font-mono mt-2">
@@ -86,7 +86,7 @@ export default async function ProjectDetailsWorkspaceConsole({
                 href={projectNode.liveUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-[#d3d7ff] to-[#e8b3ff] text-black font-semibold rounded-2xl hover:brightness-110 transition"
+                className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-[var(--color-theme-primary)] to-[var(--color-theme-secondary)] text-black font-semibold rounded-2xl hover:brightness-110 transition"
               >
                 <ExternalLink className="w-5 h-5" />
                 LIVE DEPLOYMENT
@@ -101,17 +101,17 @@ export default async function ProjectDetailsWorkspaceConsole({
             {/* Progress Overview */}
             <div className="glass-card p-8 rounded-3xl border border-[#1f2538] flex items-center gap-8">
               <div>
-                <div className="text-sm uppercase tracking-widest text-[#94a3b8]">
+                <div className="text-sm uppercase tracking-widest text-[var(--text-muted)]">
                   OVERALL PROGRESS
                 </div>
-                <div className="text-7xl font-bold text-white font-mono tracking-tighter mt-2">
+                <div className="text-7xl font-bold text-theme-text font-mono tracking-tighter mt-2">
                   {projectNode.progressPercentage}
                   <span className="text-4xl align-super">%</span>
                 </div>
               </div>
               <div className="flex-1 h-3 bg-[#1a2237] rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-[#d3d7ff] to-[#a078ff] transition-all"
+                  className="h-full bg-gradient-to-r from-[var(--color-theme-primary)] to-[#a078ff] transition-all"
                   style={{ width: `${projectNode.progressPercentage}%` }}
                 />
               </div>
@@ -120,21 +120,21 @@ export default async function ProjectDetailsWorkspaceConsole({
             {/* Pipeline Status */}
             <div className="glass-card p-8 rounded-3xl border border-[#1f2538]">
               <div className="flex items-center gap-4 mb-8">
-                <Kanban className="w-6 h-6 text-[#d3d7ff]" />
+                <Kanban className="w-6 h-6 text-[var(--color-theme-primary)]" />
                 <h2 className="text-2xl font-semibold">Deployment Pipeline</h2>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Backlog */}
                 <div className="bg-[#0a0f1c] border border-[#1f2538] rounded-2xl p-6">
-                  <div className="text-xs uppercase tracking-widest text-slate-400 mb-4">
+                  <div className="text-xs uppercase tracking-widest text-theme-muted mb-4">
                     BACKLOG
                   </div>
                   <div className="space-y-4">
-                    <div className="text-sm text-white">
+                    <div className="text-sm text-theme-text">
                       OAuth Integration Routing
                     </div>
-                    <div className="text-xs text-[#94a3b8]">
+                    <div className="text-xs text-[var(--text-muted)]">
                       Pending configuration
                     </div>
                   </div>
@@ -148,10 +148,10 @@ export default async function ProjectDetailsWorkspaceConsole({
                   <div className="flex items-center gap-3">
                     <Cpu className="w-5 h-5 animate-spin text-cyan-400" />
                     <div>
-                      <div className="text-white">
+                      <div className="text-theme-text">
                         System Scaffold Execution
                       </div>
-                      <div className="text-xs text-[#94a3b8]">
+                      <div className="text-xs text-[var(--text-muted)]">
                         Running pnpm + Render sync
                       </div>
                     </div>
@@ -176,14 +176,14 @@ export default async function ProjectDetailsWorkspaceConsole({
             {/* Provisioning Logs */}
             <div className="glass-card p-8 rounded-3xl border border-[#1f2538]">
               <div className="flex items-center gap-4 mb-6">
-                <HardDrive className="w-6 h-6 text-[#e364a7]" />
+                <HardDrive className="w-6 h-6 text-[var(--color-theme-secondary)]" />
                 <h2 className="text-2xl font-semibold">
                   Recent Provisioning Logs
                 </h2>
               </div>
               <div className="space-y-6 max-h-96 overflow-y-auto pr-2">
                 {linkedJobsList.length === 0 ? (
-                  <p className="text-center py-12 text-[#6b7280]">
+                  <p className="text-center py-12 text-[var(--text-muted)]">
                     No logs available yet.
                   </p>
                 ) : (
@@ -193,16 +193,16 @@ export default async function ProjectDetailsWorkspaceConsole({
                       className="border-l-2 border-[#a078ff] pl-6"
                     >
                       <div className="flex justify-between text-xs mb-2">
-                        <span className="font-mono text-[#d3d7ff]">
+                        <span className="font-mono text-[var(--color-theme-primary)]">
                           JOB #{job.id}
                         </span>
-                        <span className="text-[#6b7280]">
+                        <span className="text-[var(--text-muted)]">
                           {job.createdAt
                             ? new Date(job.createdAt).toLocaleString()
                             : ""}
                         </span>
                       </div>
-                      <pre className="text-xs text-[#94a3b8] whitespace-pre-wrap font-mono">
+                      <pre className="text-xs text-[var(--text-muted)] whitespace-pre-wrap font-mono">
                         {job.executionLogs || "No detailed output recorded."}
                       </pre>
                     </div>
@@ -217,46 +217,46 @@ export default async function ProjectDetailsWorkspaceConsole({
             {/* Manifest Summary */}
             <div className="glass-card p-8 rounded-3xl border border-[#1f2538]">
               <div className="flex items-center gap-3 mb-6">
-                <HardDrive className="w-5 h-5 text-[#d3d7ff]" />
+                <HardDrive className="w-5 h-5 text-[var(--color-theme-primary)]" />
                 <h3 className="font-semibold">Architecture Manifest</h3>
               </div>
               {manifestData ? (
                 <div className="space-y-5 text-sm">
                   <div>
-                    <div className="text-xs text-[#94a3b8] uppercase">
+                    <div className="text-xs text-[var(--text-muted)] uppercase">
                       Frontend
                     </div>
-                    <div className="font-medium text-white">
+                    <div className="font-medium text-theme-text">
                       {manifestData.frontendFramework || "Next.js"}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-[#94a3b8] uppercase">
+                    <div className="text-xs text-[var(--text-muted)] uppercase">
                       Backend
                     </div>
-                    <div className="font-medium text-white">
+                    <div className="font-medium text-theme-text">
                       {manifestData.backendFramework || "None"}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-[#94a3b8] uppercase">
+                    <div className="text-xs text-[var(--text-muted)] uppercase">
                       Database
                     </div>
-                    <div className="font-medium text-white">
+                    <div className="font-medium text-theme-text">
                       {manifestData.database || "Unspecified"}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-[#94a3b8] uppercase">
+                    <div className="text-xs text-[var(--text-muted)] uppercase">
                       Deployment Target
                     </div>
-                    <div className="font-medium text-white capitalize">
+                    <div className="font-medium text-theme-text capitalize">
                       {manifestData.deploymentTarget || "Render"}
                     </div>
                   </div>
                 </div>
               ) : (
-                <p className="text-[#6b7280]">No manifest data available.</p>
+                <p className="text-[var(--text-muted)]">No manifest data available.</p>
               )}
             </div>
 
@@ -281,7 +281,7 @@ export default async function ProjectDetailsWorkspaceConsole({
                     key={label}
                     className="flex justify-between items-center"
                   >
-                    <span className="text-[#c6c5d1]">{label}</span>
+                    <span className="text-[var(--text-muted)]">{label}</span>
                     <span
                       className={`text-xs px-4 py-1 rounded-full bg-${color}-500/10 text-${color}-400 border border-${color}-500/30`}
                     >

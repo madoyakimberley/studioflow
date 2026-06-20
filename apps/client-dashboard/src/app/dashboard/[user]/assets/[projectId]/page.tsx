@@ -20,7 +20,7 @@ export default async function DevAssetDashboard({
   // Safety Matrix: Catch malformed URL parameters
   if (isNaN(currentProjectId)) {
     return (
-      <div className="flex items-center justify-center h-screen bg-[#0c0f16] text-white font-mono">
+      <div className="flex items-center justify-center h-screen bg-[var(--bg-main)] text-theme-text font-mono">
         🚨 [ROUTING EXCEPTION]: Invalid Project ID Matrix Parameter.
       </div>
     );
@@ -34,11 +34,11 @@ export default async function DevAssetDashboard({
   // Safety Matrix: Catch non-existent projects
   if (!projectContext) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-[#0c0f16] text-white font-mono gap-4 px-6 text-center">
+      <div className="flex flex-col items-center justify-center h-screen bg-[var(--bg-main)] text-theme-text font-mono gap-4 px-6 text-center">
         <span className="text-red-400 text-xl font-bold">
           🚨 [RESOURCE EXCEPTION]: Isolated Project Not Found.
         </span>
-        <span className="text-sm text-[#94a3b8] bg-[#1d2027] px-4 py-2 rounded-md">
+        <span className="text-sm text-[var(--text-muted)] bg-[var(--bg-surface)] px-4 py-2 rounded-md">
           Diagnostic: Project ID {currentProjectId} does not exist in the vault
           matrix.
         </span>
@@ -64,8 +64,8 @@ export default async function DevAssetDashboard({
         @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 
         body {
-          background-color: #0c0f16;
-          color: #e0e2ec;
+          background-color: var(--bg-main);
+          color: var(--text-main);
           font-family: 'Plus Jakarta Sans', sans-serif;
         }
 
@@ -94,7 +94,7 @@ export default async function DevAssetDashboard({
         }
 
         .lilac-gradient {
-          background: linear-gradient(135deg, #d3d7ff 0%, #e8b3ff 100%);
+          background: linear-gradient(135deg, var(--color-theme-primary) 0%, var(--color-theme-secondary) 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
@@ -165,7 +165,7 @@ export default async function DevAssetDashboard({
           inset: 0;
           opacity: 0.02;
           pointer-events: none;
-          background-image: radial-gradient(#afbaff 0.5px, transparent 0.5px);
+          background-image: radial-gradient(var(--color-theme-primary) 0.5px, transparent 0.5px);
           background-size: 24px 24px;
         }
 
@@ -180,7 +180,7 @@ export default async function DevAssetDashboard({
 
         .status-active {
           background-color: rgba(210, 167, 255, 0.08);
-          color: #d3d7ff;
+          color: var(--color-theme-primary);
         }
 
         .status-paused {
@@ -190,31 +190,31 @@ export default async function DevAssetDashboard({
 
         .status-unhealthy {
           background-color: rgba(255, 180, 171, 0.08);
-          color: #ffb4ab;
+          color: var(--color-danger);
         }
       `}</style>
 
-      <div className="flex h-screen overflow-hidden bg-[#0c0f16]">
+      <div className="flex h-screen overflow-hidden bg-[var(--bg-main)]">
         {/* Keeping the SideBar identical */}
         <SidebarConsole userSlug={user} />
 
         <main className="flex-1 overflow-y-auto custom-scrollbar relative">
-          <header className="h-auto min-h-14 py-3 px-4 md:px-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[rgba(175,186,255,0.1)] sticky top-0 bg-[#0c0f16]/90 backdrop-blur-md z-40">
+          <header className="h-auto min-h-14 py-3 px-4 md:px-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[rgba(175,186,255,0.1)] sticky top-0 bg-[var(--bg-main)]/90 backdrop-blur-md z-40">
             <div className="flex-1 min-w-0 pt-0.5">
-              <h1 className="headline-lg text-[#e0e2ec] text-sm sm:text-base md:text-lg break-words">
+              <h1 className="headline-lg text-[var(--text-main)] text-sm sm:text-base md:text-lg break-words">
                 Development Asset Gateway
               </h1>
-              <p className="label-caps text-[8px] text-[#94a3b8] mt-1 opacity-70 hidden md:block">
+              <p className="label-caps text-[8px] text-[var(--text-muted)] mt-1 opacity-70 hidden md:block">
                 Project Matrix: {projectContext.name}
               </p>
             </div>
 
             <div className="glass-card px-2.5 py-1 rounded-full flex items-center gap-2 text-[11px] whitespace-nowrap self-start sm:self-center">
               <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#afbaff] opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#afbaff]"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--color-theme-primary)] opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[var(--color-theme-primary)]"></span>
               </span>
-              <span className="mono-code text-[#afbaff] text-[10px]">
+              <span className="mono-code text-[var(--color-theme-primary)] text-[10px]">
                 Bi-Directional Sync: Secure
               </span>
             </div>
@@ -226,7 +226,7 @@ export default async function DevAssetDashboard({
               <div className="glass-card p-4 md:p-5 rounded-xl relative overflow-hidden group">
                 <div className="glow-point -top-10 -right-10"></div>
                 <div className="flex flex-col h-full relative z-10">
-                  <h3 className="label-caps text-[#c6c5d1] mb-2 opacity-80">
+                  <h3 className="label-caps text-[var(--text-muted)] mb-2 opacity-80">
                     Total Vault Records
                   </h3>
                   <div className="flex items-baseline gap-2 mb-2">
@@ -234,13 +234,13 @@ export default async function DevAssetDashboard({
                       {fetchedAssets.length}
                     </span>
                     <span
-                      className="material-symbols-outlined text-[#d3d7ff] text-lg"
+                      className="material-symbols-outlined text-[var(--color-theme-primary)] text-lg"
                       style={{ fontVariationSettings: "'FILL' 1" }}
                     >
                       source
                     </span>
                   </div>
-                  <div className="mt-auto flex items-center gap-1.5 text-[#d3d7ff]/70 text-[11px]">
+                  <div className="mt-auto flex items-center gap-1.5 text-[var(--color-theme-primary)]/70 text-[11px]">
                     <span className="material-symbols-outlined text-[11px]">
                       subdirectory_arrow_right
                     </span>
@@ -254,7 +254,7 @@ export default async function DevAssetDashboard({
               <div className="glass-card p-4 md:p-5 rounded-xl relative overflow-hidden group">
                 <div className="glow-point -bottom-10 -left-10 opacity-50"></div>
                 <div className="flex flex-col h-full relative z-10">
-                  <h3 className="label-caps text-[#c6c5d1] mb-2 opacity-80">
+                  <h3 className="label-caps text-[var(--text-muted)] mb-2 opacity-80">
                     Client Payload Drops
                   </h3>
                   <div className="flex items-baseline gap-2 mb-2">
@@ -262,13 +262,13 @@ export default async function DevAssetDashboard({
                       {clientUploadsCount}
                     </span>
                     <span
-                      className="material-symbols-outlined text-[#e8b3ff] text-lg"
+                      className="material-symbols-outlined text-[var(--color-theme-secondary)] text-lg"
                       style={{ fontVariationSettings: "'FILL' 1" }}
                     >
                       file_download
                     </span>
                   </div>
-                  <div className="mt-auto flex items-center gap-1.5 text-[#e8b3ff]/70 text-[11px]">
+                  <div className="mt-auto flex items-center gap-1.5 text-[var(--color-theme-secondary)]/70 text-[11px]">
                     <span className="material-symbols-outlined text-[11px]">
                       subdirectory_arrow_right
                     </span>

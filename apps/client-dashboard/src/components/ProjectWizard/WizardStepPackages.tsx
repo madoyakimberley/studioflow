@@ -64,9 +64,9 @@ export const WizardStepPackages: React.FC<WizardStepPackagesProps> = ({
           return (
             <div
               key={srv.id}
-              className="bg-[#171a25] border border-[#32353d] rounded-2xl p-5 space-y-4"
+              className="bg-[var(--bg-surface)] border border-[var(--border-outline)] rounded-2xl p-5 space-y-4"
             >
-              <h3 className="text-sm font-bold text-slate-300 flex items-center gap-2 border-b border-[#32353d] pb-3">
+              <h3 className="text-sm font-bold text-theme-muted flex items-center gap-2 border-b border-[var(--border-outline)] pb-3">
                 <Package className="w-4 h-4 text-emerald-400" />
                 Enterprise Arsenal for {srv.name} ({srv.runtime})
               </h3>
@@ -84,7 +84,7 @@ export const WizardStepPackages: React.FC<WizardStepPackagesProps> = ({
                       className={`text-left p-3 rounded-xl border transition-all flex flex-col gap-1.5 ${
                         isSelected
                           ? "bg-emerald-500/10 border-emerald-500/50 shadow-sm shadow-emerald-500/10"
-                          : "bg-[#0f111a] border-[#32353d] hover:border-slate-600"
+                          : "bg-[var(--bg-surface)] border-[var(--border-outline)] hover:border-slate-600"
                       }`}
                     >
                       <div className="flex justify-between items-center w-full">
@@ -97,7 +97,7 @@ export const WizardStepPackages: React.FC<WizardStepPackagesProps> = ({
                           className={`w-3 h-3 rounded-full border ${isSelected ? "bg-emerald-400 border-emerald-400" : "border-slate-600"}`}
                         />
                       </div>
-                      <span className="text-[10px] text-slate-400 leading-snug">
+                      <span className="text-[10px] text-theme-muted leading-snug">
                         {dep.desc}
                       </span>
                     </button>

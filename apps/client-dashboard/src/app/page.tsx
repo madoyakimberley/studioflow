@@ -86,7 +86,7 @@ function IngressSecurityProtocolScanner() {
 
 export default function StudioFlowAuthGate() {
   return (
-    <div className="min-h-screen bg-[#070709] text-slate-100 flex flex-col justify-center items-center p-4 font-sans selection:bg-indigo-500/30 selection:text-white relative overflow-hidden">
+    <div className="min-h-screen bg-[#070709] text-slate-100 flex flex-col justify-center items-center p-4 font-sans selection:bg-indigo-500/30 selection:text-theme-text relative overflow-hidden">
       {/* Dynamic ambient background glow specifically centered behind animation */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-500/5 rounded-full blur-[150px]" />

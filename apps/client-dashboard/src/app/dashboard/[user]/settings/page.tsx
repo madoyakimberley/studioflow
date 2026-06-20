@@ -13,7 +13,7 @@ export default async function CoreConfigsPage({
   const { user } = await params;
 
   return (
-    <div className="flex h-screen bg-[#0c0f16] overflow-hidden">
+    <div className="flex h-screen bg-[var(--bg-main)] overflow-hidden">
       <SidebarConsole userSlug={user} />
 
       <main className="flex-1 overflow-y-auto custom-scrollbar">
@@ -21,7 +21,7 @@ export default async function CoreConfigsPage({
           {/* Back Link */}
           <Link
             href={`/dashboard/${user}`}
-            className="inline-flex items-center gap-2 text-sm text-[#94a3b8] hover:text-[#d3d7ff] mb-6 transition-colors"
+            className="inline-flex items-center gap-2 text-sm text-[var(--text-muted)] hover:text-[var(--color-theme-primary)] mb-6 transition-colors"
           >
             ← Back to Dashboard
           </Link>
@@ -30,9 +30,9 @@ export default async function CoreConfigsPage({
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-12">
             <div>
               <h1 className="headline-lg lilac-gradient">
-                Core <span className="text-[#e8b3ff]">Configurations</span>
+                Core <span className="text-[var(--color-theme-secondary)]">Configurations</span>
               </h1>
-              <p className="text-[#c6c5d1] mt-2 max-w-xl">
+              <p className="text-[var(--text-muted)] mt-2 max-w-xl">
                 Manage global providers, API keys, and system integrations for
                 the StudioFlow orchestrator.
               </p>
@@ -44,7 +44,7 @@ export default async function CoreConfigsPage({
           {/* Command Line Interface Section */}
           <section className="mb-16">
             <div className="flex items-center gap-3 mb-8">
-              <span className="material-symbols-outlined text-2xl text-[#d3d7ff]">
+              <span className="material-symbols-outlined text-2xl text-[var(--color-theme-primary)]">
                 code_blocks
               </span>
               <h2 className="headline-sm">Command Line Interface</h2>
@@ -58,7 +58,7 @@ export default async function CoreConfigsPage({
           {/* Data & Storage Section */}
           <section className="mb-16">
             <div className="flex items-center gap-3 mb-8">
-              <span className="material-symbols-outlined text-2xl text-[#d3d7ff]">
+              <span className="material-symbols-outlined text-2xl text-[var(--color-theme-primary)]">
                 database
               </span>
               <h2 className="headline-sm">Data & Storage</h2>
@@ -76,10 +76,10 @@ export default async function CoreConfigsPage({
                 >
                   <div className="flex justify-between items-start mb-8">
                     <div>
-                      <h3 className="text-lg font-semibold text-white">
+                      <h3 className="text-lg font-semibold text-theme-text">
                         {item.title}
                       </h3>
-                      <p className="mono-code text-sm text-[#94a3b8] mt-1">
+                      <p className="mono-code text-sm text-[var(--text-muted)] mt-1">
                         {item.key}
                       </p>
                     </div>
@@ -88,10 +88,10 @@ export default async function CoreConfigsPage({
                     </span>
                   </div>
                   <div className="flex gap-3">
-                    <button className="flex-1 py-3 text-xs label-caps border border-[#32353d] hover:bg-white/5 rounded-xl transition">
+                    <button className="flex-1 py-3 text-xs label-caps border border-[var(--border-outline)] hover:bg-white/5 rounded-xl transition">
                       Verify Status
                     </button>
-                    <button className="flex-1 py-3 text-xs label-caps border border-[#32353d] hover:bg-white/5 rounded-xl transition flex items-center justify-center gap-2">
+                    <button className="flex-1 py-3 text-xs label-caps border border-[var(--border-outline)] hover:bg-white/5 rounded-xl transition flex items-center justify-center gap-2">
                       <span className="material-symbols-outlined text-sm">
                         edit
                       </span>
@@ -106,7 +106,7 @@ export default async function CoreConfigsPage({
           {/* Cloud & Deployment Section */}
           <section className="mb-16">
             <div className="flex items-center gap-3 mb-8">
-              <span className="material-symbols-outlined text-2xl text-[#d3d7ff]">
+              <span className="material-symbols-outlined text-2xl text-[var(--color-theme-primary)]">
                 cloud
               </span>
               <h2 className="headline-sm">Cloud & Deployment</h2>
@@ -126,10 +126,10 @@ export default async function CoreConfigsPage({
                 >
                   <div className="flex justify-between items-start mb-8">
                     <div>
-                      <h3 className="text-lg font-semibold text-white">
+                      <h3 className="text-lg font-semibold text-theme-text">
                         {item.title}
                       </h3>
-                      <p className="mono-code text-sm text-[#94a3b8] mt-1">
+                      <p className="mono-code text-sm text-[var(--text-muted)] mt-1">
                         SECURE_NODE_••••••••••••
                       </p>
                     </div>
@@ -145,10 +145,10 @@ export default async function CoreConfigsPage({
                   </div>
 
                   <div className="flex gap-3">
-                    <button className="flex-1 py-3 text-xs label-caps border border-[#32353d] hover:bg-white/5 rounded-xl transition">
+                    <button className="flex-1 py-3 text-xs label-caps border border-[var(--border-outline)] hover:bg-white/5 rounded-xl transition">
                       Verify Status
                     </button>
-                    <button className="flex-1 py-3 text-xs label-caps border border-[#32353d] hover:bg-white/5 rounded-xl transition flex items-center justify-center gap-2">
+                    <button className="flex-1 py-3 text-xs label-caps border border-[var(--border-outline)] hover:bg-white/5 rounded-xl transition flex items-center justify-center gap-2">
                       <span className="material-symbols-outlined text-sm">
                         edit
                       </span>
@@ -163,7 +163,7 @@ export default async function CoreConfigsPage({
           {/* Notifications Section */}
           <section>
             <div className="flex items-center gap-3 mb-8">
-              <span className="material-symbols-outlined text-2xl text-[#d3d7ff]">
+              <span className="material-symbols-outlined text-2xl text-[var(--color-theme-primary)]">
                 mail
               </span>
               <h2 className="headline-sm">Notifications</h2>
@@ -174,10 +174,10 @@ export default async function CoreConfigsPage({
                 <div key={i} className="glass-card rounded-2xl p-8 group">
                   <div className="flex justify-between items-start mb-8">
                     <div>
-                      <h3 className="text-lg font-semibold text-white">
+                      <h3 className="text-lg font-semibold text-theme-text">
                         {title}
                       </h3>
-                      <p className="mono-code text-sm text-[#94a3b8] mt-1">
+                      <p className="mono-code text-sm text-[var(--text-muted)] mt-1">
                         SECURE_NODE_••••••••••••
                       </p>
                     </div>
@@ -186,10 +186,10 @@ export default async function CoreConfigsPage({
                     </span>
                   </div>
                   <div className="flex gap-3">
-                    <button className="flex-1 py-3 text-xs label-caps border border-[#32353d] hover:bg-white/5 rounded-xl transition">
+                    <button className="flex-1 py-3 text-xs label-caps border border-[var(--border-outline)] hover:bg-white/5 rounded-xl transition">
                       Verify Status
                     </button>
-                    <button className="flex-1 py-3 text-xs label-caps border border-[#32353d] hover:bg-white/5 rounded-xl transition flex items-center justify-center gap-2">
+                    <button className="flex-1 py-3 text-xs label-caps border border-[var(--border-outline)] hover:bg-white/5 rounded-xl transition flex items-center justify-center gap-2">
                       <span className="material-symbols-outlined text-sm">
                         edit
                       </span>

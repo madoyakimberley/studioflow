@@ -158,8 +158,8 @@ export default async function SystemsOverviewDashboard({
         @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 
         body {
-          background-color: #0c0f16;
-          color: #e0e2ec;
+          background-color: var(--bg-main);
+          color: var(--text-main);
           font-family: 'Plus Jakarta Sans', sans-serif;
         }
 
@@ -188,7 +188,7 @@ export default async function SystemsOverviewDashboard({
         }
 
         .lilac-gradient {
-          background: linear-gradient(135deg, #d3d7ff 0%, #e8b3ff 100%);
+          background: linear-gradient(135deg, var(--color-theme-primary) 0%, var(--color-theme-secondary) 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
@@ -259,7 +259,7 @@ export default async function SystemsOverviewDashboard({
           inset: 0;
           opacity: 0.02;
           pointer-events: none;
-          background-image: radial-gradient(#afbaff 0.5px, transparent 0.5px);
+          background-image: radial-gradient(var(--color-theme-primary) 0.5px, transparent 0.5px);
           background-size: 24px 24px;
         }
 
@@ -274,7 +274,7 @@ export default async function SystemsOverviewDashboard({
 
         .status-active {
           background-color: rgba(210, 167, 255, 0.08);
-          color: #d3d7ff;
+          color: var(--color-theme-primary);
         }
 
         .status-paused {
@@ -284,30 +284,30 @@ export default async function SystemsOverviewDashboard({
 
         .status-unhealthy {
           background-color: rgba(255, 180, 171, 0.08);
-          color: #ffb4ab;
+          color: var(--color-danger);
         }
       `}</style>
 
-      <div className="flex h-screen overflow-hidden bg-[#0c0f16]">
+      <div className="flex h-screen overflow-hidden bg-[var(--bg-main)]">
         <SidebarConsole userSlug={user} />
 
         <main className="flex-1 overflow-y-auto custom-scrollbar relative">
-          <header className="h-auto min-h-14 py-3 px-4 md:px-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[rgba(175,186,255,0.1)] sticky top-0 bg-[#0c0f16]/90 backdrop-blur-md z-40">
+          <header className="h-auto min-h-14 py-3 px-4 md:px-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[rgba(175,186,255,0.1)] sticky top-0 bg-[var(--bg-main)]/90 backdrop-blur-md z-40">
             <div className="flex-1 min-w-0 pt-0.5">
-              <h1 className="headline-lg text-[#e0e2ec] text-sm sm:text-base md:text-lg break-words">
+              <h1 className="headline-lg text-[var(--text-main)] text-sm sm:text-base md:text-lg break-words">
                 Systems Engine Operating Matrix
               </h1>
-              <p className="label-caps text-[8px] text-[#94a3b8] mt-1 opacity-70 hidden md:block">
+              <p className="label-caps text-[8px] text-[var(--text-muted)] mt-1 opacity-70 hidden md:block">
                 Multi-Tenant Scaffolding Cluster Control Panel
               </p>
             </div>
 
             <div className="glass-card px-2.5 py-1 rounded-full flex items-center gap-2 text-[11px] whitespace-nowrap self-start sm:self-center">
               <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#e8b3ff] opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#e8b3ff]"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--color-theme-secondary)] opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[var(--color-theme-secondary)]"></span>
               </span>
-              <span className="mono-code text-[#e8b3ff] text-[10px]">
+              <span className="mono-code text-[var(--color-theme-secondary)] text-[10px]">
                 Daemon Network Secure Sync Status: Active
               </span>
             </div>
@@ -318,7 +318,7 @@ export default async function SystemsOverviewDashboard({
               <div className="glass-card p-4 md:p-5 rounded-xl relative overflow-hidden group">
                 <div className="glow-point -top-10 -right-10"></div>
                 <div className="flex flex-col h-full relative z-10">
-                  <h3 className="label-caps text-[#c6c5d1] mb-2 opacity-80">
+                  <h3 className="label-caps text-[var(--text-muted)] mb-2 opacity-80">
                     Projects Monitored
                   </h3>
                   <div className="flex items-baseline gap-2 mb-2">
@@ -326,13 +326,13 @@ export default async function SystemsOverviewDashboard({
                       {totalMonitored}
                     </span>
                     <span
-                      className="material-symbols-outlined text-[#d3d7ff] text-lg"
+                      className="material-symbols-outlined text-[var(--color-theme-primary)] text-lg"
                       style={{ fontVariationSettings: "'FILL' 1" }}
                     >
                       monitoring
                     </span>
                   </div>
-                  <div className="mt-auto flex items-center gap-1.5 text-[#d3d7ff]/70 text-[11px]">
+                  <div className="mt-auto flex items-center gap-1.5 text-[var(--color-theme-primary)]/70 text-[11px]">
                     <span className="material-symbols-outlined text-[11px]">
                       subdirectory_arrow_right
                     </span>
@@ -346,7 +346,7 @@ export default async function SystemsOverviewDashboard({
               <div className="glass-card p-4 md:p-5 rounded-xl relative overflow-hidden group">
                 <div className="glow-point -bottom-10 -left-10 opacity-50"></div>
                 <div className="flex flex-col h-full relative z-10">
-                  <h3 className="label-caps text-[#c6c5d1] mb-2 opacity-80">
+                  <h3 className="label-caps text-[var(--text-muted)] mb-2 opacity-80">
                     Success Evaluation Metric
                   </h3>
                   <div className="flex items-baseline gap-2 mb-2">
@@ -354,13 +354,13 @@ export default async function SystemsOverviewDashboard({
                       {successRate}%
                     </span>
                     <span
-                      className="material-symbols-outlined text-[#e8b3ff] text-lg"
+                      className="material-symbols-outlined text-[var(--color-theme-secondary)] text-lg"
                       style={{ fontVariationSettings: "'FILL' 1" }}
                     >
                       verified
                     </span>
                   </div>
-                  <div className="mt-auto flex items-center gap-1.5 text-[#e8b3ff]/70 text-[11px]">
+                  <div className="mt-auto flex items-center gap-1.5 text-[var(--color-theme-secondary)]/70 text-[11px]">
                     <span className="material-symbols-outlined text-[11px]">
                       subdirectory_arrow_right
                     </span>
@@ -376,7 +376,7 @@ export default async function SystemsOverviewDashboard({
               <div className="glass-card p-4 md:p-5 rounded-xl relative overflow-hidden group">
                 <div className="glow-point -top-20 -left-20"></div>
                 <div className="flex flex-col h-full relative z-10">
-                  <h3 className="label-caps text-[#c6c5d1] mb-2 opacity-80">
+                  <h3 className="label-caps text-[var(--text-muted)] mb-2 opacity-80">
                     Active Core Pools
                   </h3>
                   <div className="flex items-baseline gap-2 mb-2">
@@ -405,12 +405,12 @@ export default async function SystemsOverviewDashboard({
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-4">
                 <span
-                  className="material-symbols-outlined text-[#d3d7ff] text-base"
+                  className="material-symbols-outlined text-[var(--color-theme-primary)] text-base"
                   style={{ fontVariationSettings: "'wght' 200" }}
                 >
                   terminal
                 </span>
-                <h2 className="headline-sm text-[#e0e2ec] text-base md:text-lg">
+                <h2 className="headline-sm text-[var(--text-main)] text-base md:text-lg">
                   Infrastructure Target Allotment Registries
                 </h2>
               </div>
@@ -419,12 +419,12 @@ export default async function SystemsOverviewDashboard({
                 <div className="glass-card rounded-xl p-8 md:p-14 text-center border-dashed relative overflow-hidden">
                   <div className="grid-overlay"></div>
                   <div className="relative z-10">
-                    <div className="mb-4 inline-flex items-center justify-center w-12 h-12 rounded-full bg-[#272a32]">
-                      <span className="material-symbols-outlined text-2xl text-[#d3d7ff]/30">
+                    <div className="mb-4 inline-flex items-center justify-center w-12 h-12 rounded-full bg-[var(--bg-surface)]">
+                      <span className="material-symbols-outlined text-2xl text-[var(--color-theme-primary)]/30">
                         cloud_off
                       </span>
                     </div>
-                    <p className="mono-code text-[#c6c5d1] text-[11px] max-w-sm mx-auto leading-relaxed opacity-60">
+                    <p className="mono-code text-[var(--text-muted)] text-[11px] max-w-sm mx-auto leading-relaxed opacity-60">
                       No cluster environments initialized. Trigger Project
                       Wizard mapping engine to begin scaffolding new
                       infrastructure nodes.
@@ -451,16 +451,16 @@ export default async function SystemsOverviewDashboard({
                               <div className="flex items-center gap-2.5 flex-wrap">
                                 <Link
                                   href={`/dashboard/${user}/projects/${project.slug}`}
-                                  className="headline-sm text-[#e0e2ec] hover:text-[#d3d7ff] transition text-sm md:text-base"
+                                  className="headline-sm text-[var(--text-main)] hover:text-[var(--color-theme-primary)] transition text-sm md:text-base"
                                 >
                                   {project.name}
                                 </Link>
-                                <span className="mono-code bg-[#1d2027] text-[#c6c5d1] border border-[#32353d] px-1.5 py-0.5 rounded text-[9px]">
+                                <span className="mono-code bg-[var(--bg-surface)] text-[var(--text-muted)] border border-[var(--border-outline)] px-1.5 py-0.5 rounded text-[9px]">
                                   apps/{project.slug}
                                 </span>
                               </div>
 
-                              <div className="body-md text-[#c6c5d1] flex items-center gap-3 text-[11px] flex-wrap">
+                              <div className="body-md text-[var(--text-muted)] flex items-center gap-3 text-[11px] flex-wrap">
                                 <div className="flex items-center gap-2">
                                   <span>State Assessment Matrix:</span>
                                   <span
@@ -485,14 +485,14 @@ export default async function SystemsOverviewDashboard({
 
                             <div className="flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-5 w-full md:w-auto">
                               <div className="text-left md:text-right space-y-0.5">
-                                <div className="label-caps text-[#94a3b8] text-[8px]">
+                                <div className="label-caps text-[var(--text-muted)] text-[8px]">
                                   Pipeline State
                                 </div>
                                 <span
-                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] label-caps border ${isUnhealthy ? "bg-[rgba(255,180,171,0.06)] text-[#ffb4ab] border-[rgba(255,180,171,0.15)]" : currentJob?.status === "completed" ? "bg-[#1d2027] text-[#c6c5d1] border-[#32353d]" : "bg-[#1d2027] text-[#d3d7ff] border-[#32353d]"}`}
+                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] label-caps border ${isUnhealthy ? "bg-[rgba(255,180,171,0.06)] text-[var(--color-danger)] border-[rgba(255,180,171,0.15)]" : currentJob?.status === "completed" ? "bg-[var(--bg-surface)] text-[var(--text-muted)] border-[var(--border-outline)]" : "bg-[var(--bg-surface)] text-[var(--color-theme-primary)] border-[var(--border-outline)]"}`}
                                 >
                                   <div
-                                    className={`w-1 h-1 rounded-full ${isUnhealthy ? "bg-[#ffb4ab]" : currentJob?.status === "completed" ? "bg-[#90909b]" : "bg-[#d3d7ff] animate-pulse"}`}
+                                    className={`w-1 h-1 rounded-full ${isUnhealthy ? "bg-[var(--color-danger)]" : currentJob?.status === "completed" ? "bg-[#90909b]" : "bg-[var(--color-theme-primary)] animate-pulse"}`}
                                   />
                                   {isUnhealthy
                                     ? "CRITICAL_FAIL"
@@ -500,9 +500,9 @@ export default async function SystemsOverviewDashboard({
                                 </span>
                               </div>
 
-                              <div className="w-20 md:w-24 bg-[#1d2027] h-1 rounded-full overflow-hidden border border-[#32353d] shrink-0">
+                              <div className="w-20 md:w-24 bg-[var(--bg-surface)] h-1 rounded-full overflow-hidden border border-[var(--border-outline)] shrink-0">
                                 <div
-                                  className={`h-full transition-all duration-500 ${project.status === "paused" ? "bg-[#ffcaf5]" : isUnhealthy ? "bg-[#ffb4ab]" : "bg-gradient-to-r from-[#d3d7ff] to-[#ecb6e2]"}`}
+                                  className={`h-full transition-all duration-500 ${project.status === "paused" ? "bg-[#ffcaf5]" : isUnhealthy ? "bg-[var(--color-danger)]" : "bg-gradient-to-r from-[var(--color-theme-primary)] to-[#ecb6e2]"}`}
                                   style={{
                                     width: `${project.progressPercentage}%`,
                                   }}
@@ -525,7 +525,7 @@ export default async function SystemsOverviewDashboard({
                                   <button
                                     type="submit"
                                     disabled={isUnhealthy}
-                                    className="p-1 text-[#c6c5d1] hover:text-[#e0e2ec] hover:bg-[#32353d] rounded transition disabled:opacity-50"
+                                    className="p-1 text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--border-outline)] rounded transition disabled:opacity-50"
                                   >
                                     <span className="material-symbols-outlined text-sm">
                                       {project.status === "paused"
@@ -543,7 +543,7 @@ export default async function SystemsOverviewDashboard({
                                   />
                                   <button
                                     type="submit"
-                                    className="p-1 text-[#c6c5d1] hover:text-[#e0e2ec] hover:bg-[#32353d] rounded transition"
+                                    className="p-1 text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--border-outline)] rounded transition"
                                   >
                                     <span className="material-symbols-outlined text-sm">
                                       refresh
@@ -559,7 +559,7 @@ export default async function SystemsOverviewDashboard({
                                   />
                                   <button
                                     type="submit"
-                                    className="p-1 text-[#c6c5d1] hover:text-[#ffb4ab] hover:bg-[rgba(255,180,171,0.06)] rounded transition"
+                                    className="p-1 text-[var(--text-muted)] hover:text-[var(--color-danger)] hover:bg-[rgba(255,180,171,0.06)] rounded transition"
                                   >
                                     <span className="material-symbols-outlined text-sm">
                                       delete
@@ -574,7 +574,7 @@ export default async function SystemsOverviewDashboard({
                           {project.checklist &&
                             project.checklist.length > 0 && (
                               <div className="mt-4 pt-4 border-t border-[rgba(175,186,255,0.05)]">
-                                <h4 className="label-caps text-[#c6c5d1] mb-3 opacity-80 flex items-center gap-2">
+                                <h4 className="label-caps text-[var(--text-muted)] mb-3 opacity-80 flex items-center gap-2">
                                   <span className="material-symbols-outlined text-[14px]">
                                     checklist
                                   </span>
@@ -585,14 +585,14 @@ export default async function SystemsOverviewDashboard({
                                   {project.checklist.map((item: any) => (
                                     <div
                                       key={item.id}
-                                      className="bg-[#12151d] border border-[rgba(175,186,255,0.05)] p-3 rounded-lg flex flex-col gap-2 transition hover:border-[rgba(175,186,255,0.15)]"
+                                      className="bg-[var(--bg-surface)] border border-[rgba(175,186,255,0.05)] p-3 rounded-lg flex flex-col gap-2 transition hover:border-[rgba(175,186,255,0.15)]"
                                     >
                                       <div className="flex justify-between items-start gap-2">
-                                        <span className="text-xs text-[#e0e2ec] font-medium leading-tight">
+                                        <span className="text-xs text-[var(--text-main)] font-medium leading-tight">
                                           {item.title}
                                         </span>
                                         <span
-                                          className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${item.type === "MVP" ? "bg-[#8b5cf6]/10 text-[#c084fc]" : "bg-cyan-400/10 text-cyan-400"}`}
+                                          className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${item.type === "MVP" ? "bg-[var(--color-theme-primary)]/10 text-[var(--color-theme-secondary)]" : "bg-cyan-400/10 text-cyan-400"}`}
                                         >
                                           {item.type}
                                         </span>
@@ -618,18 +618,18 @@ export default async function SystemsOverviewDashboard({
                                             name="proofUrl"
                                             required
                                             placeholder="Paste proof URL (Loom, GitHub, Link)"
-                                            className="flex-1 bg-[#1d2027] border border-[#32353d] rounded px-2 py-1.5 text-[10px] text-[#e0e2ec] focus:outline-none focus:border-[#8b5cf6] placeholder:text-[#94a3b8]/50"
+                                            className="flex-1 bg-[var(--bg-surface)] border border-[var(--border-outline)] rounded px-2 py-1.5 text-[10px] text-[var(--text-main)] focus:outline-none focus:border-[var(--color-theme-primary)] placeholder:text-[var(--text-muted)]/50"
                                           />
                                           <button
                                             type="submit"
-                                            className="bg-gradient-to-r from-[#8b5cf6] to-[#a855f7] hover:from-[#7c3aed] hover:to-[#9333ea] text-white px-3 py-1.5 rounded text-[10px] font-medium transition shadow-sm"
+                                            className="bg-gradient-to-r from-[var(--color-theme-primary)] to-[#a855f7] hover:from-[#7c3aed] hover:to-[#9333ea] text-theme-text px-3 py-1.5 rounded text-[10px] font-medium transition shadow-sm"
                                           >
                                             Submit
                                           </button>
                                         </form>
                                       ) : item.status ===
                                         "pending_client_review" ? (
-                                        <div className="flex items-center gap-1.5 mt-1 bg-[#1d2027]/50 rounded py-1 px-2 border border-[#32353d]/50">
+                                        <div className="flex items-center gap-1.5 mt-1 bg-[var(--bg-surface)]/50 rounded py-1 px-2 border border-[var(--border-outline)]/50">
                                           <span className="material-symbols-outlined text-amber-400 text-[14px]">
                                             hourglass_empty
                                           </span>
@@ -640,7 +640,7 @@ export default async function SystemsOverviewDashboard({
                                             href={item.proofUrl}
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="ml-auto text-[10px] text-[#94a3b8] hover:text-[#e0e2ec] flex items-center gap-1"
+                                            className="ml-auto text-[10px] text-[var(--text-muted)] hover:text-[var(--text-main)] flex items-center gap-1"
                                           >
                                             View Proof{" "}
                                             <span className="material-symbols-outlined text-[12px]">
@@ -660,7 +660,7 @@ export default async function SystemsOverviewDashboard({
                                             href={item.proofUrl}
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="ml-auto text-[10px] text-[#94a3b8] hover:text-[#e0e2ec] flex items-center gap-1"
+                                            className="ml-auto text-[10px] text-[var(--text-muted)] hover:text-[var(--text-main)] flex items-center gap-1"
                                           >
                                             Archive Link{" "}
                                             <span className="material-symbols-outlined text-[12px]">
