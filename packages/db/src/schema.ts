@@ -12,7 +12,10 @@ import {
 } from "drizzle-orm/mysql-core";
 import { relations } from "drizzle-orm";
 
-const isIsolatedDev = process.env.IS_ISOLATED_DEV === "true";
+// Safely access process.env to prevent TypeScript compilation errors
+// when @types/node is missing or in non-Node environments
+const isIsolatedDev =
+  (globalThis as any).process?.env?.IS_ISOLATED_DEV === "true";
 
 // ==========================================
 // MULTI-TENANT CORE ARCHITECTURE
