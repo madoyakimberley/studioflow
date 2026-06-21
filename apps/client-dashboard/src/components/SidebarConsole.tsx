@@ -6,6 +6,7 @@ import { usePathname, useParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import ProjectWizard from "./ProjectWizard";
 import ThemeModal from "./ThemeSelector";
+import DevDashboardTourEngine from "./tour/DevDashboardTourEngine";
 
 export default function SidebarConsole({
   userSlug = "user", // fallback only
@@ -13,6 +14,7 @@ export default function SidebarConsole({
   userSlug?: string;
 }) {
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [tourActive, setTourActive] = useState(false);
   const pathname = usePathname();
   const params = useParams();
 
@@ -20,6 +22,19 @@ export default function SidebarConsole({
   const currentUser = (params?.user as string) || userSlug;
 
   const baseRoute = `/dashboard/${currentUser}`;
+
+  useEffect(() => {
+    // Automatically start tour if they haven't completed it
+    const hasCompletedTour = localStorage.getItem("studioflow_tour_completed");
+    if (!hasCompletedTour) {
+      setTourActive(true);
+    }
+  }, []);
+
+  const handleTourComplete = () => {
+    setTourActive(false);
+    localStorage.setItem("studioflow_tour_completed", "true");
+  };
 
   const navItems = [
     {
@@ -68,6 +83,11 @@ export default function SidebarConsole({
 
   return (
     <>
+      <DevDashboardTourEngine
+        onboardingActive={tourActive}
+        openWizardModal={() => setWizardOpen(true)}
+        onTourComplete={handleTourComplete}
+      />
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
@@ -138,11 +158,14 @@ export default function SidebarConsole({
             <span className="font-bold">StudioFlow</span>
           </div>
 
-          {/* THE THEME SWITCHER UI */}
-          <ThemeModal />
+          {/* THE THEME SWITCHER UI WITH TOUR MARKER */}
+          <div className="dev-theme-trigger">
+            <ThemeModal />
+          </div>
         </div>
 
-        <nav className="flex-1 px-4 space-y-1 custom-scrollbar overflow-y-auto">
+        {/* NAVIGATION MATRIX TOUR MARKER */}
+        <nav className="flex-1 px-4 space-y-1 custom-scrollbar overflow-y-auto dev-nav-matrix">
           {navItems.map((item) => (
             <Link
               key={item.href}
@@ -160,8 +183,8 @@ export default function SidebarConsole({
           ))}
         </nav>
 
-        {/* Fixed New Project Button at Bottom */}
-        <div className="p-6 border-t border-theme-outline mt-auto">
+        {/* Fixed New Project Button at Bottom WITH TOUR MARKER */}
+        <div className="p-6 border-t border-theme-outline mt-auto dev-scaffold-trigger">
           <button
             onClick={() => setWizardOpen(true)}
             className="dynamic-btn w-full py-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 label-caps font-bold shadow-lg"

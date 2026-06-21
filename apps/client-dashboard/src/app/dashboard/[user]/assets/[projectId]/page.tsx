@@ -11,34 +11,28 @@ export default async function DevAssetDashboard({
 }: {
   params: Promise<{ user: string; projectId: string }>;
 }) {
-  // Await params to unwrap the dynamic routing parameters
   const { user, projectId } = await params;
-
-  // 1. Resolve context directly from routing paths cleanly
   const currentProjectId = Number(projectId);
 
-  // Safety Matrix: Catch malformed URL parameters
   if (isNaN(currentProjectId)) {
     return (
-      <div className="flex items-center justify-center h-screen bg-[var(--bg-main)] text-theme-text font-mono">
+      <div className="flex items-center justify-center h-screen bg-[var(--color-theme-bg)] text-[var(--color-theme-text)] font-mono">
         🚨 [ROUTING EXCEPTION]: Invalid Project ID Matrix Parameter.
       </div>
     );
   }
 
-  // 2. Fetch exact project context
   const projectContext = await db.query.projects.findFirst({
     where: eq(projects.id, currentProjectId),
   });
 
-  // Safety Matrix: Catch non-existent projects
   if (!projectContext) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-[var(--bg-main)] text-theme-text font-mono gap-4 px-6 text-center">
+      <div className="flex flex-col items-center justify-center h-screen bg-[var(--color-theme-bg)] text-[var(--color-theme-text)] font-mono gap-4 px-6 text-center">
         <span className="text-red-400 text-xl font-bold">
           🚨 [RESOURCE EXCEPTION]: Isolated Project Not Found.
         </span>
-        <span className="text-sm text-[var(--text-muted)] bg-[var(--bg-surface)] px-4 py-2 rounded-md">
+        <span className="text-sm text-[var(--color-theme-muted)] bg-[var(--color-theme-surface)] px-4 py-2 rounded-md">
           Diagnostic: Project ID {currentProjectId} does not exist in the vault
           matrix.
         </span>
@@ -46,7 +40,6 @@ export default async function DevAssetDashboard({
     );
   }
 
-  // 3. Fetch all related assets for this project securely on the server
   const fetchedAssets = await db
     .select()
     .from(projectAssets)
@@ -60,234 +53,161 @@ export default async function DevAssetDashboard({
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 
-        body {
-          background-color: var(--bg-main);
-          color: var(--text-main);
-          font-family: 'Plus Jakarta Sans', sans-serif;
-        }
+        /* Typography Mapping to match the specific high-end aesthetic */
+        .headline-lg { font-family: 'Playfair Display', serif; font-weight: 600; letter-spacing: -0.01em; }
+        .headline-sm { font-family: 'Playfair Display', serif; font-weight: 500; }
+        .body-md { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 400; }
+        .mono-code { font-family: 'JetBrains Mono', monospace; font-weight: 400; }
+        .label-caps { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; }
 
-        .material-symbols-outlined {
-          font-family: 'Material Symbols Outlined';
-          font-weight: normal;
-          font-style: normal;
-          font-size: 18px;
-          display: inline-block;
-          line-height: 1;
-          text-transform: none;
-          letter-spacing: normal;
-          word-wrap: normal;
-          white-space: nowrap;
-          direction: ltr;
+        /* Themed Glass & Atmosphere Elements mapped strictly to globals.css variables */
+        .glow-background {
+          position: fixed;
+          width: 100vw;
+          height: 100vh;
+          top: 0;
+          left: 0;
+          z-index: 0;
+          pointer-events: none;
+          background: radial-gradient(circle at 50% -20%, rgba(var(--color-theme-primary), 0.08) 0%, transparent 70%),
+                      radial-gradient(circle at 10% 100%, rgba(var(--color-theme-secondary), 0.05) 0%, transparent 50%);
         }
 
         .glass-card {
-          background: rgba(20, 24, 36, 0.35);
-          backdrop-filter: blur(12px);
-          border: 1px solid rgba(175, 186, 255, 0.08);
+          background: var(--color-theme-surface);
+          backdrop-filter: blur(24px);
+          border: 1px solid color-mix(in srgb, var(--color-theme-outline) 15%, transparent);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .glass-card:hover {
-          border-color: rgba(175, 186, 255, 0.18);
+          border-color: color-mix(in srgb, var(--color-theme-secondary) 40%, transparent);
+          box-shadow: 0 0 30px color-mix(in srgb, var(--color-theme-secondary) 10%, transparent);
+          transform: translateY(-2px);
         }
 
-        .lilac-gradient {
-          background: linear-gradient(135deg, var(--color-theme-primary) 0%, var(--color-theme-secondary) 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-
-        .headline-lg {
-          font-family: 'Playfair Display', serif;
-          font-size: 26px;
-          font-weight: 600;
-          line-height: 1.2;
-          letter-spacing: -0.01em;
-        }
-
-        .headline-sm {
-          font-family: 'Playfair Display', serif;
-          font-size: 18px;
-          font-weight: 500;
-          line-height: 1.3;
-        }
-
-        .label-caps {
-          font-family: 'Plus Jakarta Sans', sans-serif;
-          font-size: 9px;
-          font-weight: 600;
-          line-height: 1;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-        }
-
-        .body-md {
-          font-family: 'Plus Jakarta Sans', sans-serif;
-          font-size: 13px;
-          font-weight: 400;
-          line-height: 1.5;
-        }
-
-        .mono-code {
-          font-family: 'JetBrains Mono', monospace;
-          font-size: 11px;
-          font-weight: 400;
-          line-height: 1.5;
-        }
-
-        .glow-point {
-          position: absolute;
-          width: 150px;
-          height: 150px;
-          background: radial-gradient(circle, rgba(232, 179, 255, 0.06) 0%, transparent 70%);
-          pointer-events: none;
-          z-index: 0;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: rgba(255, 255, 255, 0.05);
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(175, 186, 255, 0.15);
-          border-radius: 10px;
-        }
-
-        .grid-overlay {
-          position: absolute;
-          inset: 0;
-          opacity: 0.02;
-          pointer-events: none;
-          background-image: radial-gradient(var(--color-theme-primary) 0.5px, transparent 0.5px);
-          background-size: 24px 24px;
-        }
-
-        .status-badge {
-          font-size: 9px;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-          padding: 0.2rem 0.5rem;
-          border-radius: 0.375rem;
-        }
-
-        .status-active {
-          background-color: rgba(210, 167, 255, 0.08);
-          color: var(--color-theme-primary);
-        }
-
-        .status-paused {
-          background-color: rgba(255, 202, 245, 0.08);
-          color: #ffcaf5;
-        }
-
-        .status-unhealthy {
-          background-color: rgba(255, 180, 171, 0.08);
-          color: var(--color-danger);
-        }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--color-theme-outline); border-radius: 10px; }
       `}</style>
 
-      <div className="flex h-screen overflow-hidden bg-[var(--bg-main)]">
-        {/* Keeping the SideBar identical */}
-        <SidebarConsole userSlug={user} />
+      <div className="flex h-screen overflow-hidden bg-[var(--color-theme-bg)] relative">
+        <div className="glow-background"></div>
 
-        <main className="flex-1 overflow-y-auto custom-scrollbar relative">
-          <header className="h-auto min-h-14 py-3 px-4 md:px-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[rgba(175,186,255,0.1)] sticky top-0 bg-[var(--bg-main)]/90 backdrop-blur-md z-40">
-            <div className="flex-1 min-w-0 pt-0.5">
-              <h1 className="headline-lg text-[var(--text-main)] text-sm sm:text-base md:text-lg break-words">
-                Development Asset Gateway
-              </h1>
-              <p className="label-caps text-[8px] text-[var(--text-muted)] mt-1 opacity-70 hidden md:block">
-                Project Matrix: {projectContext.name}
-              </p>
-            </div>
+        <div className="relative z-10 flex w-full">
+          <SidebarConsole userSlug={user} />
 
-            <div className="glass-card px-2.5 py-1 rounded-full flex items-center gap-2 text-[11px] whitespace-nowrap self-start sm:self-center">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--color-theme-primary)] opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[var(--color-theme-primary)]"></span>
-              </span>
-              <span className="mono-code text-[var(--color-theme-primary)] text-[10px]">
-                Bi-Directional Sync: Secure
-              </span>
-            </div>
-          </header>
+          <main className="flex-1 overflow-y-auto custom-scrollbar relative">
+            {/* Minimalist Tech Header */}
+            <header className="sticky top-0 h-16 px-6 md:px-8 flex items-center justify-between border-b border-[var(--color-theme-outline)]/10 backdrop-blur-md bg-[var(--color-theme-bg)]/60 z-40">
+              <div className="flex-1 min-w-0">
+                {/* Optional search/nav slot if needed */}
+              </div>
 
-          <div className="max-w-6xl mx-auto px-4 md:px-8 py-6 md:py-10">
-            {/* The Metric Blocks adapted from your Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5 mb-8 md:mb-10">
-              <div className="glass-card p-4 md:p-5 rounded-xl relative overflow-hidden group">
-                <div className="glow-point -top-10 -right-10"></div>
-                <div className="flex flex-col h-full relative z-10">
-                  <h3 className="label-caps text-[var(--text-muted)] mb-2 opacity-80">
-                    Total Vault Records
-                  </h3>
-                  <div className="flex items-baseline gap-2 mb-2">
-                    <span className="headline-lg lilac-gradient text-2xl md:text-3xl">
-                      {fetchedAssets.length}
+              <div className="flex items-center gap-6">
+                <div className="flex items-center bg-[var(--color-theme-surface)]/80 px-4 py-1.5 rounded-full border border-[var(--color-theme-outline)]/20 shadow-sm">
+                  <span className="relative flex h-2 w-2 mr-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--color-theme-secondary)] opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--color-theme-secondary)]"></span>
+                  </span>
+                  <span className="label-caps text-[9px] tracking-widest text-[var(--color-theme-muted)]">
+                    Bi-Directional Sync: Secure
+                  </span>
+                </div>
+              </div>
+            </header>
+
+            <div className="max-w-[1200px] mx-auto px-6 md:px-8 py-10 md:py-16 space-y-12">
+              {/* Page Header Area */}
+              <div className="space-y-3">
+                <h2 className="headline-lg text-4xl md:text-5xl text-[var(--color-theme-text)]">
+                  Development Asset Gateway
+                </h2>
+                <div className="flex items-center gap-4 text-[var(--color-theme-muted)]/80">
+                  <span className="mono-code text-xs tracking-tighter uppercase">
+                    PROJECT MATRIX: {projectContext.name}
+                  </span>
+                  <span className="h-1 w-1 rounded-full bg-[var(--color-theme-outline)]"></span>
+                  <span className="label-caps text-[9px] uppercase tracking-widest text-[var(--color-theme-primary)]">
+                    Node Instance: 0x
+                    {currentProjectId.toString(16).toUpperCase()}
+                  </span>
+                </div>
+              </div>
+
+              {/* High-End Bento Dashboard Metrics */}
+              <div className="grid grid-cols-12 gap-6 md:gap-8">
+                {/* Stat Card 1 */}
+                <div className="col-span-12 md:col-span-6 lg:col-span-4 glass-card rounded-2xl p-8 flex flex-col justify-between h-56 bg-[var(--color-theme-surface)]/30">
+                  <div>
+                    <span className="label-caps text-[10px] text-[var(--color-theme-muted)] uppercase tracking-widest block mb-4">
+                      Total Vault Records
                     </span>
-                    <span
-                      className="material-symbols-outlined text-[var(--color-theme-primary)] text-lg"
-                      style={{ fontVariationSettings: "'FILL' 1" }}
-                    >
-                      source
-                    </span>
+                    <div className="flex items-end gap-4 mt-2">
+                      <span className="headline-lg text-5xl text-[var(--color-theme-primary)] leading-none">
+                        {fetchedAssets.length}
+                      </span>
+                      <span
+                        className="material-symbols-outlined text-[var(--color-theme-secondary)] text-3xl mb-1"
+                        style={{ fontVariationSettings: "'FILL' 1" }}
+                      >
+                        folder_special
+                      </span>
+                    </div>
                   </div>
-                  <div className="mt-auto flex items-center gap-1.5 text-[var(--color-theme-primary)]/70 text-[11px]">
-                    <span className="material-symbols-outlined text-[11px]">
+                  <div className="flex items-center gap-2 text-[var(--color-theme-muted)]/80">
+                    <span className="material-symbols-outlined text-sm">
                       subdirectory_arrow_right
                     </span>
-                    <p className="body-md italic text-[11px]">
+                    <p className="text-xs body-md italic">
                       Assets registered across both endpoints
                     </p>
                   </div>
                 </div>
-              </div>
 
-              <div className="glass-card p-4 md:p-5 rounded-xl relative overflow-hidden group">
-                <div className="glow-point -bottom-10 -left-10 opacity-50"></div>
-                <div className="flex flex-col h-full relative z-10">
-                  <h3 className="label-caps text-[var(--text-muted)] mb-2 opacity-80">
-                    Client Payload Drops
-                  </h3>
-                  <div className="flex items-baseline gap-2 mb-2">
-                    <span className="headline-lg lilac-gradient text-2xl md:text-3xl">
-                      {clientUploadsCount}
+                {/* Stat Card 2 */}
+                <div className="col-span-12 md:col-span-6 lg:col-span-4 glass-card rounded-2xl p-8 flex flex-col justify-between h-56 bg-[var(--color-theme-surface)]/30">
+                  <div>
+                    <span className="label-caps text-[10px] text-[var(--color-theme-muted)] uppercase tracking-widest block mb-4">
+                      Client Payload Drops
                     </span>
-                    <span
-                      className="material-symbols-outlined text-[var(--color-theme-secondary)] text-lg"
-                      style={{ fontVariationSettings: "'FILL' 1" }}
-                    >
-                      file_download
-                    </span>
+                    <div className="flex items-end gap-4 mt-2">
+                      <span className="headline-lg text-5xl text-[var(--color-theme-primary)] leading-none">
+                        {clientUploadsCount}
+                      </span>
+                      <span
+                        className="material-symbols-outlined text-[var(--color-theme-secondary)] text-3xl mb-1"
+                        style={{ fontVariationSettings: "'FILL' 1" }}
+                      >
+                        cloud_download
+                      </span>
+                    </div>
                   </div>
-                  <div className="mt-auto flex items-center gap-1.5 text-[var(--color-theme-secondary)]/70 text-[11px]">
-                    <span className="material-symbols-outlined text-[11px]">
+                  <div className="flex items-center gap-2 text-[var(--color-theme-muted)]/80">
+                    <span className="material-symbols-outlined text-sm">
                       subdirectory_arrow_right
                     </span>
-                    <p className="body-md italic text-[11px]">
+                    <p className="text-xs body-md italic">
                       Files originating from external client portal
                     </p>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Render the Interactive Upload & Grid Component */}
-            <AssetVaultClient
-              initialAssets={JSON.parse(JSON.stringify(fetchedAssets))} // Safely stringifies Dates for the client component
-              projectId={currentProjectId}
-              userRole="admin"
-            />
-          </div>
-        </main>
+              {/* The Enhanced Dropzone & Table */}
+              <div className="pb-16">
+                <AssetVaultClient
+                  initialAssets={JSON.parse(JSON.stringify(fetchedAssets))}
+                  projectId={currentProjectId}
+                  userRole="admin"
+                />
+              </div>
+            </div>
+          </main>
+        </div>
       </div>
     </>
   );

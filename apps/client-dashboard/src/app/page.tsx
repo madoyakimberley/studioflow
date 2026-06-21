@@ -36,8 +36,12 @@ function IngressSecurityProtocolScanner() {
       }
 
       try {
+        // FIXED: Using backticks and template literal to correctly evaluate process.env
+        const CORE_API_URL =
+          process.env.API_BASE_URL || "http://localhost:8000";
+
         const networkCoreVerificationResponse = await fetch(
-          "http://localhost:8000/api/v1/verify-auth",
+          `${CORE_API_URL}/api/v1/verify-auth`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

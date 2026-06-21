@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -27,9 +27,27 @@ import {
 
 import { registerUser, loginUser } from "../auth-actions";
 import ThemeSelector from "@/components/ThemeSelector";
+import WelcomeTourEngine from "./WelcomeTourEngine";
 
 export default function WelcomePage() {
   const router = useRouter();
+
+  // ✨ NEW: Welcome Tour State
+  const [tourActive, setTourActive] = useState(false);
+
+  // ✨ NEW: Automatically trigger tour on first visit
+  useEffect(() => {
+    const hasSeenWelcomeTour = localStorage.getItem("studioflow_welcome_tour");
+    if (!hasSeenWelcomeTour) {
+      setTourActive(true);
+    }
+  }, []);
+
+  const handleTourComplete = () => {
+    setTourActive(false);
+    localStorage.setItem("studioflow_welcome_tour", "true");
+  };
+
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("signup");
 
@@ -99,8 +117,14 @@ export default function WelcomePage() {
 
   return (
     <div className="relative min-h-screen bg-theme-bg text-theme-text font-sans overflow-hidden flex flex-col items-center transition-colors duration-300">
-      {/* THE THEME SELECTOR INJECTED AT TOP RIGHT */}
-      <div className="absolute top-6 right-6 z-50">
+      {/* ✨ RENDER THE TOUR ENGINE HERE */}
+      <WelcomeTourEngine
+        tourActive={tourActive}
+        onComplete={handleTourComplete}
+      />
+
+      {/* THE THEME SELECTOR INJECTED AT TOP RIGHT WITH TOUR TRIGGER CLASS */}
+      <div className="absolute top-6 right-6 z-50 welcome-theme-trigger">
         <ThemeSelector />
       </div>
 
@@ -196,7 +220,7 @@ export default function WelcomePage() {
         </div>
       </main>
 
-      {/* ✨ NEW CORE FEATURES GRID */}
+      {/* NEW CORE FEATURES GRID */}
       <section className="relative z-10 w-full max-w-7xl mx-auto px-6 py-20">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Feature Card 1 */}
@@ -321,7 +345,7 @@ export default function WelcomePage() {
         </div>
       </section>
 
-      {/* ✨ NEW BOTTOM CALL TO ACTION */}
+      {/* BOTTOM CALL TO ACTION */}
       <section className="relative z-10 w-full max-w-4xl mx-auto px-6 py-24 text-center flex flex-col items-center border-t border-theme-outline/50 mt-10">
         <h2 className="text-4xl md:text-5xl font-bold text-theme-text tracking-tight mb-8 leading-tight">
           Build Better Projects. Faster. <br />
@@ -504,7 +528,7 @@ export default function WelcomePage() {
                   </div>
                 )}
 
-                {/* ✨ THE PRETTY PASSWORD UI CHECKLIST! */}
+                {/* Helper UI Checklist for Passwords */}
                 {authMode === "signup" && password.length > 0 && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
@@ -589,7 +613,7 @@ export default function WelcomePage() {
   );
 }
 
-// ✨ Helper Component for the beautiful Password Checklist
+// Helper Component for the beautiful Password Checklist
 function CriteriaRow({ isValid, text }: { isValid: boolean; text: string }) {
   return (
     <div className="flex items-center gap-2 text-xs transition-colors duration-300">

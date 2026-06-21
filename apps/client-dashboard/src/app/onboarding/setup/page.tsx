@@ -32,7 +32,6 @@ function EnvironmentSetupForm() {
   const searchParams = useSearchParams();
   const targetUser = searchParams.get("user") || "admin";
 
-  // DYNAMIC INJECTION: No more hardcoded workspace limits!
   const currentWorkspaceId = Number(searchParams.get("workspaceId")) || 1;
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -115,26 +114,26 @@ function EnvironmentSetupForm() {
 
   if (setupComplete) {
     return (
-      <div className="min-h-screen bg-[var(--bg-main)] font-sans text-theme-muted flex justify-center py-12 px-4 sm:px-6 lg:px-8 selection:bg-[var(--color-theme-primary)]/30">
+      <div className="min-h-screen bg-[var(--color-theme-bg)] font-sans text-[var(--color-theme-muted)] flex justify-center py-12 px-4 sm:px-6 lg:px-8 selection:bg-[var(--color-theme-primary)]/30">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-2xl bg-[var(--bg-surface)] border border-[var(--border-outline)] rounded-xl shadow-2xl overflow-hidden p-8 space-y-8"
+          className="w-full max-w-2xl bg-[var(--color-theme-surface)] border border-[var(--color-theme-outline)] rounded-xl shadow-2xl overflow-hidden p-8 space-y-8"
         >
           <div className="text-center space-y-4">
             <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto border border-emerald-500/20">
-              <CheckCircle className="w-8 h-8 text-emerald-400" />
+              <CheckCircle className="w-8 h-8 text-emerald-500" />
             </div>
-            <h1 className="text-2xl font-serif text-theme-text tracking-wide">
+            <h1 className="text-2xl font-serif text-[var(--color-theme-text)] tracking-wide">
               Environment Saved & Locked
             </h1>
-            <p className="text-sm text-theme-muted font-mono">
+            <p className="text-sm text-[var(--color-theme-muted)] font-mono">
               Your database nodes, mail servers, and cloud options are ready.
               Connect your CLI engine to sync these keys directly.
             </p>
           </div>
 
-          <div className="bg-[#0b101d] border border-slate-800 rounded-xl p-6 space-y-8">
+          <div className="bg-[var(--color-theme-bg)] border border-[var(--color-theme-outline)]/50 rounded-xl p-6 space-y-8">
             <div className="space-y-2">
               <h3 className="text-xs font-bold text-[var(--color-theme-primary)] uppercase tracking-wider flex items-center gap-2">
                 <span className="w-5 h-5 rounded-full bg-[var(--color-theme-primary)]/20 flex items-center justify-center text-[var(--color-theme-primary)]">
@@ -142,12 +141,12 @@ function EnvironmentSetupForm() {
                 </span>
                 Install the StudioFlow CLI
               </h3>
-              <p className="text-xs text-theme-muted font-mono pl-7">
+              <p className="text-xs text-[var(--color-theme-muted)] font-mono pl-7">
                 Deploy the engine orchestrator binary globally on your machine:
               </p>
               <div className="pl-7 relative">
-                <div className="bg-black border border-slate-800 rounded-lg p-3 flex justify-between items-center group">
-                  <code className="text-fuchsia-400 text-[11px] font-mono">
+                <div className="bg-[var(--color-theme-surface)] border border-[var(--color-theme-outline)]/50 rounded-lg p-3 flex justify-between items-center group">
+                  <code className="text-[var(--color-theme-secondary)] text-[11px] font-mono font-bold">
                     npm install -g studioflow-cli
                   </code>
                   <button
@@ -157,7 +156,7 @@ function EnvironmentSetupForm() {
                         "Install command copied!",
                       )
                     }
-                    className="text-slate-500 hover:text-theme-text transition"
+                    className="text-[var(--color-theme-muted)] hover:text-[var(--color-theme-text)] transition"
                   >
                     <Copy className="w-4 h-4" />
                   </button>
@@ -172,15 +171,15 @@ function EnvironmentSetupForm() {
                 </span>
                 Authenticate Local Engine
               </h3>
-              <p className="text-xs text-theme-muted font-mono pl-7">
+              <p className="text-xs text-[var(--color-theme-muted)] font-mono pl-7">
                 Copy your PAT mapping. You'll be prompted for this key
                 instantly:
               </p>
               <div className="pl-7 space-y-3">
-                <div className="bg-[#121526] border border-[var(--border-outline)] rounded-lg p-3 flex justify-between items-center">
+                <div className="bg-[var(--color-theme-surface)] border border-[var(--color-theme-outline)] rounded-lg p-3 flex justify-between items-center">
                   <div className="flex items-center gap-3 overflow-hidden">
-                    <Lock className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <code className="text-theme-text text-[11px] font-mono truncate">
+                    <Lock className="w-4 h-4 text-[var(--color-theme-primary)] shrink-0" />
+                    <code className="text-[var(--color-theme-text)] text-[11px] font-mono truncate">
                       {generatedCliToken}
                     </code>
                   </div>
@@ -191,14 +190,14 @@ function EnvironmentSetupForm() {
                         "Token copied securely to clipboard!",
                       )
                     }
-                    className="text-slate-500 hover:text-theme-text transition pl-3"
+                    className="text-[var(--color-theme-muted)] hover:text-[var(--color-theme-text)] transition pl-3"
                   >
                     <Copy className="w-4 h-4" />
                   </button>
                 </div>
 
-                <div className="bg-black border border-slate-800 rounded-lg p-3 flex justify-between items-center group">
-                  <code className="text-cyan-400 text-[11px] font-mono">
+                <div className="bg-[var(--color-theme-surface)] border border-[var(--color-theme-outline)]/50 rounded-lg p-3 flex justify-between items-center group">
+                  <code className="text-[var(--color-theme-primary)] text-[11px] font-mono font-bold">
                     studioflow login
                   </code>
                   <button
@@ -208,7 +207,7 @@ function EnvironmentSetupForm() {
                         "Login command copied!",
                       )
                     }
-                    className="text-slate-500 hover:text-theme-text transition"
+                    className="text-[var(--color-theme-muted)] hover:text-[var(--color-theme-text)] transition"
                   >
                     <Copy className="w-4 h-4" />
                   </button>
@@ -223,19 +222,19 @@ function EnvironmentSetupForm() {
                 </span>
                 Boot the Engine Daemon
               </h3>
-              <p className="text-xs text-theme-muted font-mono pl-7">
+              <p className="text-xs text-[var(--color-theme-muted)] font-mono pl-7">
                 Start the engine.
               </p>
               <div className="pl-7 relative">
-                <div className="bg-black border border-slate-800 rounded-lg p-3 flex justify-between items-center group">
-                  <code className="text-emerald-400 text-[11px] font-mono">
+                <div className="bg-[var(--color-theme-surface)] border border-[var(--color-theme-outline)]/50 rounded-lg p-3 flex justify-between items-center group">
+                  <code className="text-emerald-500 text-[11px] font-mono font-bold">
                     studioflow
                   </code>
                   <button
                     onClick={() =>
                       copyToClipboard("studioflow", "Boot command copied!")
                     }
-                    className="text-slate-500 hover:text-theme-text transition"
+                    className="text-[var(--color-theme-muted)] hover:text-[var(--color-theme-text)] transition"
                   >
                     <Copy className="w-4 h-4" />
                   </button>
@@ -246,7 +245,7 @@ function EnvironmentSetupForm() {
 
           <button
             onClick={() => router.push(`/dashboard/${targetUser}`)}
-            className="w-full bg-[var(--color-theme-primary)] hover:bg-[#cbb1fb] text-[var(--bg-main)] text-sm font-bold py-4 rounded-xl transition flex items-center justify-center gap-2 uppercase tracking-wide shadow-lg shadow-[var(--color-theme-primary)]/10"
+            className="w-full bg-[var(--color-theme-primary)] hover:opacity-90 text-[var(--color-theme-on-primary)] text-sm font-bold py-4 rounded-xl transition flex items-center justify-center gap-2 uppercase tracking-wide shadow-lg shadow-[var(--color-theme-primary)]/10"
           >
             I've Connected My CLI <ArrowRight className="w-4 h-4" />
           </button>
@@ -256,22 +255,22 @@ function EnvironmentSetupForm() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-main)] font-sans text-theme-muted flex justify-center py-12 px-4 sm:px-6 lg:px-8 selection:bg-[var(--color-theme-primary)]/30">
+    <div className="min-h-screen bg-[var(--color-theme-bg)] font-sans text-[var(--color-theme-muted)] flex justify-center py-12 px-4 sm:px-6 lg:px-8 selection:bg-[var(--color-theme-primary)]/30">
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-4xl bg-[var(--bg-surface)] border border-[var(--border-outline)] rounded-xl shadow-2xl overflow-hidden"
+        className="w-full max-w-4xl bg-[var(--color-theme-surface)] border border-[var(--color-theme-outline)] rounded-xl shadow-2xl overflow-hidden"
       >
-        <div className="p-8 border-b border-slate-900/80">
+        <div className="p-8 border-b border-[var(--color-theme-outline)]/50">
           <div className="flex items-center gap-5">
             <div className="w-12 h-12 rounded-xl bg-[var(--color-theme-primary)] flex items-center justify-center shadow-lg shadow-[var(--color-theme-primary)]/10">
-              <Terminal className="w-6 h-6 text-[var(--bg-main)]" />
+              <Terminal className="w-6 h-6 text-[var(--color-theme-on-primary)]" />
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-serif text-theme-text tracking-wide">
+              <h1 className="text-2xl md:text-3xl font-serif text-[var(--color-theme-text)] tracking-wide">
                 Environment Architecture Setup
               </h1>
-              <p className="text-xs text-slate-500 font-mono mt-1 tracking-tight">
+              <p className="text-xs text-[var(--color-theme-muted)] font-mono mt-1 tracking-tight">
                 Configure your workspace pipeline integration connections, email
                 routing engines, and execution paths.
               </p>
@@ -286,7 +285,7 @@ function EnvironmentSetupForm() {
               <FolderSync className="w-4 h-4" /> 1. CLI Target Output Node
             </h2>
             <div>
-              <label className="block text-xs font-mono text-theme-muted mb-2">
+              <label className="block text-xs font-mono text-[var(--color-theme-muted)] mb-2">
                 Local Scaffolding Core Directory Path
               </label>
               <div className="flex items-center gap-3">
@@ -297,13 +296,13 @@ function EnvironmentSetupForm() {
                   onChange={(e) =>
                     handleUpdate("targetOutputDir", e.target.value)
                   }
-                  className="w-full bg-transparent border-b border-[var(--border-outline)] pb-3 text-sm text-theme-text font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
+                  className="w-full bg-transparent border-b border-[var(--color-theme-outline)] pb-3 text-sm text-[var(--color-theme-text)] font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
                   placeholder="/Users/username/Sites/work"
                 />
                 <button
                   type="button"
                   onClick={handleBrowseClick}
-                  className="px-4 py-2 bg-[#121526] border border-[var(--border-outline)] hover:border-slate-500 rounded-lg text-xs font-mono text-theme-muted transition flex items-center gap-2 whitespace-nowrap"
+                  className="px-4 py-2 bg-[var(--color-theme-bg)] border border-[var(--color-theme-outline)] hover:border-[var(--color-theme-primary)] rounded-lg text-xs font-mono text-[var(--color-theme-text)] transition flex items-center gap-2 whitespace-nowrap"
                 >
                   <FolderSearch className="w-4 h-4" /> Browse Folder
                 </button>
@@ -318,7 +317,7 @@ function EnvironmentSetupForm() {
             </h2>
             <div className="grid grid-cols-1 gap-8">
               <div>
-                <label className="block text-xs font-mono text-theme-muted mb-2">
+                <label className="block text-xs font-mono text-[var(--color-theme-muted)] mb-2">
                   Primary Database Connection URL
                 </label>
                 <input
@@ -326,14 +325,14 @@ function EnvironmentSetupForm() {
                   required
                   value={formData.databaseUrl}
                   onChange={(e) => handleUpdate("databaseUrl", e.target.value)}
-                  className="w-full bg-transparent border-b border-[var(--border-outline)] pb-3 text-sm text-theme-text font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
+                  className="w-full bg-transparent border-b border-[var(--color-theme-outline)] pb-3 text-sm text-[var(--color-theme-text)] font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
                   placeholder="mysql://user:pass@host:3306/db"
                 />
               </div>
 
               {/* CARD BASED DATABASE ENGINE SELECTION */}
               <div className="space-y-3">
-                <label className="block text-xs font-mono text-theme-muted">
+                <label className="block text-xs font-mono text-[var(--color-theme-muted)]">
                   Database Engine
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -348,8 +347,8 @@ function EnvironmentSetupForm() {
                       onClick={() => handleUpdate("databaseEngine", db.id)}
                       className={`cursor-pointer rounded-xl border p-3 text-center transition-all duration-200 ${
                         formData.databaseEngine === db.id
-                          ? "border-[var(--color-theme-primary)] bg-[#121526] text-theme-text shadow-sm shadow-[var(--color-theme-primary)]/10"
-                          : "border-[var(--border-outline)] bg-[var(--bg-surface)] hover:border-slate-600 text-theme-muted"
+                          ? "border-[var(--color-theme-primary)] bg-[var(--color-theme-primary)] text-[var(--color-theme-on-primary)] shadow-sm shadow-[var(--color-theme-primary)]/10"
+                          : "border-[var(--color-theme-outline)] bg-[var(--color-theme-bg)] hover:border-[var(--color-theme-primary)] text-[var(--color-theme-muted)]"
                       }`}
                     >
                       <span className="text-sm font-bold font-mono">
@@ -362,7 +361,7 @@ function EnvironmentSetupForm() {
 
               {/* CARD BASED DATABASE ORM SELECTION */}
               <div className="space-y-3">
-                <label className="block text-xs font-mono text-theme-muted">
+                <label className="block text-xs font-mono text-[var(--color-theme-muted)]">
                   Database ORM Engine
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -382,8 +381,8 @@ function EnvironmentSetupForm() {
                       onClick={() => handleUpdate("databaseOrm", orm.id)}
                       className={`cursor-pointer rounded-xl border p-3 text-center transition-all duration-200 ${
                         formData.databaseOrm === orm.id
-                          ? "border-[var(--color-theme-primary)] bg-[#121526] text-theme-text shadow-sm shadow-[var(--color-theme-primary)]/10"
-                          : "border-[var(--border-outline)] bg-[var(--bg-surface)] hover:border-slate-600 text-theme-muted"
+                          ? "border-[var(--color-theme-primary)] bg-[var(--color-theme-primary)] text-[var(--color-theme-on-primary)] shadow-sm shadow-[var(--color-theme-primary)]/10"
+                          : "border-[var(--color-theme-outline)] bg-[var(--color-theme-bg)] hover:border-[var(--color-theme-primary)] text-[var(--color-theme-muted)]"
                       }`}
                     >
                       <span className="text-xs font-bold font-mono">
@@ -395,14 +394,14 @@ function EnvironmentSetupForm() {
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-theme-muted mb-2">
+                <label className="block text-xs font-mono text-[var(--color-theme-muted)] mb-2">
                   Redis URL Connection Key (Optional)
                 </label>
                 <input
                   type="text"
                   value={formData.redisUrl}
                   onChange={(e) => handleUpdate("redisUrl", e.target.value)}
-                  className="w-full bg-transparent border-b border-[var(--border-outline)] pb-3 text-sm text-theme-text font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
+                  className="w-full bg-transparent border-b border-[var(--color-theme-outline)] pb-3 text-sm text-[var(--color-theme-text)] font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
                   placeholder="redis://127.0.0.1:6379"
                 />
               </div>
@@ -415,7 +414,7 @@ function EnvironmentSetupForm() {
               <Code className="w-4 h-4" /> 3. Version Control Gateway
             </h2>
             <div>
-              <label className="block text-xs font-mono text-theme-muted mb-2">
+              <label className="block text-xs font-mono text-[var(--color-theme-muted)] mb-2">
                 GitHub Personal Access Token (PAT)
               </label>
               <input
@@ -426,7 +425,7 @@ function EnvironmentSetupForm() {
                 autoCorrect="off"
                 value={formData.githubToken}
                 onChange={(e) => handleUpdate("githubToken", e.target.value)}
-                className="w-full bg-transparent border-b border-[var(--border-outline)] pb-3 text-sm text-theme-text font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
+                className="w-full bg-transparent border-b border-[var(--color-theme-outline)] pb-3 text-sm text-[var(--color-theme-text)] font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
                 placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxx"
               />
             </div>
@@ -439,31 +438,31 @@ function EnvironmentSetupForm() {
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
               <div>
-                <label className="block text-xs font-mono text-theme-muted mb-2">
+                <label className="block text-xs font-mono text-[var(--color-theme-muted)] mb-2">
                   SMTP Host
                 </label>
                 <input
                   type="text"
                   value={formData.smtpHost}
                   onChange={(e) => handleUpdate("smtpHost", e.target.value)}
-                  className="w-full bg-transparent border-b border-[var(--border-outline)] pb-3 text-sm text-theme-text font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
+                  className="w-full bg-transparent border-b border-[var(--color-theme-outline)] pb-3 text-sm text-[var(--color-theme-text)] font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
                   placeholder="smtp.mailtrap.io"
                 />
               </div>
               <div>
-                <label className="block text-xs font-mono text-theme-muted mb-2">
+                <label className="block text-xs font-mono text-[var(--color-theme-muted)] mb-2">
                   SMTP Port
                 </label>
                 <input
                   type="text"
                   value={formData.smtpPort}
                   onChange={(e) => handleUpdate("smtpPort", e.target.value)}
-                  className="w-full bg-transparent border-b border-[var(--border-outline)] pb-3 text-sm text-theme-text font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
+                  className="w-full bg-transparent border-b border-[var(--color-theme-outline)] pb-3 text-sm text-[var(--color-theme-text)] font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
                   placeholder="587"
                 />
               </div>
               <div>
-                <label className="block text-xs font-mono text-theme-muted mb-2">
+                <label className="block text-xs font-mono text-[var(--color-theme-muted)] mb-2">
                   System Pipeline Alert Email
                 </label>
                 <input
@@ -472,24 +471,24 @@ function EnvironmentSetupForm() {
                   onChange={(e) =>
                     handleUpdate("adminAlertEmail", e.target.value)
                   }
-                  className="w-full bg-transparent border-b border-[var(--border-outline)] pb-3 text-sm text-theme-text font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
+                  className="w-full bg-transparent border-b border-[var(--color-theme-outline)] pb-3 text-sm text-[var(--color-theme-text)] font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
                   placeholder="alerts@studioflow.dev"
                 />
               </div>
               <div className="sm:col-span-1 md:col-span-2">
-                <label className="block text-xs font-mono text-theme-muted mb-2">
+                <label className="block text-xs font-mono text-[var(--color-theme-muted)] mb-2">
                   SMTP Connection Username
                 </label>
                 <input
                   type="text"
                   value={formData.smtpUser}
                   onChange={(e) => handleUpdate("smtpUser", e.target.value)}
-                  className="w-full bg-transparent border-b border-[var(--border-outline)] pb-3 text-sm text-theme-text font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
+                  className="w-full bg-transparent border-b border-[var(--color-theme-outline)] pb-3 text-sm text-[var(--color-theme-text)] font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
                   placeholder="Username Token"
                 />
               </div>
               <div>
-                <label className="block text-xs font-mono text-theme-muted mb-2">
+                <label className="block text-xs font-mono text-[var(--color-theme-muted)] mb-2">
                   SMTP Secure Auth Password
                 </label>
                 <input
@@ -499,7 +498,7 @@ function EnvironmentSetupForm() {
                   autoCorrect="off"
                   value={formData.smtpPass}
                   onChange={(e) => handleUpdate("smtpPass", e.target.value)}
-                  className="w-full bg-transparent border-b border-[var(--border-outline)] pb-3 text-sm text-theme-text font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
+                  className="w-full bg-transparent border-b border-[var(--color-theme-outline)] pb-3 text-sm text-[var(--color-theme-text)] font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
                   placeholder="Auth Key Pass"
                 />
               </div>
@@ -508,7 +507,7 @@ function EnvironmentSetupForm() {
 
           {/* SECTION 5: Cloud Target Integrations */}
           <section className="space-y-6">
-            <h2 className="text-[11px] font-bold tracking-widest text-theme-text uppercase flex items-center gap-2">
+            <h2 className="text-[11px] font-bold tracking-widest text-[var(--color-theme-primary)] uppercase flex items-center gap-2">
               <Cloud className="w-4 h-4" /> 5. Target Production Cloud Provider
             </h2>
 
@@ -518,23 +517,35 @@ function EnvironmentSetupForm() {
                   onClick={() => handleUpdate("deploymentProvider", "none")}
                   className={`cursor-pointer rounded-xl border p-4 transition-all duration-200 ${
                     formData.deploymentProvider === "none"
-                      ? "border-[var(--color-theme-primary)] bg-[#121526]"
-                      : "border-[var(--border-outline)] bg-[var(--bg-surface)] hover:border-slate-600"
+                      ? "border-[var(--color-theme-primary)] bg-[var(--color-theme-primary)] text-[var(--color-theme-on-primary)]"
+                      : "border-[var(--color-theme-outline)] bg-[var(--color-theme-bg)] hover:border-[var(--color-theme-primary)]"
                   }`}
                 >
                   <div className="flex justify-between items-start mb-3">
                     <Monitor
                       className={`w-5 h-5 ${
                         formData.deploymentProvider === "none"
-                          ? "text-[var(--color-theme-primary)]"
-                          : "text-theme-muted"
+                          ? "text-[var(--color-theme-on-primary)]"
+                          : "text-[var(--color-theme-muted)]"
                       }`}
                     />
                   </div>
-                  <h3 className="text-sm font-bold text-theme-text mb-1 font-mono">
+                  <h3
+                    className={`text-sm font-bold mb-1 font-mono ${
+                      formData.deploymentProvider === "none"
+                        ? "text-[var(--color-theme-on-primary)]"
+                        : "text-[var(--color-theme-text)]"
+                    }`}
+                  >
                     Local Only
                   </h3>
-                  <p className="text-[10px] text-slate-500 font-mono">
+                  <p
+                    className={`text-[10px] font-mono ${
+                      formData.deploymentProvider === "none"
+                        ? "text-[var(--color-theme-on-primary)]/80"
+                        : "text-[var(--color-theme-muted)]"
+                    }`}
+                  >
                     No Cloud Architecture
                   </p>
                 </div>
@@ -543,23 +554,35 @@ function EnvironmentSetupForm() {
                   onClick={() => handleUpdate("deploymentProvider", "render")}
                   className={`cursor-pointer rounded-xl border p-4 transition-all duration-200 ${
                     formData.deploymentProvider === "render"
-                      ? "border-[var(--color-theme-primary)] bg-[#121526]"
-                      : "border-[var(--border-outline)] bg-[var(--bg-surface)] hover:border-slate-600"
+                      ? "border-[var(--color-theme-primary)] bg-[var(--color-theme-primary)] text-[var(--color-theme-on-primary)]"
+                      : "border-[var(--color-theme-outline)] bg-[var(--color-theme-bg)] hover:border-[var(--color-theme-primary)]"
                   }`}
                 >
                   <div className="flex justify-between items-start mb-3">
                     <Server
                       className={`w-5 h-5 ${
                         formData.deploymentProvider === "render"
-                          ? "text-[var(--color-theme-primary)]"
-                          : "text-theme-muted"
+                          ? "text-[var(--color-theme-on-primary)]"
+                          : "text-[var(--color-theme-muted)]"
                       }`}
                     />
                   </div>
-                  <h3 className="text-sm font-bold text-theme-text mb-1 font-mono">
+                  <h3
+                    className={`text-sm font-bold mb-1 font-mono ${
+                      formData.deploymentProvider === "render"
+                        ? "text-[var(--color-theme-on-primary)]"
+                        : "text-[var(--color-theme-text)]"
+                    }`}
+                  >
                     Render API
                   </h3>
-                  <p className="text-[10px] text-slate-500 font-mono">
+                  <p
+                    className={`text-[10px] font-mono ${
+                      formData.deploymentProvider === "render"
+                        ? "text-[var(--color-theme-on-primary)]/80"
+                        : "text-[var(--color-theme-muted)]"
+                    }`}
+                  >
                     Managed Cluster Pipeline
                   </p>
                 </div>
@@ -568,23 +591,35 @@ function EnvironmentSetupForm() {
                   onClick={() => handleUpdate("deploymentProvider", "railway")}
                   className={`cursor-pointer rounded-xl border p-4 transition-all duration-200 ${
                     formData.deploymentProvider === "railway"
-                      ? "border-[var(--color-theme-primary)] bg-[#121526]"
-                      : "border-[var(--border-outline)] bg-[var(--bg-surface)] hover:border-slate-600"
+                      ? "border-[var(--color-theme-primary)] bg-[var(--color-theme-primary)] text-[var(--color-theme-on-primary)]"
+                      : "border-[var(--color-theme-outline)] bg-[var(--color-theme-bg)] hover:border-[var(--color-theme-primary)]"
                   }`}
                 >
                   <div className="flex justify-between items-start mb-3">
                     <Cpu
                       className={`w-5 h-5 ${
                         formData.deploymentProvider === "railway"
-                          ? "text-[var(--color-theme-primary)]"
-                          : "text-theme-muted"
+                          ? "text-[var(--color-theme-on-primary)]"
+                          : "text-[var(--color-theme-muted)]"
                       }`}
                     />
                   </div>
-                  <h3 className="text-sm font-bold text-theme-text mb-1 font-mono">
+                  <h3
+                    className={`text-sm font-bold mb-1 font-mono ${
+                      formData.deploymentProvider === "railway"
+                        ? "text-[var(--color-theme-on-primary)]"
+                        : "text-[var(--color-theme-text)]"
+                    }`}
+                  >
                     Railway
                   </h3>
-                  <p className="text-[10px] text-slate-500 font-mono">
+                  <p
+                    className={`text-[10px] font-mono ${
+                      formData.deploymentProvider === "railway"
+                        ? "text-[var(--color-theme-on-primary)]/80"
+                        : "text-[var(--color-theme-muted)]"
+                    }`}
+                  >
                     Scalable Provision Engine
                   </p>
                 </div>
@@ -593,23 +628,35 @@ function EnvironmentSetupForm() {
                   onClick={() => handleUpdate("deploymentProvider", "vercel")}
                   className={`cursor-pointer rounded-xl border p-4 transition-all duration-200 ${
                     formData.deploymentProvider === "vercel"
-                      ? "border-[var(--color-theme-primary)] bg-[#121526]"
-                      : "border-[var(--border-outline)] bg-[var(--bg-surface)] hover:border-slate-600"
+                      ? "border-[var(--color-theme-primary)] bg-[var(--color-theme-primary)] text-[var(--color-theme-on-primary)]"
+                      : "border-[var(--color-theme-outline)] bg-[var(--color-theme-bg)] hover:border-[var(--color-theme-primary)]"
                   }`}
                 >
                   <div className="flex justify-between items-start mb-3">
                     <Globe
                       className={`w-5 h-5 ${
                         formData.deploymentProvider === "vercel"
-                          ? "text-[var(--color-theme-primary)]"
-                          : "text-theme-muted"
+                          ? "text-[var(--color-theme-on-primary)]"
+                          : "text-[var(--color-theme-muted)]"
                       }`}
                     />
                   </div>
-                  <h3 className="text-sm font-bold text-theme-text mb-1 font-mono">
+                  <h3
+                    className={`text-sm font-bold mb-1 font-mono ${
+                      formData.deploymentProvider === "vercel"
+                        ? "text-[var(--color-theme-on-primary)]"
+                        : "text-[var(--color-theme-text)]"
+                    }`}
+                  >
                     Vercel
                   </h3>
-                  <p className="text-[10px] text-slate-500 font-mono">
+                  <p
+                    className={`text-[10px] font-mono ${
+                      formData.deploymentProvider === "vercel"
+                        ? "text-[var(--color-theme-on-primary)]/80"
+                        : "text-[var(--color-theme-muted)]"
+                    }`}
+                  >
                     Edge Optimization Nodes
                   </p>
                 </div>
@@ -623,9 +670,9 @@ function EnvironmentSetupForm() {
                 className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4"
               >
                 <div>
-                  <label className="block text-xs font-mono text-theme-muted mb-2 flex items-center gap-2">
-                    <Key className="w-3.5 h-3.5 text-slate-500" /> Platform
-                    Deployment API Secret Key
+                  <label className="block text-xs font-mono text-[var(--color-theme-muted)] mb-2 flex items-center gap-2">
+                    <Key className="w-3.5 h-3.5 text-[var(--color-theme-muted)]" />{" "}
+                    Platform Deployment API Secret Key
                   </label>
                   <input
                     type="password"
@@ -636,14 +683,14 @@ function EnvironmentSetupForm() {
                     onChange={(e) =>
                       handleUpdate("deploymentApiKey", e.target.value)
                     }
-                    className="w-full bg-transparent border-b border-[var(--border-outline)] pb-3 text-sm text-theme-text font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
+                    className="w-full bg-transparent border-b border-[var(--color-theme-outline)] pb-3 text-sm text-[var(--color-theme-text)] font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
                     placeholder="rnd_xxxxxxxxxxxxxxxxxxxxxx"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-mono text-theme-muted mb-2 flex items-center gap-2">
-                    <User className="w-3.5 h-3.5 text-slate-500" /> Target
-                    Account Group / Tenant ID
+                  <label className="block text-xs font-mono text-[var(--color-theme-muted)] mb-2 flex items-center gap-2">
+                    <User className="w-3.5 h-3.5 text-[var(--color-theme-muted)]" />{" "}
+                    Target Account Group / Tenant ID
                   </label>
                   <input
                     type="text"
@@ -651,7 +698,7 @@ function EnvironmentSetupForm() {
                     onChange={(e) =>
                       handleUpdate("deploymentOwnerId", e.target.value)
                     }
-                    className="w-full bg-transparent border-b border-[var(--border-outline)] pb-3 text-sm text-theme-text font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
+                    className="w-full bg-transparent border-b border-[var(--color-theme-outline)] pb-3 text-sm text-[var(--color-theme-text)] font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
                     placeholder="usr_xxxxxxxxxxxxxxx"
                   />
                 </div>
@@ -666,8 +713,8 @@ function EnvironmentSetupForm() {
               disabled={isSubmitting}
               className={`px-8 py-3.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 uppercase tracking-wide z-10 ${
                 isSubmitting
-                  ? "bg-[var(--border-outline)]/50 text-slate-500 cursor-not-allowed"
-                  : "bg-[var(--color-theme-primary)] hover:bg-[#cbb1fb] text-[var(--bg-main)] shadow-lg shadow-[var(--color-theme-primary)]/10"
+                  ? "bg-[var(--color-theme-outline)]/50 text-[var(--color-theme-muted)] cursor-not-allowed"
+                  : "bg-[var(--color-theme-primary)] hover:opacity-90 text-[var(--color-theme-on-primary)] shadow-lg shadow-[var(--color-theme-primary)]/10"
               }`}
             >
               {isSubmitting ? (
@@ -692,7 +739,7 @@ export default function EnvironmentSetupPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center">
+        <div className="min-h-screen bg-[var(--color-theme-bg)] flex items-center justify-center">
           <Loader2 className="w-8 h-8 text-[var(--color-theme-primary)] animate-spin" />
         </div>
       }

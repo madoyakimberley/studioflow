@@ -5,6 +5,7 @@ import { Terminal, ArrowRight, ArrowLeft, Zap } from "lucide-react";
 import {
   queueProjectProvisioning,
   UniversalServiceConfig,
+  UniversalManifestPayload,
 } from "../../app/action";
 import { toast } from "sonner";
 import { FRAMEWORK_OPTIONS } from "./constants";
@@ -24,6 +25,7 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
 
   const [formData, setFormData] = useState({
     workspaceId: 1,
+    workspacePath: "/Users/luna/Sites/work",
     name: "",
     clientName: "",
     clientEmail: "",
@@ -123,11 +125,11 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
 
         if (field === "runtime") {
           updated.framework = FRAMEWORK_OPTIONS[value]?.[0]?.value || "";
-          updated.dependencies = []; // Clear packages if runtime changes
+          updated.dependencies = [];
 
           if (value === "python") {
-            updated.buildCommand = "pip install -r requirements.txt";
-            updated.startCommand = "python main.py";
+            updated.buildCommand = "uv run pip install -r requirements.txt";
+            updated.startCommand = "uv run main.py";
           } else if (value === "javascript") {
             const pm = formData.nodePackageManager;
             const runCmd = pm === "npm" || pm === "bun" ? `${pm} run` : pm;
@@ -155,11 +157,31 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
   const handleSubmitPipeline = async () => {
     setIsSubmitting(true);
     try {
-      const res = await queueProjectProvisioning({
-        ...formData,
-        services,
+      const payload: UniversalManifestPayload = {
+        workspaceId: formData.workspaceId,
+        name: formData.name,
+        clientName: formData.clientName,
+        clientEmail: formData.clientEmail,
+        brief: formData.brief,
+        gitProvider: formData.gitProvider,
+        folderStructure: formData.folderStructure,
+        deploymentTarget: formData.deploymentTarget,
+        nodePackageManager: formData.nodePackageManager,
         blueprintYaml: "",
-      });
+        services: services.map((s) => ({
+          id: s.id,
+          name: s.name,
+          type: s.type as "web" | "worker" | "private" | "cron",
+          runtime: s.runtime,
+          rootDir: s.rootDir,
+          buildCommand: s.buildCommand,
+          startCommand: s.startCommand,
+          dependencies: s.dependencies,
+        })),
+      };
+
+      const res = await queueProjectProvisioning(payload);
+
       if (res.success) {
         toast.success("Project created successfully with Zero-Trust Security!");
         if (onClose) onClose();
@@ -174,12 +196,12 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 font-sans text-slate-100">
-      <div className="bg-[var(--bg-surface)] w-full max-w-5xl h-[85vh] rounded-3xl border border-[var(--border-outline)] flex flex-col overflow-hidden shadow-2xl relative">
-        <div className="p-6 border-b border-[var(--border-outline)] flex justify-between items-center bg-[var(--bg-surface)]">
+    <div className="fixed inset-0 bg-theme-bg/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 font-sans text-theme-text">
+      <div className="bg-theme-surface w-full max-w-5xl h-[85vh] rounded-3xl border border-theme-outline flex flex-col overflow-hidden shadow-2xl relative">
+        <div className="p-6 border-b border-theme-outline flex justify-between items-center bg-theme-surface">
           <div>
-            <h2 className="text-xl font-bold text-indigo-300 flex items-center gap-2">
-              <Terminal className="w-5 h-5 text-indigo-400" /> Create New
+            <h2 className="text-xl font-bold text-theme-primary flex items-center gap-2">
+              <Terminal className="w-5 h-5 text-theme-primary" /> Create New
               Project
             </h2>
             <div className="mt-auto pt-8">
@@ -198,17 +220,17 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
             ].map((sNode) => (
               <div key={sNode.num} className="flex items-center gap-2">
                 <div
-                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${step === sNode.num ? "bg-indigo-600 text-theme-text" : step > sNode.num ? "bg-emerald-600 text-theme-text" : "bg-[var(--bg-surface)] text-theme-muted border border-[var(--border-outline)]"}`}
+                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${step === sNode.num ? "bg-theme-primary text-theme-on-primary" : step > sNode.num ? "bg-theme-secondary text-theme-text" : "bg-theme-surface text-theme-muted border border-theme-outline"}`}
                 >
                   {step > sNode.num ? "✓" : sNode.num}
                 </div>
                 <span
-                  className={`text-xs font-medium hidden md:inline ${step === sNode.num ? "text-indigo-400" : "text-theme-muted"}`}
+                  className={`text-xs font-medium hidden md:inline ${step === sNode.num ? "text-theme-primary" : "text-theme-muted"}`}
                 >
                   {sNode.label}
                 </span>
                 {sNode.num < 4 && (
-                  <div className="w-4 h-[1px] bg-[var(--border-outline)] hidden md:block" />
+                  <div className="w-4 h-[1px] bg-theme-outline hidden md:block" />
                 )}
               </div>
             ))}
@@ -241,20 +263,20 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
           )}
         </div>
 
-        <div className="p-4 border-t border-[var(--border-outline)] bg-[var(--bg-surface)] flex justify-between items-center rounded-b-3xl">
+        <div className="p-4 border-t border-theme-outline bg-theme-surface flex justify-between items-center rounded-b-3xl">
           <div className="flex gap-2">
             <button
               onClick={() => {
                 if (onClose) onClose();
               }}
-              className="px-4 py-2.5 rounded-xl text-theme-muted text-xs font-bold hover:text-theme-text hover:bg-[var(--bg-surface)] transition"
+              className="px-4 py-2.5 rounded-xl text-theme-muted text-xs font-bold hover:text-theme-text hover:bg-theme-surface transition"
             >
               Cancel
             </button>
             {step > 1 && (
               <button
                 onClick={() => setStep((p) => p - 1)}
-                className="px-4 py-2.5 rounded-xl text-theme-muted text-xs font-bold hover:bg-[var(--bg-surface)] border border-transparent hover:border-[var(--border-outline)] flex items-center gap-1 transition"
+                className="px-4 py-2.5 rounded-xl text-theme-muted text-xs font-bold hover:bg-theme-surface border border-transparent hover:border-theme-outline flex items-center gap-1 transition"
               >
                 <ArrowLeft className="w-4 h-4" /> Back
               </button>
@@ -276,7 +298,7 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
                 }
                 setStep((p) => p + 1);
               }}
-              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 text-theme-text text-xs font-bold hover:brightness-110 shadow-lg flex items-center gap-1 active:scale-95 transition"
+              className="px-6 py-2.5 rounded-xl bg-theme-primary text-theme-on-primary text-xs font-bold hover:brightness-110 shadow-lg flex items-center gap-1 active:scale-95 transition"
             >
               Continue <ArrowRight className="w-4 h-4" />
             </button>
@@ -284,13 +306,13 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
             <button
               onClick={handleSubmitPipeline}
               disabled={isSubmitting}
-              className="px-8 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-theme-text text-xs font-bold hover:brightness-110 shadow-xl flex items-center gap-1.5 transition disabled:opacity-40"
+              className="px-8 py-3 rounded-xl bg-theme-primary text-theme-on-primary text-xs font-bold hover:brightness-110 shadow-xl flex items-center gap-1.5 transition disabled:opacity-40"
             >
               {isSubmitting ? (
                 "Creating..."
               ) : (
                 <>
-                  <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />{" "}
+                  <Zap className="w-4 h-4 text-theme-on-primary fill-theme-on-primary" />{" "}
                   Create Project
                 </>
               )}

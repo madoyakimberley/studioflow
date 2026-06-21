@@ -36,7 +36,7 @@ export const WizardStepDetails: React.FC<WizardStepDetailsProps> = ({
           </label>
           <DeepTooltip text="Use small letters and dashes only.">
             <div className="relative w-full">
-              <FolderTree className="absolute left-3 top-3.5 w-4 h-4 text-slate-500" />
+              <FolderTree className="absolute left-3 top-3.5 w-4 h-4 text-theme-muted" />
               <input
                 type="text"
                 value={formData.name}
@@ -44,7 +44,7 @@ export const WizardStepDetails: React.FC<WizardStepDetailsProps> = ({
                   setFormData({ ...formData, name: e.target.value })
                 }
                 placeholder="e.g. online-store"
-                className="w-full bg-[var(--bg-surface)] border border-[var(--border-outline)] rounded-xl py-3 pl-10 pr-4 text-sm text-theme-text focus:outline-none focus:border-indigo-500 transition-colors"
+                className="w-full bg-theme-surface border border-theme-outline rounded-xl py-3 pl-10 pr-4 text-sm text-theme-text focus:outline-none focus:border-theme-primary transition-colors"
               />
             </div>
           </DeepTooltip>
@@ -55,7 +55,7 @@ export const WizardStepDetails: React.FC<WizardStepDetailsProps> = ({
           </label>
           <DeepTooltip text="Used for dashboard labels.">
             <div className="relative w-full">
-              <User className="absolute left-3 top-3.5 w-4 h-4 text-slate-500" />
+              <User className="absolute left-3 top-3.5 w-4 h-4 text-theme-muted" />
               <input
                 type="text"
                 value={formData.clientName}
@@ -63,7 +63,7 @@ export const WizardStepDetails: React.FC<WizardStepDetailsProps> = ({
                   setFormData({ ...formData, clientName: e.target.value })
                 }
                 placeholder="e.g. Acme Corp"
-                className="w-full bg-[var(--bg-surface)] border border-[var(--border-outline)] rounded-xl py-3 pl-10 pr-4 text-sm text-theme-text focus:outline-none focus:border-indigo-500 transition-colors"
+                className="w-full bg-theme-surface border border-theme-outline rounded-xl py-3 pl-10 pr-4 text-sm text-theme-text focus:outline-none focus:border-theme-primary transition-colors"
               />
             </div>
           </DeepTooltip>
@@ -74,7 +74,7 @@ export const WizardStepDetails: React.FC<WizardStepDetailsProps> = ({
           </label>
           <DeepTooltip text="Used for sending secure portal PINs.">
             <div className="relative w-full">
-              <Mail className="absolute left-3 top-3.5 w-4 h-4 text-slate-500" />
+              <Mail className="absolute left-3 top-3.5 w-4 h-4 text-theme-muted" />
               <input
                 type="email"
                 value={formData.clientEmail}
@@ -82,7 +82,7 @@ export const WizardStepDetails: React.FC<WizardStepDetailsProps> = ({
                   setFormData({ ...formData, clientEmail: e.target.value })
                 }
                 placeholder="e.g. client@acme.com"
-                className="w-full bg-[var(--bg-surface)] border border-[var(--border-outline)] rounded-xl py-3 pl-10 pr-4 text-sm text-theme-text focus:outline-none focus:border-indigo-500 transition-colors"
+                className="w-full bg-theme-surface border border-theme-outline rounded-xl py-3 pl-10 pr-4 text-sm text-theme-text focus:outline-none focus:border-theme-primary transition-colors"
               />
             </div>
           </DeepTooltip>
@@ -97,7 +97,7 @@ export const WizardStepDetails: React.FC<WizardStepDetailsProps> = ({
           value={formData.brief}
           onChange={(e) => setFormData({ ...formData, brief: e.target.value })}
           placeholder="What is the core functionality?"
-          className="w-full bg-[var(--bg-surface)] border border-[var(--border-outline)] rounded-xl py-3 px-4 text-sm text-theme-text focus:outline-none focus:border-indigo-500 transition-colors h-24 resize-none custom-scrollbar"
+          className="w-full bg-theme-surface border border-theme-outline rounded-xl py-3 px-4 text-sm text-theme-text focus:outline-none focus:border-theme-primary transition-colors h-24 resize-none custom-scrollbar"
         />
       </div>
 
@@ -112,20 +112,20 @@ export const WizardStepDetails: React.FC<WizardStepDetailsProps> = ({
               onClick={() => handleFolderStructureChange("monorepo")}
               className={`p-3 rounded-xl border transition-all flex items-start gap-3 text-left ${
                 formData.folderStructure === "monorepo"
-                  ? "bg-indigo-500/20 border-indigo-500 shadow-sm shadow-indigo-500/10"
-                  : "bg-[var(--bg-surface)] border-[var(--border-outline)] hover:border-slate-600 hover:bg-[var(--bg-surface)]"
+                  ? "bg-theme-primary/20 border-theme-primary shadow-sm shadow-theme-primary/10"
+                  : "bg-theme-surface border-theme-outline hover:border-theme-primary hover:bg-theme-surface"
               }`}
             >
               <FolderGit2
-                className={`w-5 h-5 shrink-0 mt-0.5 ${formData.folderStructure === "monorepo" ? "text-indigo-400" : "text-slate-500"}`}
+                className={`w-5 h-5 shrink-0 mt-0.5 ${formData.folderStructure === "monorepo" ? "text-theme-primary" : "text-theme-muted"}`}
               />
               <div>
                 <span
-                  className={`block font-bold text-sm ${formData.folderStructure === "monorepo" ? "text-indigo-200" : "text-theme-muted"}`}
+                  className={`block font-bold text-sm ${formData.folderStructure === "monorepo" ? "text-theme-primary" : "text-theme-muted"}`}
                 >
                   Monorepo
                 </span>
-                <span className="block text-[11px] text-slate-500 font-normal mt-1 leading-tight">
+                <span className="block text-[11px] text-theme-muted font-normal mt-1 leading-tight">
                   Best for Fullstack. Supports multiple languages &
                   microservices in one repo.
                 </span>
@@ -137,20 +137,20 @@ export const WizardStepDetails: React.FC<WizardStepDetailsProps> = ({
               onClick={() => handleFolderStructureChange("src_flat")}
               className={`p-3 rounded-xl border transition-all flex items-start gap-3 text-left ${
                 formData.folderStructure === "src_flat"
-                  ? "bg-amber-500/20 border-amber-500 shadow-sm shadow-amber-500/10"
-                  : "bg-[var(--bg-surface)] border-[var(--border-outline)] hover:border-slate-600 hover:bg-[var(--bg-surface)]"
+                  ? "bg-theme-secondary/20 border-theme-secondary shadow-sm shadow-theme-secondary/10"
+                  : "bg-theme-surface border-theme-outline hover:border-theme-primary hover:bg-theme-surface"
               }`}
             >
               <FolderArchive
-                className={`w-5 h-5 shrink-0 mt-0.5 ${formData.folderStructure === "src_flat" ? "text-amber-400" : "text-slate-500"}`}
+                className={`w-5 h-5 shrink-0 mt-0.5 ${formData.folderStructure === "src_flat" ? "text-theme-secondary" : "text-theme-muted"}`}
               />
               <div>
                 <span
-                  className={`block font-bold text-sm ${formData.folderStructure === "src_flat" ? "text-amber-200" : "text-theme-muted"}`}
+                  className={`block font-bold text-sm ${formData.folderStructure === "src_flat" ? "text-theme-secondary" : "text-theme-muted"}`}
                 >
                   Flat Folder
                 </span>
-                <span className="block text-[11px] text-slate-500 font-normal mt-1 leading-tight">
+                <span className="block text-[11px] text-theme-muted font-normal mt-1 leading-tight">
                   Standard repository. Strictly limits you to 1 primary language
                   / single app.
                 </span>
@@ -172,8 +172,8 @@ export const WizardStepDetails: React.FC<WizardStepDetailsProps> = ({
                   onClick={() => handlePackageManagerChange(pm as any)}
                   className={`py-3 px-2 rounded-xl border text-xs font-semibold transition-all ${
                     formData.nodePackageManager === pm
-                      ? "bg-indigo-500/20 border-indigo-500 text-indigo-300 shadow-sm shadow-indigo-500/10"
-                      : "bg-[var(--bg-surface)] border-[var(--border-outline)] text-theme-muted hover:border-slate-600 hover:bg-[var(--bg-surface)]"
+                      ? "bg-theme-primary/20 border-theme-primary text-theme-primary shadow-sm shadow-theme-primary/10"
+                      : "bg-theme-surface border-theme-outline text-theme-muted hover:border-theme-primary hover:bg-theme-surface"
                   }`}
                 >
                   {pm}
@@ -203,8 +203,8 @@ export const WizardStepDetails: React.FC<WizardStepDetailsProps> = ({
                   }
                   className={`py-3 px-2 rounded-xl border text-xs font-semibold transition-all ${
                     formData.deploymentTarget === target.val
-                      ? "bg-indigo-500/20 border-indigo-500 text-indigo-300 shadow-sm shadow-indigo-500/10"
-                      : "bg-[var(--bg-surface)] border-[var(--border-outline)] text-theme-muted hover:border-slate-600 hover:bg-[var(--bg-surface)]"
+                      ? "bg-theme-primary/20 border-theme-primary text-theme-primary shadow-sm shadow-theme-primary/10"
+                      : "bg-theme-surface border-theme-outline text-theme-muted hover:border-theme-primary hover:bg-theme-surface"
                   }`}
                 >
                   {target.label}
