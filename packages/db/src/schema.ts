@@ -348,7 +348,7 @@ export const siteMonitoring = mysqlTable(
           projectFk: foreignKey({
             columns: [table.projectId],
             foreignColumns: [projects.id],
-          }),
+          }).onDelete("cascade"),
         }
       : {}),
   }),
