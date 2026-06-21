@@ -81,7 +81,7 @@ export default function AdminChatWorkspace({
     const newMsgContent = inputValue.trim();
     setIsPending(true);
 
-    await sendPortalMessage(activeProjectId, "admin", newMsgContent);
+    await sendPortalMessage(activeProjectId, newMsgContent, "admin");
 
     const sentMessage = {
       id: Date.now(),
