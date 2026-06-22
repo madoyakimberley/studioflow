@@ -515,6 +515,7 @@ export async function sendClientPortalWelcomeAction(projectSlug: string) {
     };
   }
 }
+
 // ==========================================
 // --- ZERO-TRUST PORTAL ACCESS ENGINE ---
 // ==========================================
@@ -591,5 +592,71 @@ export async function dispatchSecurePortalLink(
       message:
         "Failed to transmit secure routing link. Check mailer telemetry logs.",
     };
+  }
+}
+
+// ==========================================
+// --- LIVE METRICS FETCH ENGINE          ---
+// ==========================================
+
+export async function getLiveProjectStatus(projectId: number) {
+  try {
+    const projectInfo = await db
+      .select({
+        status: projects.status,
+        progressPercentage: projects.progressPercentage,
+        liveUrl: projects.liveUrl,
+        githubRepo: projects.githubRepo,
+      })
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1);
+
+    const checklist = await db
+      .select()
+      .from(checklistItems)
+      .where(eq(checklistItems.projectId, projectId))
+      .orderBy(desc(checklistItems.createdAt));
+
+    const requests = await db
+      .select()
+      .from(clientRequests)
+      .where(eq(clientRequests.projectId, projectId))
+      .orderBy(desc(clientRequests.createdAt));
+
+    const deploymentJob = await db
+      .select()
+      .from(provisioningJobs)
+      .where(eq(provisioningJobs.projectId, projectId))
+      .orderBy(desc(provisioningJobs.createdAt))
+      .limit(1);
+
+    const presence = await db
+      .select()
+      .from(chatPresence)
+      .where(eq(chatPresence.projectId, projectId))
+      .limit(1);
+
+    const monitoring = await db
+      .select()
+      .from(siteMonitoring)
+      .where(eq(siteMonitoring.projectId, projectId))
+      .orderBy(desc(siteMonitoring.checkedAt))
+      .limit(1);
+
+    return {
+      success: true,
+      data: {
+        project: projectInfo[0] || null,
+        checklist: checklist,
+        requests: requests,
+        activeJob: deploymentJob[0] || null,
+        presence: presence[0] || null,
+        nodeStatus: monitoring[0] || null,
+      },
+    };
+  } catch (error) {
+    console.error("Failed to query live asset stream:", error);
+    return { success: false, data: null };
   }
 }
