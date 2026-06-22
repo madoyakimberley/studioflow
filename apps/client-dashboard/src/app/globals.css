@@ -1,84 +1,89 @@
-/* 1. External Font Imports (Must be at the absolute top) */
 @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap");
 
-/* 2. Tailwind Core Import (Tailwind v4 Syntax) */
 @import "tailwindcss";
 
-/* 3. Multi-Theme Matrices */
-@layer base {
-  :root,
-  [data-theme="active-systems-light"] {
-    --bg-main: #f7f9fb;
-    --bg-surface: #eceef0;
-    --text-main: #191c1e;
-    --text-muted: #494454;
-    --border-outline: #7b7486;
-    --color-primary: #6b38d4;
-    --color-on-primary: #ffffff;
-    --color-secondary: #b61722;
-  }
-
-  [data-theme="aetheric-foundry"] {
-    --bg-main: #10131a;
-    --bg-surface: #1d2027;
-    --text-main: #e0e2ec;
-    --text-muted: #c6c5d1;
-    --border-outline: #90909b;
-    --color-primary: #d3d7ff;
-    --color-on-primary: #1f2b67;
-    --color-secondary: #e8b3ff;
-  }
-
-  [data-theme="aetheric-foundry-light"] {
-    --bg-main: #f7f9fb;
-    --bg-surface: #eceef0;
-    --text-main: #191c1e;
-    --text-muted: #43474e;
-    --border-outline: #73777e;
-    --color-primary: #143353;
-    --color-on-primary: #ffffff;
-    --color-secondary: #5a5f67;
-  }
-
-  [data-theme="night-matrix"] {
-    --bg-main: #051424;
-    --bg-surface: #122131;
-    --text-main: #d4e4fa;
-    --text-muted: #bccabb;
-    --border-outline: #869486;
-    --color-primary: #6bfb9a;
-    --color-on-primary: #003919;
-    --color-secondary: #c0c1ff;
-  }
-}
-
-/* 4. Global CSS Variable Mappings (MUST BE IN @theme FOR TAILWIND V4) */
+/* 1. Tell Tailwind exactly what our variables are so it generates the utility classes.
+      Setting these values here also sets your "default" theme at the :root level. */
 @theme {
   --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
-  /* This tells Tailwind to generate the dynamic classes */
-  --color-theme-bg: var(--bg-main);
-  --color-theme-surface: var(--bg-surface);
-  --color-theme-text: var(--text-main);
-  --color-theme-muted: var(--text-muted);
-  --color-theme-outline: var(--border-outline);
-  --color-theme-primary: var(--color-primary);
-  --color-theme-on-primary: var(--color-on-primary);
-  --color-theme-secondary: var(--color-secondary);
+  --color-theme-bg: #f7f9fb;
+  --color-theme-surface: #eceef0;
+  --color-theme-text: #191c1e;
+  --color-theme-muted: #494454;
+  --color-theme-outline: #7b7486;
+  --color-theme-primary: #6b38d4;
+  --color-theme-on-primary: #ffffff;
+  --color-theme-secondary: #b61722;
 }
 
-/* 5. Custom Global Elements */
+/* 2. Direct CSS Variable Overrides
+      We completely remove the intermediary variables and reassign 
+      the exact Tailwind variables based on the class or data attribute. */
+
+/* Radiant Light */
+[data-theme="active-systems-light"],
+.active-systems-light {
+  --color-theme-bg: #f7f9fb;
+  --color-theme-surface: #eceef0;
+  --color-theme-text: #191c1e;
+  --color-theme-muted: #494454;
+  --color-theme-outline: #7b7486;
+  --color-theme-primary: #6b38d4;
+  --color-theme-on-primary: #ffffff;
+  --color-theme-secondary: #b61722;
+}
+
+/* Foundry Dark */
+[data-theme="aetheric-foundry"],
+.aetheric-foundry {
+  --color-theme-bg: #10131a;
+  --color-theme-surface: #1d2027;
+  --color-theme-text: #e0e2ec;
+  --color-theme-muted: #c6c5d1;
+  --color-theme-outline: #90909b;
+  --color-theme-primary: #d3d7ff;
+  --color-theme-on-primary: #1f2b67;
+  --color-theme-secondary: #e8b3ff;
+}
+
+/* Foundry Light */
+[data-theme="aetheric-foundry-light"],
+.aetheric-foundry-light {
+  --color-theme-bg: #f7f9fb;
+  --color-theme-surface: #eceef0;
+  --color-theme-text: #191c1e;
+  --color-theme-muted: #43474e;
+  --color-theme-outline: #73777e;
+  --color-theme-primary: #143353;
+  --color-theme-on-primary: #ffffff;
+  --color-theme-secondary: #5a5f67;
+}
+
+/* Night Matrix */
+[data-theme="night-matrix"],
+.night-matrix {
+  --color-theme-bg: #051424;
+  --color-theme-surface: #122131;
+  --color-theme-text: #d4e4fa;
+  --color-theme-muted: #bccabb;
+  --color-theme-outline: #869486;
+  --color-theme-primary: #6bfb9a;
+  --color-theme-on-primary: #003919;
+  --color-theme-secondary: #c0c1ff;
+}
+
+/* 3. Standard Element Resets using the new direct variables */
 body {
-  background-color: var(--bg-main);
-  color: var(--text-main);
+  background-color: var(--color-theme-bg);
+  color: var(--color-theme-text);
   font-family: var(--font-sans);
   transition:
     background-color 0.3s ease,
     color 0.3s ease;
 }
 
-/* Custom scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -87,9 +92,146 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border-outline);
+  background: var(--color-theme-outline);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-primary);
+  background: var(--color-theme-primary);
+}
+/* ==========================================================================
+   6. RESPONSIVE MULTI-ROLE SHEPHERD INTEGRATION FOR TAILWIND V4
+   ========================================================================== */
+
+/* Darkened backing shadow overlay mask */
+.shepherd-modal-overlay-container {
+  opacity: 0.7 !important;
+  backdrop-filter: blur(6px);
+  fill: rgba(0, 0, 0, 0.45) !important;
+}
+
+/* Base Step Modal Canvas Surface Layout Configuration */
+.shepherd-element.studioflow-shepherd-theme {
+  background: var(--color-theme-surface) !important;
+  color: var(--color-theme-text) !important;
+  border: 1px solid var(--color-theme-outline) !important;
+  border-radius: 1.25rem !important;
+  box-shadow: 0 30px 70px -15px rgba(0, 0, 0, 0.65);
+  max-width: 410px;
+  width: 90vw;
+  padding: 0.4rem;
+  font-family: var(--font-sans) !important;
+}
+
+/* Precise CSS Variable overrides for Poppers dynamic arrows */
+.shepherd-element.studioflow-shepherd-theme[data-popper-placement^="top"]
+  .shepherd-arrow::before {
+  background: var(--color-theme-surface) !important;
+  border-right: 1px solid var(--color-theme-outline) !important;
+  border-bottom: 1px solid var(--color-theme-outline) !important;
+}
+.shepherd-element.studioflow-shepherd-theme[data-popper-placement^="bottom"]
+  .shepherd-arrow::before {
+  background: var(--color-theme-surface) !important;
+  border-left: 1px solid var(--color-theme-outline) !important;
+  border-top: 1px solid var(--color-theme-outline) !important;
+}
+.shepherd-element.studioflow-shepherd-theme[data-popper-placement^="left"]
+  .shepherd-arrow::before {
+  background: var(--color-theme-surface) !important;
+  border-top: 1px solid var(--color-theme-outline) !important;
+  border-right: 1px solid var(--color-theme-outline) !important;
+}
+.shepherd-element.studioflow-shepherd-theme[data-popper-placement^="right"]
+  .shepherd-arrow::before {
+  background: var(--color-theme-surface) !important;
+  border-bottom: 1px solid var(--color-theme-outline) !important;
+  border-left: 1px solid var(--color-theme-outline) !important;
+}
+
+/* Typography Header Content Frames */
+.shepherd-header {
+  background: transparent !important;
+  padding: 1.25rem 1.25rem 0.5rem 1.25rem !important;
+}
+
+.shepherd-title {
+  color: var(--color-theme-text) !important;
+  font-size: 1.15rem !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.025em !important;
+}
+
+/* Close Icon Interaction Element Layouts */
+.shepherd-cancel-icon {
+  color: var(--color-theme-muted) !important;
+  font-size: 1.5rem !important;
+  transition: color 0.15s simplicity;
+}
+.shepherd-cancel-icon:hover {
+  color: var(--color-theme-primary) !important;
+}
+
+/* Operational Content Paragraphs Configuration Area */
+.shepherd-text {
+  color: var(--color-theme-muted) !important;
+  font-size: 0.925rem !important;
+  line-height: 1.6 !important;
+  padding: 0.5rem 1.25rem 1.25rem 1.25rem !important;
+}
+
+/* Navigation Management Buttons Footer Area Grid Placement */
+.shepherd-footer {
+  padding: 0 1.25rem 1.25rem 1.25rem !important;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+/* Action Primary System Interactive Buttons Base Setup */
+.shepherd-button.shepherd-btn-primary {
+  background: var(--color-theme-primary) !important;
+  color: var(--color-theme-on-primary) !important;
+  font-family: var(--font-sans) !important;
+  font-weight: 700 !important;
+  padding: 0.6rem 1.2rem !important;
+  border-radius: 0.75rem !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  border: none !important;
+  cursor: pointer;
+}
+.shepherd-button.shepherd-btn-primary:hover {
+  transform: translateY(-1px);
+  opacity: 0.95;
+}
+
+/* Neutral Returning / Dismiss Interactive Core Callbacks Setup */
+.shepherd-button.shepherd-btn-secondary {
+  background: var(--color-theme-bg) !important;
+  color: var(--color-theme-text) !important;
+  border: 1px solid var(--color-theme-outline) !important;
+  font-family: var(--font-sans) !important;
+  font-weight: 600 !important;
+  padding: 0.6rem 1.2rem !important;
+  border-radius: 0.75rem !important;
+  transition: all 0.15s ease !important;
+  cursor: pointer;
+}
+.shepherd-button.shepherd-btn-secondary:hover {
+  background: var(--color-theme-surface) !important;
+  border-color: var(--color-theme-primary) !important;
+}
+
+/* Clean, Mobile Overlay Layout Modals Fallback System overrides */
+@media (max-width: 767px) {
+  .shepherd-element.studioflow-shepherd-theme {
+    max-width: 345px !important;
+    position: fixed !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+  }
+  /* Remove pointers completely on narrow screens to maximize content viewport space */
+  .shepherd-arrow {
+    display: none !important;
+  }
 }

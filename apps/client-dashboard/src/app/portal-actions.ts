@@ -46,18 +46,15 @@ export async function addOrEditChecklistItemAction(
       (now.getTime() - new Date(project.createdAt).getTime()) /
       (1000 * 60 * 60);
 
-    // RULE A: The 2-Day Lock
     const isLocked = hoursSinceCreation > 48;
     const finalType = isLocked ? "Added Feature" : "MVP";
 
     if (itemId) {
-      // Editing an existing item
       const item = await db.query.checklistItems.findFirst({
         where: eq(checklistItems.id, itemId),
       });
 
       if (item && item.type === "MVP") {
-        // RULE B: The 2-Edit Limit
         if (project.mvpEditCount && project.mvpEditCount >= 2) {
           return {
             success: false,
@@ -75,7 +72,6 @@ export async function addOrEditChecklistItemAction(
         .set({ title })
         .where(eq(checklistItems.id, itemId));
     } else {
-      // Creating a new item
       await db.insert(checklistItems).values({
         projectId,
         title,
@@ -84,7 +80,6 @@ export async function addOrEditChecklistItemAction(
       });
     }
 
-    // 🚨 FIX: Revalidate using the project.slug (the 'token' in the URL), not the database ID
     revalidatePath(`/portal/${project.slug}`);
 
     return { success: true, isAddedFeature: finalType === "Added Feature" };
@@ -97,7 +92,6 @@ export async function addOrEditChecklistItemAction(
   }
 }
 
-// Dev Side: Attach Proof
 export async function submitChecklistItemProofAction(
   itemId: number,
   proofUrl: string,
@@ -120,7 +114,6 @@ export async function submitChecklistItemProofAction(
   }
 }
 
-// Client Side: Approve Work
 export async function approveChecklistItemAction(itemId: number) {
   try {
     await db
@@ -137,18 +130,16 @@ export async function approveChecklistItemAction(itemId: number) {
   }
 }
 
-// Client Side: Request Revisions
 export async function requestRevisionAction(itemId: number) {
   try {
     await db
       .update(checklistItems)
       .set({
         status: "pending",
-        proofUrl: null, // Clear the proof so the dev has to submit a new one
+        proofUrl: null,
       })
       .where(eq(checklistItems.id, itemId));
 
-    // Revalidate the paths to update the UI instantly across both portals
     revalidatePath(`/portal/[token]/proofs`, "page");
     revalidatePath(`/dashboard/[user]`, "page");
 
@@ -321,15 +312,11 @@ export async function sendPortalMessage(
   sender: "client" | "admin",
 ) {
   try {
-    // 🚨 FIX: Must be `null` instead of `undefined` for Next.js Server Action serialization
     let warningMessage: string | null = null;
 
-    // 1. ENTERPRISE RATE LIMIT ENFORCEMENT
-    // Clients can only send 30 messages per 24 hours. Admin has unlimited.
     if (sender === "client") {
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-      // 🚨 FIX: Used Drizzle's native count() for type safety over raw SQL
       const [recentMessages] = await db
         .select({ value: count() })
         .from(portalMessages)
@@ -353,7 +340,6 @@ export async function sendPortalMessage(
         };
       }
 
-      // Calculate remaining and set warning if <= 5
       const remaining = 30 - (messageCount + 1);
       if (remaining <= 5 && remaining > 0) {
         warningMessage = `Message sent. Warning: You only have ${remaining} message(s) remaining in this 24-hour cycle.`;
@@ -362,8 +348,7 @@ export async function sendPortalMessage(
       }
     }
 
-    // 2. Insert the message
-    const [insertedMessage] = await db
+    await db
       .insert(portalMessages)
       .values({
         projectId,
@@ -373,10 +358,8 @@ export async function sendPortalMessage(
       })
       .$returningId();
 
-    // 3. Purge Next.js Cache
-    revalidatePath("/dashboard");
+    revalidatePath("/dashboard", "layout");
 
-    // Return the warning message if applicable, otherwise null
     return { success: true, message: warningMessage };
   } catch (error: any) {
     return { success: false, error: error.message, message: error.message };
@@ -499,15 +482,18 @@ export async function sendClientPortalWelcomeAction(projectSlug: string) {
       })
       .where(eq(projects.slug, projectSlug));
 
-    // Ensure we are pointing to the dashboard domain, not Render
+    // Force APP_URL over Render environment variables
     const rawBaseUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.APP_URL ||
-      "http://localhost:3000";
+      process.env.NEXT_PUBLIC_APP_URL || "https://studioflow.dev";
 
     const baseUrl = rawBaseUrl.replace(/\/$/, "");
 
     const portalLink = `${baseUrl}/portal/${projectSlug}?code=${securePin}`;
+
+    // Log the outgoing email details, including the exact portal link
+    console.log(
+      `📧 [EMAIL DISPATCH]: Sending Portal Welcome Email to ${project.clientEmail} | Project: [${project.name}] | Link: ${portalLink}`,
+    );
 
     await sendPortalWelcomeEmail({
       clientEmail: project.clientEmail,
@@ -529,73 +515,6 @@ export async function sendClientPortalWelcomeAction(projectSlug: string) {
     };
   }
 }
-
-// ==========================================
-// --- LIVE METRICS FETCH ENGINE          ---
-// ==========================================
-
-export async function getLiveProjectStatus(projectId: number) {
-  try {
-    const projectInfo = await db
-      .select({
-        status: projects.status,
-        progressPercentage: projects.progressPercentage,
-        liveUrl: projects.liveUrl,
-        githubRepo: projects.githubRepo,
-      })
-      .from(projects)
-      .where(eq(projects.id, projectId))
-      .limit(1);
-
-    const checklist = await db
-      .select()
-      .from(checklistItems)
-      .where(eq(checklistItems.projectId, projectId))
-      .orderBy(desc(checklistItems.createdAt));
-
-    const requests = await db
-      .select()
-      .from(clientRequests)
-      .where(eq(clientRequests.projectId, projectId))
-      .orderBy(desc(clientRequests.createdAt));
-
-    const deploymentJob = await db
-      .select()
-      .from(provisioningJobs)
-      .where(eq(provisioningJobs.projectId, projectId))
-      .orderBy(desc(provisioningJobs.createdAt))
-      .limit(1);
-
-    const presence = await db
-      .select()
-      .from(chatPresence)
-      .where(eq(chatPresence.projectId, projectId))
-      .limit(1);
-
-    const monitoring = await db
-      .select()
-      .from(siteMonitoring)
-      .where(eq(siteMonitoring.projectId, projectId))
-      .orderBy(desc(siteMonitoring.checkedAt))
-      .limit(1);
-
-    return {
-      success: true,
-      data: {
-        project: projectInfo[0] || null,
-        checklist: checklist,
-        requests: requests,
-        activeJob: deploymentJob[0] || null,
-        presence: presence[0] || null,
-        nodeStatus: monitoring[0] || null,
-      },
-    };
-  } catch (error) {
-    console.error("Failed to query live asset stream:", error);
-    return { success: false, data: null };
-  }
-}
-
 // ==========================================
 // --- ZERO-TRUST PORTAL ACCESS ENGINE ---
 // ==========================================
@@ -605,8 +524,8 @@ export async function dispatchSecurePortalLink(
   clientEmail: string,
   portalSlug: string,
 ) {
+  console.log("🚨 FUNCTION TRIGGERED: dispatchSecurePortalLink");
   try {
-    // 0. Fetch the project so we have the projectName for the email template
     const project = await db.query.projects.findFirst({
       where: eq(projects.id, projectId),
     });
@@ -618,7 +537,6 @@ export async function dispatchSecurePortalLink(
       };
     }
 
-    // 🚨 RATE LIMIT: Max 5 portal link allocations allowed
     if (project.portalLinkSentCount && project.portalLinkSentCount >= 5) {
       return {
         success: false,
@@ -627,13 +545,9 @@ export async function dispatchSecurePortalLink(
       };
     }
 
-    // 1. Generate a cryptographically secure 6-digit OTP
     const secureOtp = crypto.randomInt(100000, 999999).toString();
-
-    // 2. Set strict expiration (15 minutes from now)
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
-    // 3. Lock the project down in the database and step up transmission telemetry
     await db
       .update(projects)
       .set({
@@ -644,14 +558,13 @@ export async function dispatchSecurePortalLink(
       })
       .where(eq(projects.id, projectId));
 
-    // 4. Construct the unique Portal URL
-    // Enforce the use of NEXT_PUBLIC_APP_URL to prevent Render URL leak
+    // Force APP_URL over Render environment variables
     const rawAppUrl =
       process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const cleanAppUrl = rawAppUrl.replace(/\/$/, ""); // Strips trailing slash if present
-    const securePortalUrl = `${cleanAppUrl}/portal/${portalSlug}`;
+    console.log("🔍 ENV CHECK:", process.env.NEXT_PUBLIC_APP_URL);
+    const cleanAppUrl = rawAppUrl.replace(/\/$/, "");
+    const securePortalUrl = `${cleanAppUrl}/portal/${portalSlug}?code=${secureOtp}`;
 
-    // 5. Dispatch the email using your existing mailer function
     await sendPortalWelcomeEmail({
       clientEmail: clientEmail,
       projectName: project.name,
@@ -662,6 +575,9 @@ export async function dispatchSecurePortalLink(
     console.log(
       `✅ [ZERO-TRUST ACCESS]: OTP dispatched to ${clientEmail} for Project: ${project.name}`,
     );
+
+    // FIX: Purge the cache so the dashboard UI and counter instantly updates
+    revalidatePath("/dashboard", "layout");
 
     return {
       success: true,

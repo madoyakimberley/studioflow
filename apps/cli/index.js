@@ -399,6 +399,21 @@ class EngineDaemonWorker {
 // ROUTING MATRICES: Auth & CLI Commands
 // =========================================================================
 
+function getBaseApiUrl() {
+  const rawAppUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.APP_URL ||
+    "http://localhost:3000";
+
+  let cleanAppUrl = rawAppUrl.replace(/\/$/, "");
+
+  if (!cleanAppUrl.startsWith("http")) {
+    cleanAppUrl = `https://${cleanAppUrl}`;
+  }
+
+  return `${cleanAppUrl}/api/cli/sync`;
+}
+
 function showHelp() {
   console.log(
     `\n${c.cyan}===========================================${c.reset}`,
@@ -457,9 +472,11 @@ async function handleAuthenticationLogin() {
       if (!fs.existsSync(STUDIOFLOW_HOME))
         fs.mkdirSync(STUDIOFLOW_HOME, { recursive: true });
 
+      const syncUrl = getBaseApiUrl();
+
       const configPayload = {
         token: cleanToken,
-        apiUrl: "http://localhost:3000/api/cli/sync",
+        apiUrl: syncUrl,
       };
       fs.writeFileSync(
         CONFIG_FILE_PATH,
@@ -468,7 +485,7 @@ async function handleAuthenticationLogin() {
 
       console.log(`\n${c.green}✅ Authentication successful!${c.reset}`);
       console.log(
-        `Your machine is now linked. Type ${c.cyan}'studioflow'${c.reset} to start the engine.\n`,
+        `Your machine is now linked to ${c.magenta}${syncUrl}${c.reset}. Type ${c.cyan}'studioflow'${c.reset} to start the engine.\n`,
       );
       rl.close();
       process.exit(0);
@@ -487,16 +504,15 @@ async function fetchRemoteConfiguration() {
       `\n${c.dim}🔄 Syncing your cloud environment settings...${c.reset}`,
     );
 
-    const res = await fetch(
-      configData.apiUrl || "http://localhost:3000/api/cli/sync",
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${configData.token}`,
-          "Content-Type": "application/json",
-        },
+    const targetUrl = configData.apiUrl || getBaseApiUrl();
+
+    const res = await fetch(targetUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${configData.token}`,
+        "Content-Type": "application/json",
       },
-    );
+    });
 
     if (!res.ok) {
       const errPayload = await res.json().catch(() => ({}));

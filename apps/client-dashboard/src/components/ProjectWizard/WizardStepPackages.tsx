@@ -45,9 +45,9 @@ export const WizardStepPackages: React.FC<WizardStepPackagesProps> = ({
       exit={{ opacity: 0, x: -15 }}
       className="space-y-6"
     >
-      <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-4 flex gap-3">
-        <ShieldCheck className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
-        <p className="text-xs text-indigo-200 leading-relaxed">
+      <div className="bg-theme-primary/10 border border-theme-primary/20 rounded-xl p-4 flex gap-3">
+        <ShieldCheck className="w-5 h-5 text-theme-primary shrink-0 mt-0.5" />
+        <p className="text-xs text-theme-text leading-relaxed">
           <strong>Opinionated Infrastructure:</strong> We have bypassed standard
           packages (like React or Express) which are included automatically.
           Below are the battle-tested, enterprise-grade tools used by senior
@@ -64,10 +64,10 @@ export const WizardStepPackages: React.FC<WizardStepPackagesProps> = ({
           return (
             <div
               key={srv.id}
-              className="bg-[var(--bg-surface)] border border-[var(--border-outline)] rounded-2xl p-5 space-y-4"
+              className="bg-theme-surface border border-theme-outline rounded-2xl p-5 space-y-4"
             >
-              <h3 className="text-sm font-bold text-theme-muted flex items-center gap-2 border-b border-[var(--border-outline)] pb-3">
-                <Package className="w-4 h-4 text-emerald-400" />
+              <h3 className="text-sm font-bold text-theme-muted flex items-center gap-2 border-b border-theme-outline pb-3">
+                <Package className="w-4 h-4 text-theme-primary" />
                 Enterprise Arsenal for {srv.name} ({srv.runtime})
               </h3>
 
@@ -83,18 +83,18 @@ export const WizardStepPackages: React.FC<WizardStepPackagesProps> = ({
                       onClick={() => toggleDependency(srv.id, dep.name)}
                       className={`text-left p-3 rounded-xl border transition-all flex flex-col gap-1.5 ${
                         isSelected
-                          ? "bg-emerald-500/10 border-emerald-500/50 shadow-sm shadow-emerald-500/10"
-                          : "bg-[var(--bg-surface)] border-[var(--border-outline)] hover:border-slate-600"
+                          ? "bg-theme-primary/10 border-theme-primary/50 shadow-sm shadow-theme-primary/10"
+                          : "bg-theme-surface border-theme-outline hover:border-theme-primary"
                       }`}
                     >
                       <div className="flex justify-between items-center w-full">
                         <code
-                          className={`text-[11px] font-bold font-mono ${isSelected ? "text-emerald-400" : "text-indigo-300"}`}
+                          className={`text-[11px] font-bold font-mono ${isSelected ? "text-theme-primary" : "text-theme-muted"}`}
                         >
                           {dep.name}
                         </code>
                         <div
-                          className={`w-3 h-3 rounded-full border ${isSelected ? "bg-emerald-400 border-emerald-400" : "border-slate-600"}`}
+                          className={`w-3 h-3 rounded-full border ${isSelected ? "bg-theme-primary border-theme-primary" : "border-theme-outline"}`}
                         />
                       </div>
                       <span className="text-[10px] text-theme-muted leading-snug">

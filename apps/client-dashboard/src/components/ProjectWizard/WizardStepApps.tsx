@@ -27,20 +27,20 @@ export const WizardStepApps: React.FC<WizardStepAppsProps> = ({
       exit={{ opacity: 0, x: -15 }}
       className="space-y-4"
     >
-      <div className="flex items-center justify-between pb-2 border-b border-[var(--border-outline)]">
+      <div className="flex items-center justify-between pb-2 border-b border-theme-outline">
         <h3 className="text-sm font-bold text-theme-muted flex items-center gap-2">
-          <Server className="w-4 h-4 text-indigo-400" /> Your Apps & APIs
+          <Server className="w-4 h-4 text-theme-primary" /> Your Apps & APIs
         </h3>
 
         {isFlatFolder ? (
-          <div className="flex items-center gap-2 text-amber-500 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-lg text-[11px] font-bold">
+          <div className="flex items-center gap-2 text-theme-secondary bg-theme-secondary/10 border border-theme-secondary/20 px-3 py-1.5 rounded-lg text-[11px] font-bold">
             <ShieldAlert className="w-3.5 h-3.5" />
             Limited to 1 App (Flat Folder Mode)
           </div>
         ) : (
           <button
             onClick={addBlankService}
-            className="flex items-center gap-1 text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors bg-indigo-500/10 px-3 py-1.5 rounded-lg"
+            className="flex items-center gap-1 text-xs font-bold text-theme-primary hover:text-theme-primary/80 transition-colors bg-theme-primary/10 px-3 py-1.5 rounded-lg"
           >
             <Plus className="w-4 h-4" /> Add App
           </button>
@@ -55,12 +55,12 @@ export const WizardStepApps: React.FC<WizardStepAppsProps> = ({
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="bg-[var(--bg-surface)] border border-[var(--border-outline)] rounded-2xl p-5 space-y-4 overflow-hidden relative"
+              className="bg-theme-surface border border-theme-outline rounded-2xl p-5 space-y-4 overflow-hidden relative"
             >
               {!isFlatFolder && services.length > 1 && (
                 <button
                   onClick={() => deleteService(srv.id)}
-                  className="absolute top-4 right-4 text-slate-500 hover:text-red-400 transition-colors bg-[var(--bg-surface)] p-1.5 rounded-md"
+                  className="absolute top-4 right-4 text-theme-muted hover:text-theme-secondary transition-colors bg-theme-surface p-1.5 rounded-md"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -80,7 +80,7 @@ export const WizardStepApps: React.FC<WizardStepAppsProps> = ({
                       e.target.value.toLowerCase().replace(/\s+/g, "-"),
                     )
                   }
-                  className="w-full bg-[var(--bg-surface)] border border-[var(--border-outline)] rounded-xl py-2.5 px-3 text-sm text-theme-text focus:outline-none focus:border-indigo-500 transition-colors font-mono"
+                  className="w-full bg-theme-surface border border-theme-outline rounded-xl py-2.5 px-3 text-sm text-theme-text focus:outline-none focus:border-theme-primary transition-colors font-mono"
                   placeholder="e.g. backend-api"
                 />
               </div>
@@ -95,7 +95,7 @@ export const WizardStepApps: React.FC<WizardStepAppsProps> = ({
                     onChange={(e) =>
                       updateServiceField(srv.id, "runtime", e.target.value)
                     }
-                    className="w-full bg-[var(--bg-surface)] border border-[var(--border-outline)] rounded-xl py-2.5 px-3 text-sm text-theme-text focus:outline-none focus:border-indigo-500 transition-colors"
+                    className="w-full bg-theme-surface border border-theme-outline rounded-xl py-2.5 px-3 text-sm text-theme-text focus:outline-none focus:border-theme-primary transition-colors"
                   >
                     {RUNTIME_PRESETS.map((rt) => (
                       <option key={rt.value} value={rt.value}>
@@ -116,7 +116,7 @@ export const WizardStepApps: React.FC<WizardStepAppsProps> = ({
                       onChange={(e) =>
                         updateServiceField(srv.id, "rootDir", e.target.value)
                       }
-                      className="w-full bg-[var(--bg-surface)] border border-[var(--border-outline)] rounded-xl py-2.5 px-3 text-sm text-theme-text focus:outline-none focus:border-indigo-500 transition-colors font-mono"
+                      className="w-full bg-theme-surface border border-theme-outline rounded-xl py-2.5 px-3 text-sm text-theme-text focus:outline-none focus:border-theme-primary transition-colors font-mono"
                     />
                   </div>
                 )}
@@ -137,17 +137,17 @@ export const WizardStepApps: React.FC<WizardStepAppsProps> = ({
                         }
                         className={`p-3 rounded-xl border transition-all text-left flex flex-col gap-1 ${
                           srv.framework === fw.value
-                            ? "bg-emerald-500/10 border-emerald-500 text-emerald-300 shadow-sm shadow-emerald-500/10"
-                            : "bg-[var(--bg-surface)] border-[var(--border-outline)] hover:border-slate-600 hover:bg-[var(--bg-surface)]"
+                            ? "bg-theme-primary/10 border-theme-primary text-theme-primary shadow-sm shadow-theme-primary/10"
+                            : "bg-theme-surface border-theme-outline hover:border-theme-primary hover:bg-theme-surface"
                         }`}
                       >
                         <span
-                          className={`text-[10px] uppercase font-bold tracking-wider ${srv.framework === fw.value ? "text-emerald-500/70" : "text-slate-500"}`}
+                          className={`text-[10px] uppercase font-bold tracking-wider ${srv.framework === fw.value ? "text-theme-primary/70" : "text-theme-muted"}`}
                         >
                           {fw.type}
                         </span>
                         <span
-                          className={`text-sm font-semibold ${srv.framework === fw.value ? "text-emerald-300" : "text-theme-muted"}`}
+                          className={`text-sm font-semibold ${srv.framework === fw.value ? "text-theme-primary" : "text-theme-muted"}`}
                         >
                           {fw.label}
                         </span>
