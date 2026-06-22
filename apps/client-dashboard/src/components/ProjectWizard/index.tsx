@@ -239,27 +239,38 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
 
         <div className="p-6 flex-1 overflow-y-auto space-y-6 custom-scrollbar">
           {step === 1 && (
-            <WizardStepDetails
-              formData={formData}
-              setFormData={setFormData}
-              handleFolderStructureChange={handleFolderStructureChange}
-              handlePackageManagerChange={handlePackageManagerChange}
-            />
+            <div className="wizard-meta-fields">
+              <WizardStepDetails
+                formData={formData}
+                setFormData={setFormData}
+                handleFolderStructureChange={handleFolderStructureChange}
+                handlePackageManagerChange={handlePackageManagerChange}
+              />
+            </div>
           )}
           {step === 2 && (
-            <WizardStepApps
-              formData={formData}
-              services={services}
-              addBlankService={addBlankService}
-              updateServiceField={updateServiceField}
-              deleteService={deleteService}
-            />
+            <div className="wizard-apps-container">
+              <WizardStepApps
+                formData={formData}
+                services={services}
+                addBlankService={addBlankService}
+                updateServiceField={updateServiceField}
+                deleteService={deleteService}
+              />
+            </div>
           )}
           {step === 3 && (
-            <WizardStepPackages services={services} setServices={setServices} />
+            <div className="wizard-packages-grid">
+              <WizardStepPackages
+                services={services}
+                setServices={setServices}
+              />
+            </div>
           )}
           {step === 4 && (
-            <WizardStepReview formData={formData} services={services} />
+            <div className="wizard-review-terminal">
+              <WizardStepReview formData={formData} services={services} />
+            </div>
           )}
         </div>
 
