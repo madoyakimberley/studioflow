@@ -7,7 +7,8 @@ import { Terminal, CheckCircle } from "lucide-react";
 export default function CliAuthPage() {
   const router = useRouter();
   const [status, setStatus] = useState("Authorizing CLI Bridge...");
-
+  const APP_URL =
+    process.env.APP_URL || "https://studioflow-dashboard.onrender.com";
   useEffect(() => {
     // In a real flow, you fetch the current user's session token from your auth provider or cookies here.
     // For this implementation, we grab the token from local storage or context.
@@ -23,7 +24,7 @@ export default function CliAuthPage() {
 
     // Bounce the token over to the API route which redirects to the CLI local server
     setTimeout(() => {
-      window.location.href = `/api/auth/cli-callback?token=${activeToken}`;
+      window.location.href = `${APP_URL}/api/auth/cli-callback?token=${activeToken}`;
     }, 1500);
   }, [router]);
 
