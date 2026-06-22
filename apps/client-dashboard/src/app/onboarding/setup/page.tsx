@@ -89,33 +89,42 @@ function EnvironmentSetupForm() {
   };
 
   const handleSubmit = async (e?: React.FormEvent | React.MouseEvent) => {
-    // Bam! Here is your trigger log
     console.log("🚀 handleSubmit function triggered!");
 
     if (e) e.preventDefault();
-    setIsSubmitting(true);
 
     if (!formData.databaseUrl || !formData.githubToken) {
       toast.error(
         "Please ensure Database Connection URL and GitHub Token are provided in previous steps.",
       );
-      setIsSubmitting(false);
       return;
     }
 
-    const res = await saveWorkspaceEnvironment({
-      workspaceId: currentWorkspaceId,
-      ...formData,
-    });
+    setIsSubmitting(true);
 
-    if (res.success) {
-      setGeneratedCliToken(
-        res.cliToken || `sf_pat_${Math.random().toString(36).substring(2, 15)}`,
+    try {
+      console.log("🚀 Calling saveWorkspaceEnvironment API...");
+      const res = await saveWorkspaceEnvironment({
+        workspaceId: currentWorkspaceId,
+        ...formData,
+      });
+      console.log("🚀 Response received:", res);
+
+      if (res && res.success) {
+        setGeneratedCliToken(
+          res.cliToken ||
+            `sf_pat_${Math.random().toString(36).substring(2, 15)}`,
+        );
+        setSetupComplete(true);
+      } else {
+        toast.error(res?.message || "Failed to finalize environment setup.");
+      }
+    } catch (error: any) {
+      console.error("🔥 Error during submission:", error);
+      toast.error(
+        error?.message || "A critical error occurred while saving the matrix.",
       );
-      setSetupComplete(true);
-      setIsSubmitting(false);
-    } else {
-      toast.error(res.message);
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -314,7 +323,7 @@ function EnvironmentSetupForm() {
   return (
     <div className="min-h-screen bg-[var(--color-theme-bg)] font-sans text-[var(--color-theme-text)] flex overflow-hidden selection:bg-[var(--color-theme-primary)]/30">
       {/* LEFT PANE: Dynamic Context */}
-      <div className="hidden lg:flex w-[40%] xl:w-[35%] bg-[#10131a] border-r border-[var(--color-theme-outline)]/10 flex-col justify-between z-10 text-[#e0e2ec] relative h-screen">
+      <div className="hidden lg:flex w-[40%] xl:w-[35%] bg-[var(--color-theme-surface)] border-r border-[var(--color-theme-outline)]/10 flex-col justify-between z-10 text-[var(--color-theme-text)] relative h-screen">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <motion.div
             animate={{
@@ -323,7 +332,7 @@ function EnvironmentSetupForm() {
               x: currentStep === 4 ? 50 : 0,
             }}
             transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute -top-[20%] -left-[20%] w-[70%] h-[70%] rounded-full bg-gradient-to-br from-[#d3d7ff]/20 to-transparent blur-[120px]"
+            className="absolute -top-[20%] -left-[20%] w-[70%] h-[70%] rounded-full bg-gradient-to-br from-[var(--color-theme-primary)]/20 to-transparent blur-[120px]"
           />
         </div>
 
@@ -972,9 +981,9 @@ function EnvironmentSetupForm() {
               {/* SUBMIT BUTTON - Only shows on step 4 */}
               {currentStep === 4 && (
                 <button
-                  type="submit" // Changed to "submit" for proper form handling
+                  type="button" // Kept as "button" since we're handling the click manually without a true <form> tag
                   disabled={isSubmitting}
-                  onClick={handleSubmit} // Removed the dangerous (e as any) hack
+                  onClick={handleSubmit}
                   className={`px-8 py-3.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 tracking-wide ${
                     isSubmitting
                       ? "bg-[var(--color-theme-surface)] text-[var(--color-theme-muted)] cursor-not-allowed"
@@ -1005,8 +1014,8 @@ export default function EnvironmentSetupPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#10131a] flex items-center justify-center">
-          <Loader2 className="w-8 h-8 text-[#d3d7ff] animate-spin" />
+        <div className="min-h-screen bg-[var(--color-theme-bg)] flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-[var(--color-theme-primary)] animate-spin" />
         </div>
       }
     >
