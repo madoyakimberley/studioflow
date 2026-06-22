@@ -22,6 +22,10 @@ const SIMULATED_PIPELINE_STEPS = [
   "Finalizing cluster authorization matrix lock...",
 ];
 
+// Set the API base URL. Uses environment variable if available, otherwise defaults to your Render production URL.
+const API_BASE_URL =
+  process.env.API_BASE_URL || "https://studioflow-api-ieck.onrender.com";
+
 function IngressSecurityProtocolScanner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -57,7 +61,7 @@ function IngressSecurityProtocolScanner() {
 
       try {
         const networkCoreVerificationResponse = await fetch(
-          "http://localhost:8000/api/v1/verify-auth",
+          `${API_BASE_URL}/api/v1/verify-auth`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
