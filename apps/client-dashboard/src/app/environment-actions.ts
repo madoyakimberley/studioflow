@@ -3,11 +3,12 @@
 import { db, workspaceEnvironments, workspaces, users } from "@studioflow/db";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import crypto from "crypto";
 
 export interface EnvironmentPayload {
   workspaceId: number;
   databaseUrl: string;
+  databaseEngine: string; // Added to match frontend
+  databaseOrm: string; // Added to match frontend
   targetOutputDir: string;
   githubToken: string;
   deploymentProvider: string;
@@ -35,6 +36,8 @@ export async function saveWorkspaceEnvironment(payload: EnvironmentPayload) {
         .update(workspaceEnvironments)
         .set({
           databaseUrl: payload.databaseUrl,
+          databaseEngine: payload.databaseEngine, // Syncing Engine
+          databaseOrm: payload.databaseOrm, // Syncing ORM
           targetOutputDir: payload.targetOutputDir || "~/StudioFlow/projects",
           githubToken: payload.githubToken,
           deploymentProvider: payload.deploymentProvider,
@@ -52,6 +55,8 @@ export async function saveWorkspaceEnvironment(payload: EnvironmentPayload) {
       await db.insert(workspaceEnvironments).values({
         workspaceId: payload.workspaceId,
         databaseUrl: payload.databaseUrl,
+        databaseEngine: payload.databaseEngine, // Syncing Engine
+        databaseOrm: payload.databaseOrm, // Syncing ORM
         targetOutputDir: payload.targetOutputDir || "~/StudioFlow/projects",
         githubToken: payload.githubToken,
         deploymentProvider: payload.deploymentProvider,
@@ -83,8 +88,8 @@ export async function saveWorkspaceEnvironment(payload: EnvironmentPayload) {
           // Keep using their existing token so they don't have to re-login on their machine
           activeCliToken = ownerUser.cliToken;
         } else {
-          // Generate an elegant, highly identifiable personal access token string
-          const secureEntropy = crypto.randomBytes(24).toString("hex");
+          // Generate an elegant, highly identifiable personal access token string using Web Crypto
+          const secureEntropy = crypto.randomUUID().replace(/-/g, "");
           activeCliToken = `sf_pat_${secureEntropy}`;
 
           await db
