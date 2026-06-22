@@ -55,7 +55,7 @@ export default function FormModal({ onClose, initialMode }: FormModalProps) {
     watch,
     trigger,
     setValue,
-    getValues, // Added to retrieve current values for localStorage caching
+    getValues,
     formState: { errors },
   } = useForm<FormValues>({
     defaultValues: {
@@ -75,7 +75,6 @@ export default function FormModal({ onClose, initialMode }: FormModalProps) {
   const watchedMasterPassword = watch("masterPassword") || "";
   const watchedConfirmPassword = watch("confirmPassword") || "";
 
-  // Password validation criteria monitoring
   const criteria = {
     minLength: watchedMasterPassword.length >= 12,
     hasSymbol: /[^A-Za-z0-9]/.test(watchedMasterPassword),
@@ -85,14 +84,13 @@ export default function FormModal({ onClose, initialMode }: FormModalProps) {
       watchedMasterPassword.length > 0,
   };
 
-  // Handle Next-Auth session bindings if OAuth completes
   useEffect(() => {
     if (session?.user) {
       setValue("email", session.user.email || "");
       setValue("fullName", session.user.name || "");
       setValue("isOAuth", true);
       if (step === 2) {
-        setStep(4); // Advance to confirmation summary if OAuth populates basic profile data
+        setStep(4);
       }
     }
   }, [session, setValue, step]);
@@ -103,8 +101,8 @@ export default function FormModal({ onClose, initialMode }: FormModalProps) {
     try {
       setValue("oauthProvider", provider);
 
-      // Cache form state to localStorage before OAuth redirection as expected by E2E test
       const currentValues = getValues();
+
       localStorage.setItem(
         "studioflow_oauth_cache",
         JSON.stringify({
@@ -115,13 +113,19 @@ export default function FormModal({ onClose, initialMode }: FormModalProps) {
         }),
       );
 
-      await signIn(provider, { callbackUrl: window.location.origin });
+      // Determine if this is a new user needing onboarding
+      const needsOnboarding = mode === "signup" ? "true" : "false";
+      const targetUser = currentValues.username || "admin";
+
+      // Redirect directly to the Auth Gate with the required query parameters
+      await signIn(provider, {
+        callbackUrl: `${window.location.origin}/auth-gate?user=${targetUser}&onboard=${needsOnboarding}&token=oauth_pending_token`,
+      });
     } catch (err: any) {
       setFormError(
         err.message ||
           "An error occurred initializing external identity provider.",
       );
-    } finally {
       setIsProcessing(false);
     }
   };
@@ -150,6 +154,12 @@ export default function FormModal({ onClose, initialMode }: FormModalProps) {
     setFormError(null);
 
     try {
+      const needsOnboarding = mode === "signup" ? "true" : "false";
+      const targetUser = data.username || "admin";
+
+      // In a real scenario, this would be returned from your backend auth actions
+      const sessionToken = "simulated_secure_token_123";
+
       if (mode === "login") {
         console.log(
           "Processing existing session verification metrics...",
@@ -157,15 +167,19 @@ export default function FormModal({ onClose, initialMode }: FormModalProps) {
         );
         await new Promise((resolve) => setTimeout(resolve, 1500));
 
-        const targetedWorkspace = data.workspaceId || "default-matrix";
-        router.push(`/workspace/${targetedWorkspace}/setup`);
+        // Push to the Auth Gate for existing users
+        router.push(
+          `/auth-gate?user=${targetUser}&onboard=${needsOnboarding}&token=${sessionToken}`,
+        );
         onClose();
       } else {
         console.log("Provisioning brand new tenant resources...", data);
         await new Promise((resolve) => setTimeout(resolve, 2000));
 
-        const targetWorkspaceId = data.workspaceId.toLowerCase().trim();
-        router.push(`/workspace/${targetWorkspaceId}/setup`);
+        // Push to the Auth Gate for new users
+        router.push(
+          `/auth-gate?user=${targetUser}&onboard=${needsOnboarding}&token=${sessionToken}`,
+        );
         onClose();
       }
     } catch (err: any) {
@@ -383,14 +397,12 @@ export default function FormModal({ onClose, initialMode }: FormModalProps) {
         {/* RIGHT COLUMN: FORMS */}
         <div className="flex-1 bg-theme-surface/30 p-8 lg:p-24 overflow-y-auto flex flex-col justify-center relative">
           <div className="max-w-xl w-full mx-auto">
-            {/* Functional global error rendering layout banner */}
             {formError && (
               <div className="mb-6 p-4 bg-theme-secondary/10 border border-theme-secondary/30 rounded-xl text-xs font-mono text-theme-secondary shadow-sm">
                 ⚠️ [Sync Anomaly]: {formError}
               </div>
             )}
 
-            {/* LOGIN FORM (SINGLE VIEW) */}
             {mode === "login" ? (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
@@ -540,7 +552,6 @@ export default function FormModal({ onClose, initialMode }: FormModalProps) {
                 </p>
               </motion.div>
             ) : (
-              /* SIGNUP FORM (MULTI-STEP WIZARD) */
               <>
                 <div className="flex justify-between items-center mb-10">
                   <div>
@@ -570,7 +581,6 @@ export default function FormModal({ onClose, initialMode }: FormModalProps) {
 
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                   <AnimatePresence mode="wait">
-                    {/* STEP 1: Personal Info */}
                     {step === 1 && (
                       <motion.div
                         key="step-1"
@@ -651,7 +661,6 @@ export default function FormModal({ onClose, initialMode }: FormModalProps) {
                       </motion.div>
                     )}
 
-                    {/* STEP 2: Email */}
                     {step === 2 && (
                       <motion.div
                         key="step-2"
@@ -757,7 +766,6 @@ export default function FormModal({ onClose, initialMode }: FormModalProps) {
                       </motion.div>
                     )}
 
-                    {/* STEP 3: Password */}
                     {step === 3 && (
                       <motion.div
                         key="step-3"
@@ -903,7 +911,6 @@ export default function FormModal({ onClose, initialMode }: FormModalProps) {
                       </motion.div>
                     )}
 
-                    {/* STEP 4: Review */}
                     {step === 4 && (
                       <motion.div
                         key="step-4"
