@@ -88,7 +88,10 @@ function EnvironmentSetupForm() {
     toast.success(successMessage);
   };
 
-  const handleSubmit = async (e?: React.FormEvent) => {
+  const handleSubmit = async (e?: React.FormEvent | React.MouseEvent) => {
+    // Bam! Here is your trigger log
+    console.log("🚀 handleSubmit function triggered!");
+
     if (e) e.preventDefault();
     setIsSubmitting(true);
 
@@ -938,9 +941,9 @@ function EnvironmentSetupForm() {
           </div>
         </div>
 
-        {/* Fixed Action Footer Bar */}
         <div className="w-full bg-[var(--color-theme-bg)] border-t border-[var(--color-theme-outline)]/10 p-6 px-8 sm:px-12 lg:px-20 z-20 shrink-0">
           <div className="max-w-2xl mx-auto flex items-center justify-between">
+            {/* Previous Button */}
             <button
               type="button"
               onClick={prevStep}
@@ -953,36 +956,44 @@ function EnvironmentSetupForm() {
               <ArrowLeft className="w-4 h-4" /> Previous Step
             </button>
 
-            {currentStep < 4 ? (
-              <button
-                type="button"
-                onClick={nextStep}
-                className="px-8 py-3.5 rounded-xl bg-[var(--color-theme-primary)]/10 hover:bg-[var(--color-theme-primary)]/20 text-[var(--color-theme-primary)] text-sm font-bold transition-all flex items-center gap-2 tracking-wide"
-              >
-                {currentContext.nextLabel} <ArrowRight className="w-4 h-4" />
-              </button>
-            ) : (
-              <button
-                onClick={(e) => handleSubmit(e as any)}
-                disabled={isSubmitting}
-                className={`px-8 py-3.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 tracking-wide ${
-                  isSubmitting
-                    ? "bg-[var(--color-theme-surface)] text-[var(--color-theme-muted)] cursor-not-allowed"
-                    : "bg-[var(--color-theme-primary)] hover:brightness-110 text-[var(--color-theme-on-primary)] shadow-[0_0_20px_var(--color-theme-primary)]/30"
-                }`}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" /> Finalizing
-                    Matrix...
-                  </>
-                ) : (
-                  <>
-                    {currentContext.nextLabel} <Globe className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-            )}
+            {/* Action Buttons Wrapper */}
+            <div className="flex items-center gap-4">
+              {/* NEXT BUTTON - Only shows on steps 1-3 */}
+              {currentStep < 4 && (
+                <button
+                  type="button"
+                  onClick={nextStep}
+                  className="px-8 py-3.5 rounded-xl bg-[var(--color-theme-primary)]/10 hover:bg-[var(--color-theme-primary)]/20 text-[var(--color-theme-primary)] text-sm font-bold transition-all flex items-center gap-2 tracking-wide"
+                >
+                  {currentContext.nextLabel} <ArrowRight className="w-4 h-4" />
+                </button>
+              )}
+
+              {/* SUBMIT BUTTON - Only shows on step 4 */}
+              {currentStep === 4 && (
+                <button
+                  type="submit" // Changed to "submit" for proper form handling
+                  disabled={isSubmitting}
+                  onClick={handleSubmit} // Removed the dangerous (e as any) hack
+                  className={`px-8 py-3.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 tracking-wide ${
+                    isSubmitting
+                      ? "bg-[var(--color-theme-surface)] text-[var(--color-theme-muted)] cursor-not-allowed"
+                      : "bg-[var(--color-theme-primary)] hover:brightness-110 text-[var(--color-theme-on-primary)] shadow-[0_0_20px_var(--color-theme-primary)]/30"
+                  }`}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Finalizing
+                      Matrix...
+                    </>
+                  ) : (
+                    <>
+                      {currentContext.nextLabel} <Globe className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
