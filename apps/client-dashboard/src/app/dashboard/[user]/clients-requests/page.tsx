@@ -6,7 +6,7 @@ import SidebarConsole from "../../../../components/SidebarConsole";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 
-// FIX: Force dynamic rendering so the page never caches stale database data
+// Force dynamic rendering so the page never caches stale database data
 export const dynamic = "force-dynamic";
 
 export default async function AdminClientRequestsOverview({
@@ -40,40 +40,41 @@ export default async function AdminClientRequestsOverview({
   }));
 
   return (
-    <div className="flex min-h-screen w-full bg-[#10131a]">
+    <div className="flex min-h-screen w-full bg-theme-bg text-theme-text transition-colors duration-200">
       <SidebarConsole userSlug={user} />
 
-      <main className="flex-1 p-8 lg:px-16 lg:py-12 overflow-hidden flex flex-col h-screen relative">
-        {/* Luminous Depth / Radial Glows */}
-        <div className="absolute top-[-200px] left-[-200px] w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(232,179,255,0.08)_0%,rgba(232,179,255,0)_70%)] pointer-events-none z-0"></div>
-        <div className="absolute bottom-[-200px] right-[-200px] w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(232,179,255,0.08)_0%,rgba(232,179,255,0)_70%)] pointer-events-none z-0"></div>
-
-        <div className="max-w-[1200px] mx-auto w-full flex flex-col h-full z-10 relative">
-          <div className="mb-12 shrink-0">
+      <main className="flex-1 p-8 lg:p-12 overflow-y-auto custom-scrollbar">
+        <div className="max-w-7xl mx-auto space-y-10">
+          {/* Header navigation map context */}
+          <div>
             <Link
               href={`/dashboard/${user}`}
-              className="inline-flex items-center gap-2 mb-4 group cursor-pointer text-[12px] font-semibold tracking-[0.1em] text-[var(--color-theme-primary)]/70 hover:text-[var(--color-theme-primary)] transition-colors font-['Plus_Jakarta_Sans',_sans-serif] uppercase"
+              className="inline-flex items-center gap-2 mb-4 group cursor-pointer text-[12px] font-semibold tracking-[0.1em] text-theme-primary/70 hover:text-theme-primary transition-colors font-sans uppercase"
             >
               <ChevronLeft className="w-[18px] h-[18px] group-hover:-translate-x-1 transition-transform" />
               Back to Core Systems Overview
             </Link>
 
             <div className="flex items-center gap-3 mb-2">
-              <span className="w-2 h-2 rounded-full bg-[var(--color-theme-secondary)] animate-pulse shadow-[0_0_8px_rgba(248,193,238,0.5)]"></span>
-              <span className="text-[12px] font-bold font-['Plus_Jakarta_Sans',_sans-serif] text-[var(--color-theme-secondary)] uppercase tracking-[0.2em]">
+              <span className="w-2 h-2 rounded-full bg-theme-secondary animate-pulse shadow-[0_0_8px_var(--color-theme-secondary)]"></span>
+              <span className="text-[12px] font-bold font-sans text-theme-secondary uppercase tracking-[0.2em]">
                 Operational Inbound Queue
               </span>
             </div>
 
-            <h1 className="text-[48px] lg:text-[72px] leading-[1.1] font-bold font-['Playfair_Display',_serif] tracking-[-0.02em] text-[var(--text-main)]">
+            <h1 className="text-[48px] lg:text-[72px] leading-[1.1] font-bold font-['Playfair_Display',_serif] tracking-[-0.02em] text-theme-text">
               Client{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--color-theme-primary)] to-[var(--color-theme-secondary)] italic">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-theme-primary to-theme-secondary italic">
                 Matrix
               </span>
             </h1>
+            <p className="text-theme-muted max-w-xl text-sm leading-relaxed mt-3 font-sans">
+              Live pipeline execution portal. Sync operational signals, chat
+              logs, and map custom workflows across production node systems.
+            </p>
           </div>
 
-          {/* Mount the interactive client component */}
+          {/* Interactive Workspace Panel */}
           <AdminChatWorkspace projectsData={projectsData} />
         </div>
       </main>

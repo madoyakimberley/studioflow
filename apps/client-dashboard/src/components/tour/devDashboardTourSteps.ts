@@ -57,9 +57,10 @@ export const getDevDashboardSteps = (
         classes: "shepherd-btn-primary",
         action: function () {
           openWizardModal();
+          // Give the modal animation time to complete before positioning the tour
           setTimeout(() => {
             tour.next();
-          }, 800);
+          }, 400);
         },
       },
     ],
@@ -67,52 +68,118 @@ export const getDevDashboardSteps = (
   {
     id: "wizard-details-step",
     title: "📋 Workspace Configuration",
-    text: "Input repository names and deployment providers here. When you are ready, click the wizard's native 'Continue' button below.",
+    text: "Input repository names and deployment providers here. When you are ready, click Next to advance the wizard.",
     attachTo: { element: ".wizard-meta-fields", on: "bottom" },
     buttons: [
       {
-        text: "Skip Tour",
+        text: "Skip",
         classes: "shepherd-btn-secondary",
         action: tour.cancel,
+      },
+      {
+        text: "Next Step",
+        classes: "shepherd-btn-primary",
+        action: function () {
+          // Find and click the wizard's native "Continue" button
+          const continueBtn = document.querySelector(
+            ".wizard-continue-btn",
+          ) as HTMLButtonElement;
+          if (continueBtn) {
+            continueBtn.click();
+            setTimeout(() => tour.next(), 250);
+          } else {
+            tour.next();
+          }
+        },
       },
     ],
   },
   {
     id: "wizard-apps-step",
     title: "⚡ Microservice Endpoint Matrices",
-    text: "Provision and map runtime components out across isolated container groups. Click the wizard's 'Continue' button to proceed.",
+    text: "Provision and map runtime components out across isolated container groups.",
     attachTo: {
       element: ".wizard-apps-container",
-      on: isMobile() ? "bottom" : "top",
+      on: "top",
     },
     buttons: [
       {
-        text: "Skip Tour",
+        text: "Back",
         classes: "shepherd-btn-secondary",
-        action: tour.cancel,
+        action: function () {
+          const backBtn = document.querySelector(
+            ".wizard-back-btn",
+          ) as HTMLButtonElement;
+          if (backBtn) {
+            backBtn.click();
+            setTimeout(() => tour.back(), 250);
+          } else {
+            tour.back();
+          }
+        },
+      },
+      {
+        text: "Next Step",
+        classes: "shepherd-btn-primary",
+        action: function () {
+          const continueBtn = document.querySelector(
+            ".wizard-continue-btn",
+          ) as HTMLButtonElement;
+          if (continueBtn) {
+            continueBtn.click();
+            setTimeout(() => tour.next(), 250);
+          } else {
+            tour.next();
+          }
+        },
       },
     ],
   },
   {
     id: "wizard-packages-step",
     title: "📦 Core Performance Extensions",
-    text: "Inject optimization engines like key-value caching nodes. Click the wizard's 'Continue' button to view the review stream.",
+    text: "Inject optimization engines like key-value caching nodes into your stack configurations.",
     attachTo: {
       element: ".wizard-packages-grid",
-      on: isMobile() ? "bottom" : "top",
+      on: "top",
     },
     buttons: [
       {
-        text: "Skip Tour",
+        text: "Back",
         classes: "shepherd-btn-secondary",
-        action: tour.cancel,
+        action: function () {
+          const backBtn = document.querySelector(
+            ".wizard-back-btn",
+          ) as HTMLButtonElement;
+          if (backBtn) {
+            backBtn.click();
+            setTimeout(() => tour.back(), 250);
+          } else {
+            tour.back();
+          }
+        },
+      },
+      {
+        text: "Next Step",
+        classes: "shepherd-btn-primary",
+        action: function () {
+          const continueBtn = document.querySelector(
+            ".wizard-continue-btn",
+          ) as HTMLButtonElement;
+          if (continueBtn) {
+            continueBtn.click();
+            setTimeout(() => tour.next(), 250);
+          } else {
+            tour.next();
+          }
+        },
       },
     ],
   },
   {
     id: "wizard-review-step",
     title: "🚀 Automated Infrastructure Compilation",
-    text: "Analyze your final command stream parameters. If the blueprint aligns, execute deployment compilation immediately.",
+    text: "Analyze your final command stream parameters. If the blueprint aligns, you're ready to execute deployment compilation!",
     attachTo: { element: ".wizard-review-terminal", on: "top" },
     buttons: [
       {

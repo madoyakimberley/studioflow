@@ -188,38 +188,38 @@ function EnvironmentSetupForm() {
 
   if (setupComplete) {
     return (
-      <div className="min-h-screen bg-[var(--color-theme-bg)] font-sans text-[var(--color-theme-text)] flex justify-center items-center py-12 px-4 sm:px-6 lg:px-8 selection:bg-[var(--color-theme-primary)]/30">
+      <div className="min-h-screen bg-theme-bg font-sans text-theme-text flex justify-center items-center py-12 px-4 sm:px-6 lg:px-8 selection:bg-theme-primary/30">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-2xl bg-[var(--color-theme-surface)]/20 backdrop-blur-md border border-[var(--color-theme-outline)]/30 rounded-2xl shadow-2xl overflow-hidden p-10 space-y-10 relative"
+          className="w-full max-w-2xl bg-theme-surface/20 backdrop-blur-md border border-theme-outline/30 rounded-2xl shadow-2xl overflow-hidden p-10 space-y-10 relative"
         >
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--color-theme-primary)] to-[var(--color-theme-secondary)]" />
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-theme-primary to-theme-secondary" />
 
           <div className="text-center space-y-4">
-            <div className="w-20 h-20 rounded-full bg-[var(--color-theme-primary)]/10 flex items-center justify-center mx-auto border border-[var(--color-theme-primary)]/20 shadow-[0_0_40px_var(--color-theme-primary)]/20">
-              <CheckCircle className="w-10 h-10 text-[var(--color-theme-primary)]" />
+            <div className="w-20 h-20 rounded-full bg-theme-primary/10 flex items-center justify-center mx-auto border border-theme-primary/20 shadow-[0_0_40px_var(--color-theme-primary)]/20">
+              <CheckCircle className="w-10 h-10 text-theme-primary" />
             </div>
-            <h1 className="text-4xl font-serif text-[var(--color-theme-text)] tracking-tight">
+            <h1 className="text-4xl font-serif text-theme-text tracking-tight">
               Environment Locked.
             </h1>
-            <p className="text-sm text-[var(--color-theme-muted)] font-mono max-w-md mx-auto">
+            <p className="text-sm text-theme-muted font-mono max-w-md mx-auto">
               Your database nodes, mail servers, and cloud options are ready.
               Connect your CLI engine to sync these keys directly.
             </p>
           </div>
 
-          <div className="bg-[var(--color-theme-bg)]/50 border border-[var(--color-theme-outline)]/20 rounded-xl p-6 space-y-8 shadow-inner">
+          <div className="bg-theme-bg/50 border border-theme-outline/20 rounded-xl p-6 space-y-8 shadow-inner">
             <div className="space-y-3">
-              <h3 className="text-xs font-bold text-[var(--color-theme-text)] uppercase tracking-widest flex items-center gap-3">
-                <span className="w-6 h-6 rounded bg-[var(--color-theme-primary)]/20 flex items-center justify-center text-[var(--color-theme-primary)]">
+              <h3 className="text-xs font-bold text-theme-text uppercase tracking-widest flex items-center gap-3">
+                <span className="w-6 h-6 rounded bg-theme-primary/20 flex items-center justify-center text-theme-primary">
                   1
                 </span>
                 Install the StudioFlow CLI
               </h3>
               <div className="pl-9 relative">
-                <div className="bg-[var(--color-theme-surface)]/50 border border-[var(--color-theme-outline)]/30 rounded-lg p-4 flex justify-between items-center group hover:border-[var(--color-theme-primary)]/50 transition">
-                  <code className="text-[var(--color-theme-text)] text-[13px] font-mono">
+                <div className="bg-theme-surface/50 border border-theme-outline/30 rounded-lg p-4 flex justify-between items-center group hover:border-theme-primary/50 transition">
+                  <code className="text-theme-text text-[13px] font-mono">
                     npm install -g studioflow-cli
                   </code>
                   <button
@@ -229,7 +229,7 @@ function EnvironmentSetupForm() {
                         "Install command copied!",
                       )
                     }
-                    className="text-[var(--color-theme-muted)] hover:text-[var(--color-theme-primary)] transition"
+                    className="text-theme-muted hover:text-theme-primary transition"
                   >
                     <Copy className="w-5 h-5" />
                   </button>
@@ -238,17 +238,17 @@ function EnvironmentSetupForm() {
             </div>
 
             <div className="space-y-3">
-              <h3 className="text-xs font-bold text-[var(--color-theme-text)] uppercase tracking-widest flex items-center gap-3">
-                <span className="w-6 h-6 rounded bg-[var(--color-theme-primary)]/20 flex items-center justify-center text-[var(--color-theme-primary)]">
+              <h3 className="text-xs font-bold text-theme-text uppercase tracking-widest flex items-center gap-3">
+                <span className="w-6 h-6 rounded bg-theme-primary/20 flex items-center justify-center text-theme-primary">
                   2
                 </span>
                 Authenticate Local Engine
               </h3>
               <div className="pl-9 space-y-3">
-                <div className="bg-[var(--color-theme-surface)]/50 border border-[var(--color-theme-outline)]/30 rounded-lg p-4 flex justify-between items-center hover:border-[var(--color-theme-primary)]/50 transition">
+                <div className="bg-theme-surface/50 border border-theme-outline/30 rounded-lg p-4 flex justify-between items-center hover:border-theme-primary/50 transition">
                   <div className="flex items-center gap-3 overflow-hidden">
-                    <Lock className="w-4 h-4 text-[var(--color-theme-primary)] shrink-0" />
-                    <code className="text-[var(--color-theme-text)] text-[13px] font-mono truncate opacity-80">
+                    <Lock className="w-4 h-4 text-theme-primary shrink-0" />
+                    <code className="text-theme-text text-[13px] font-mono truncate opacity-80">
                       {generatedCliToken}
                     </code>
                   </div>
@@ -259,14 +259,14 @@ function EnvironmentSetupForm() {
                         "Token copied securely to clipboard!",
                       )
                     }
-                    className="text-[var(--color-theme-muted)] hover:text-[var(--color-theme-primary)] transition pl-3"
+                    className="text-theme-muted hover:text-theme-primary transition pl-3"
                   >
                     <Copy className="w-5 h-5" />
                   </button>
                 </div>
 
-                <div className="bg-[var(--color-theme-surface)]/50 border border-[var(--color-theme-outline)]/30 rounded-lg p-4 flex justify-between items-center group hover:border-[var(--color-theme-primary)]/50 transition">
-                  <code className="text-[var(--color-theme-text)] text-[13px] font-mono">
+                <div className="bg-theme-surface/50 border border-theme-outline/30 rounded-lg p-4 flex justify-between items-center group hover:border-theme-primary/50 transition">
+                  <code className="text-theme-text text-[13px] font-mono">
                     studioflow login
                   </code>
                   <button
@@ -276,7 +276,7 @@ function EnvironmentSetupForm() {
                         "Login command copied!",
                       )
                     }
-                    className="text-[var(--color-theme-muted)] hover:text-[var(--color-theme-primary)] transition"
+                    className="text-theme-muted hover:text-theme-primary transition"
                   >
                     <Copy className="w-5 h-5" />
                   </button>
@@ -285,22 +285,22 @@ function EnvironmentSetupForm() {
             </div>
 
             <div className="space-y-3">
-              <h3 className="text-xs font-bold text-[var(--color-theme-text)] uppercase tracking-widest flex items-center gap-3">
-                <span className="w-6 h-6 rounded bg-[var(--color-theme-primary)]/20 flex items-center justify-center text-[var(--color-theme-primary)]">
+              <h3 className="text-xs font-bold text-theme-text uppercase tracking-widest flex items-center gap-3">
+                <span className="w-6 h-6 rounded bg-theme-primary/20 flex items-center justify-center text-theme-primary">
                   3
                 </span>
                 Boot the Engine Daemon
               </h3>
               <div className="pl-9 relative">
-                <div className="bg-[var(--color-theme-surface)]/50 border border-[var(--color-theme-outline)]/30 rounded-lg p-4 flex justify-between items-center group hover:border-[var(--color-theme-primary)]/50 transition">
-                  <code className="text-[var(--color-theme-primary)] text-[13px] font-mono font-bold">
+                <div className="bg-theme-surface/50 border border-theme-outline/30 rounded-lg p-4 flex justify-between items-center group hover:border-theme-primary/50 transition">
+                  <code className="text-theme-primary text-[13px] font-mono font-bold">
                     studioflow
                   </code>
                   <button
                     onClick={() =>
                       copyToClipboard("studioflow", "Boot command copied!")
                     }
-                    className="text-[var(--color-theme-muted)] hover:text-[var(--color-theme-primary)] transition"
+                    className="text-theme-muted hover:text-theme-primary transition"
                   >
                     <Copy className="w-5 h-5" />
                   </button>
@@ -311,7 +311,7 @@ function EnvironmentSetupForm() {
 
           <button
             onClick={() => router.push(`/dashboard/${targetUser}`)}
-            className="w-full bg-[var(--color-theme-primary)] hover:brightness-110 text-[var(--color-theme-on-primary)] text-sm font-bold py-5 rounded-xl transition-all flex items-center justify-center gap-2 tracking-wide shadow-[0_0_20px_var(--color-theme-primary)]/30"
+            className="w-full bg-theme-primary hover:brightness-110 text-theme-on-primary text-sm font-bold py-5 rounded-xl transition-all flex items-center justify-center gap-2 tracking-wide shadow-[0_0_20px_var(--color-theme-primary)]/30"
           >
             Finalize Synchronization <ArrowRight className="w-5 h-5" />
           </button>
@@ -321,9 +321,9 @@ function EnvironmentSetupForm() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--color-theme-bg)] font-sans text-[var(--color-theme-text)] flex overflow-hidden selection:bg-[var(--color-theme-primary)]/30">
+    <div className="min-h-screen bg-theme-bg font-sans text-theme-text flex overflow-hidden selection:bg-theme-primary/30">
       {/* LEFT PANE: Dynamic Context */}
-      <div className="hidden lg:flex w-[40%] xl:w-[35%] bg-[var(--color-theme-surface)] border-r border-[var(--color-theme-outline)]/10 flex-col justify-between z-10 text-[var(--color-theme-text)] relative h-screen">
+      <div className="hidden lg:flex w-[40%] xl:w-[35%] bg-theme-surface border-r border-theme-outline/10 flex-col justify-between z-10 text-theme-text relative h-screen">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <motion.div
             animate={{
@@ -332,7 +332,7 @@ function EnvironmentSetupForm() {
               x: currentStep === 4 ? 50 : 0,
             }}
             transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute -top-[20%] -left-[20%] w-[70%] h-[70%] rounded-full bg-gradient-to-br from-[var(--color-theme-primary)]/20 to-transparent blur-[120px]"
+            className="absolute -top-[20%] -left-[20%] w-[70%] h-[70%] rounded-full bg-gradient-to-br from-theme-primary/20 to-transparent blur-[120px]"
           />
         </div>
 
@@ -345,23 +345,23 @@ function EnvironmentSetupForm() {
               exit={{ opacity: 0, x: 20, filter: "blur(4px)" }}
               transition={{ duration: 0.4, ease: "easeOut" }}
             >
-              <p className="text-[var(--color-theme-primary)] font-bold tracking-[0.2em] text-[10px] uppercase mb-6 drop-shadow-md">
+              <p className="text-theme-primary font-bold tracking-[0.2em] text-[10px] uppercase mb-6 drop-shadow-md">
                 {currentContext.tag}
               </p>
               <h1 className="text-5xl xl:text-6xl font-serif mb-6 tracking-tight leading-[1.1] whitespace-pre-line">
                 {currentContext.title}
               </h1>
-              <p className="text-[var(--color-theme-outline)] text-sm leading-relaxed max-w-sm mb-12">
+              <p className="text-theme-outline text-sm leading-relaxed max-w-sm mb-12">
                 {currentContext.desc}
               </p>
 
-              <div className="p-5 rounded-2xl border border-[var(--color-theme-outline)]/20 bg-[var(--color-theme-surface)]/20 backdrop-blur-md max-w-sm relative overflow-hidden group">
-                <div className="absolute top-0 left-0 w-1 h-full bg-[var(--color-theme-primary)]/50" />
-                <h4 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-[var(--color-theme-text)] mb-2">
-                  <Info className="w-4 h-4 text-[var(--color-theme-secondary)]" />{" "}
-                  Why is this necessary?
+              <div className="p-5 rounded-2xl border border-theme-outline/20 bg-theme-surface/20 backdrop-blur-md max-w-sm relative overflow-hidden group">
+                <div className="absolute top-0 left-0 w-1 h-full bg-theme-primary/50" />
+                <h4 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-theme-text mb-2">
+                  <Info className="w-4 h-4 text-theme-secondary" /> Why is this
+                  necessary?
                 </h4>
-                <p className="text-[12px] text-[var(--color-theme-muted)] leading-relaxed">
+                <p className="text-[12px] text-theme-muted leading-relaxed">
                   {currentContext.necessity}
                 </p>
               </div>
@@ -376,8 +376,8 @@ function EnvironmentSetupForm() {
                 key={dot}
                 className={`h-1.5 rounded-full transition-all duration-500 ${
                   currentStep === dot
-                    ? "w-8 bg-[var(--color-theme-primary)]"
-                    : "w-2 bg-[var(--color-theme-outline)]/30"
+                    ? "w-8 bg-theme-primary"
+                    : "w-2 bg-theme-outline/30"
                 }`}
               />
             ))}
@@ -386,20 +386,20 @@ function EnvironmentSetupForm() {
       </div>
 
       {/* RIGHT PANE: Wizard Action Area */}
-      <div className="w-full lg:w-[60%] xl:w-[65%] h-screen bg-[var(--color-theme-bg)] flex flex-col relative overflow-hidden">
+      <div className="w-full lg:w-[60%] xl:w-[65%] h-screen bg-theme-bg flex flex-col relative overflow-hidden">
         {/* Fixed Progress Bar Header */}
-        <div className="w-full bg-[var(--color-theme-bg)]/95 backdrop-blur-md border-b border-[var(--color-theme-outline)]/10 px-8 pt-8 pb-5 sm:px-12 lg:px-20 z-20 shrink-0">
+        <div className="w-full bg-theme-bg/95 backdrop-blur-md border-b border-theme-outline/10 px-8 pt-8 pb-5 sm:px-12 lg:px-20 z-20 shrink-0">
           <div className="flex justify-between items-end mb-3">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-theme-muted)]">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-theme-muted">
               Configuration Progress
             </span>
-            <span className="text-[11px] font-mono text-[var(--color-theme-text)]">
+            <span className="text-[11px] font-mono text-theme-text">
               {progressPercentage}% Complete
             </span>
           </div>
-          <div className="w-full h-1 bg-[var(--color-theme-surface)]/80 rounded-full overflow-hidden">
+          <div className="w-full h-1 bg-theme-surface/80 rounded-full overflow-hidden">
             <motion.div
-              className="h-full bg-gradient-to-r from-[var(--color-theme-primary)] to-[var(--color-theme-secondary)] shadow-[0_0_10px_var(--color-theme-primary)]/50"
+              className="h-full bg-gradient-to-r from-theme-primary to-theme-secondary shadow-[0_0_10px_var(--color-theme-primary)]/50"
               initial={{ width: 0 }}
               animate={{ width: `${progressPercentage}%` }}
               transition={{ duration: 0.6, ease: "circOut" }}
@@ -422,16 +422,16 @@ function EnvironmentSetupForm() {
                   className="space-y-8"
                 >
                   <div>
-                    <h2 className="text-3xl font-serif text-[var(--color-theme-text)] mb-3 tracking-tight">
+                    <h2 className="text-3xl font-serif text-theme-text mb-3 tracking-tight">
                       Project Identity
                     </h2>
-                    <p className="text-sm text-[var(--color-theme-muted)]">
+                    <p className="text-sm text-theme-muted">
                       Define the foundational parameters for the new workspace.
                     </p>
                   </div>
 
                   <div className="space-y-4 pt-4">
-                    <label className="block text-[11px] font-bold uppercase tracking-widest text-[var(--color-theme-text)]">
+                    <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text">
                       Local Scaffolding Directory
                     </label>
                     <div className="relative flex items-center group">
@@ -442,17 +442,34 @@ function EnvironmentSetupForm() {
                         onChange={(e) =>
                           handleUpdate("targetOutputDir", e.target.value)
                         }
-                        className="w-full bg-transparent border-b border-[var(--color-theme-outline)]/30 pb-4 text-sm text-[var(--color-theme-muted)] font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition pr-12"
-                        placeholder="/users/admin/foundry/projects/..."
+                        className="w-full bg-transparent border-b border-theme-outline/30 pb-4 text-sm text-theme-muted font-mono focus:outline-none focus:border-theme-primary transition pr-12"
+                        placeholder="~/Documents/StudioFlow"
                       />
                       <button
-                        type="button"
                         onClick={handleBrowseClick}
-                        className="absolute right-0 bottom-4 text-[var(--color-theme-outline)] group-hover:text-[var(--color-theme-text)] hover:!text-[var(--color-theme-primary)] transition"
+                        type="button"
+                        className="absolute right-0 top-0 bottom-4 px-3 flex items-center text-theme-muted hover:text-theme-primary hover:bg-theme-surface rounded-md transition"
+                        title="Browse or Info"
                       >
                         <FolderSearch className="w-5 h-5" />
                       </button>
                     </div>
+                  </div>
+
+                  <div className="space-y-4 pt-6">
+                    <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text">
+                      Admin Alert Email
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={formData.adminAlertEmail}
+                      onChange={(e) =>
+                        handleUpdate("adminAlertEmail", e.target.value)
+                      }
+                      className="w-full bg-transparent border-b border-theme-outline/30 pb-4 text-sm text-theme-text focus:outline-none focus:border-theme-primary transition"
+                      placeholder="admin@studioflow.dev"
+                    />
                   </div>
                 </motion.section>
               )}
@@ -465,81 +482,61 @@ function EnvironmentSetupForm() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
                   transition={{ duration: 0.3 }}
-                  className="space-y-12"
+                  className="space-y-10"
                 >
-                  <div className="space-y-4">
-                    <label className="block text-[11px] font-bold uppercase tracking-widest text-[var(--color-theme-text)]">
-                      Primary Database Connection URL
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.databaseUrl}
-                      onChange={(e) =>
-                        handleUpdate("databaseUrl", e.target.value)
-                      }
-                      className="w-full bg-transparent border-b border-[var(--color-theme-outline)]/30 pb-4 text-sm text-[var(--color-theme-muted)] font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
-                      placeholder="mysql://user:pass@host:3306/db"
-                    />
-                  </div>
-
                   <div className="space-y-5">
-                    <label className="block text-[11px] font-bold uppercase tracking-widest text-[var(--color-theme-text)] flex items-center gap-2">
-                      <Code className="w-4 h-4" /> Database Engine
+                    <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text flex items-center gap-2">
+                      <Server className="w-4 h-4" /> Database Engine
                     </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {[
                         {
                           id: "postgresql",
                           label: "PostgreSQL",
-                          desc: "Advanced relational engine.",
-                          icon: Database,
+                          desc: "Relational standard with robust ACID compliance.",
                         },
                         {
                           id: "mysql",
                           label: "MySQL",
-                          desc: "Reliable web-standard.",
-                          icon: Database,
-                        },
-                        {
-                          id: "mongodb",
-                          label: "MongoDB",
-                          desc: "Scalable NoSQL cluster.",
-                          icon: Database,
+                          desc: "High reliability multi-threaded SQL database.",
                         },
                         {
                           id: "sqlite",
                           label: "SQLite",
-                          desc: "Local light-weight file.",
-                          icon: Database,
+                          desc: "Lightweight, file-based embedded SQL engine.",
+                        },
+                        {
+                          id: "mongodb",
+                          label: "MongoDB",
+                          desc: "Scalable NoSQL document database.",
                         },
                       ].map((db) => (
                         <div
                           key={db.id}
                           onClick={() => handleUpdate("databaseEngine", db.id)}
-                          className={`cursor-pointer rounded-2xl border p-4 transition-all duration-300 flex flex-col gap-3 ${
+                          className={`p-5 rounded-xl border-2 cursor-pointer transition-all flex flex-col gap-3 ${
                             formData.databaseEngine === db.id
-                              ? "border-[var(--color-theme-primary)] bg-[var(--color-theme-primary)]/5"
-                              : "border-[var(--color-theme-outline)]/20 bg-[var(--color-theme-surface)]/20 hover:border-[var(--color-theme-outline)]/50"
+                              ? "border-theme-primary bg-theme-primary/10 shadow-[0_0_15px_var(--color-theme-primary)]/20"
+                              : "border-theme-outline/20 hover:border-theme-outline/50 bg-theme-surface/30"
                           }`}
                         >
-                          <div className="flex justify-between items-start">
-                            <div
-                              className={`p-2 rounded-xl ${formData.databaseEngine === db.id ? "bg-[var(--color-theme-primary)]/20" : "bg-[var(--color-theme-surface)]/50"}`}
-                            >
-                              <db.icon
-                                className={`w-4 h-4 ${formData.databaseEngine === db.id ? "text-[var(--color-theme-primary)]" : "text-[var(--color-theme-muted)]"}`}
-                              />
-                            </div>
+                          <div className="flex justify-between items-center">
+                            <Database
+                              className={`w-5 h-5 ${
+                                formData.databaseEngine === db.id
+                                  ? "text-theme-primary"
+                                  : "text-theme-muted"
+                              }`}
+                            />
                             {formData.databaseEngine === db.id && (
-                              <CheckCircle className="w-4 h-4 text-[var(--color-theme-primary)]" />
+                              <CheckCircle className="w-4 h-4 text-theme-primary" />
                             )}
                           </div>
                           <div>
-                            <h4 className="text-[13px] font-bold text-[var(--color-theme-text)]">
+                            <h4 className="text-[13px] font-bold text-theme-text">
                               {db.label}
                             </h4>
-                            <p className="text-[11px] text-[var(--color-theme-muted)] mt-0.5">
+                            <p className="text-[11px] text-theme-muted mt-0.5">
                               {db.desc}
                             </p>
                           </div>
@@ -549,7 +546,7 @@ function EnvironmentSetupForm() {
                   </div>
 
                   <div className="space-y-5">
-                    <label className="block text-[11px] font-bold uppercase tracking-widest text-[var(--color-theme-text)] flex items-center gap-2">
+                    <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text flex items-center gap-2">
                       <Database className="w-4 h-4" /> Database ORM
                     </label>
                     <div className="grid grid-cols-1 gap-3 max-h-[360px] overflow-y-auto pr-2 custom-scrollbar">
@@ -592,64 +589,72 @@ function EnvironmentSetupForm() {
                         {
                           id: "entity_framework",
                           label: "EF Core",
-                          desc: "Lightweight, extensible multi-platform data mapper for .NET systems.",
-                        },
-                        {
-                          id: "active_record",
-                          label: "ActiveRecord",
-                          desc: "Legendary convention-over-configuration data store connector.",
+                          desc: "Lightweight, extensible framework for .NET platforms.",
                         },
                       ].map((orm) => (
                         <div
                           key={orm.id}
                           onClick={() => handleUpdate("databaseOrm", orm.id)}
-                          className={`cursor-pointer rounded-xl border p-3 flex items-center gap-4 transition-all duration-300 ${
+                          className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center gap-4 ${
                             formData.databaseOrm === orm.id
-                              ? "border-[var(--color-theme-primary)] bg-[var(--color-theme-primary)]/5"
-                              : "border-[var(--color-theme-outline)]/20 bg-[var(--color-theme-surface)]/20 hover:border-[var(--color-theme-outline)]/50"
+                              ? "border-theme-primary bg-theme-primary/10"
+                              : "border-theme-outline/20 hover:border-theme-outline/50 bg-theme-surface/30"
                           }`}
                         >
                           <div
-                            className={`p-2 rounded-lg ${formData.databaseOrm === orm.id ? "bg-[var(--color-theme-primary)]/20" : "bg-[var(--color-theme-surface)]/50"}`}
+                            className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                              formData.databaseOrm === orm.id
+                                ? "border-theme-primary"
+                                : "border-theme-outline/40"
+                            }`}
                           >
-                            <Code
-                              className={`w-4 h-4 ${formData.databaseOrm === orm.id ? "text-[var(--color-theme-primary)]" : "text-[var(--color-theme-muted)]"}`}
-                            />
+                            {formData.databaseOrm === orm.id && (
+                              <div className="w-2 h-2 rounded-full bg-theme-primary" />
+                            )}
                           </div>
-                          <div className="flex-1">
-                            <h4 className="text-[13px] font-bold text-[var(--color-theme-text)]">
+                          <div>
+                            <h4 className="text-[13px] font-bold text-theme-text">
                               {orm.label}
                             </h4>
-                            <p className="text-[11px] text-[var(--color-theme-muted)] mt-0.5">
+                            <p className="text-[11px] text-theme-muted mt-0.5">
                               {orm.desc}
                             </p>
                           </div>
-                          {formData.databaseOrm === orm.id && (
-                            <div className="pr-2">
-                              <CheckCircle className="w-4 h-4 text-[var(--color-theme-primary)]" />
-                            </div>
-                          )}
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Redis Field with interactive Explainer info button */}
                   <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      <label className="block text-[11px] font-bold uppercase tracking-widest text-[var(--color-theme-text)]">
-                        Redis URL Connection Key (Optional)
+                    <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text">
+                      Database Connection URL
+                    </label>
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      spellCheck="false"
+                      autoCorrect="off"
+                      required
+                      value={formData.databaseUrl}
+                      onChange={(e) =>
+                        handleUpdate("databaseUrl", e.target.value)
+                      }
+                      className="w-full bg-transparent border-b border-theme-outline/30 pb-4 text-sm text-theme-text font-mono focus:outline-none focus:border-theme-primary transition"
+                      placeholder="postgres://user:pass@host:5432/db"
+                    />
+                  </div>
+
+                  <div className="space-y-4 pt-4 border-t border-theme-outline/20">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text flex items-center gap-2">
+                        <Cpu className="w-4 h-4" /> Redis Cluster URL
                       </label>
                       <button
                         type="button"
                         onClick={() => setShowRedisInfo(!showRedisInfo)}
-                        className={`transition-colors p-0.5 rounded focus:outline-none ${
-                          showRedisInfo
-                            ? "text-[var(--color-theme-primary)]"
-                            : "text-[var(--color-theme-outline)] hover:text-[var(--color-theme-text)]"
-                        }`}
+                        className="text-[10px] text-theme-primary font-bold tracking-widest uppercase hover:underline"
                       >
-                        <HelpCircle className="w-4 h-4" />
+                        {showRedisInfo ? "Hide Context" : "Why do I need this?"}
                       </button>
                     </div>
 
@@ -659,13 +664,12 @@ function EnvironmentSetupForm() {
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: "auto" }}
                           exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.25, ease: "easeInOut" }}
                           className="overflow-hidden"
                         >
-                          <div className="p-4 rounded-xl border border-[var(--color-theme-primary)]/20 bg-[var(--color-theme-primary)]/5 text-xs text-[var(--color-theme-muted)] leading-relaxed space-y-2">
+                          <div className="bg-theme-surface/50 border border-theme-outline/20 rounded-xl p-4 text-[12px] text-theme-muted leading-relaxed space-y-2">
                             <p>
                               Redis is{" "}
-                              <strong className="text-[var(--color-theme-text)]">
+                              <strong className="text-theme-text">
                                 optional but highly recommended
                               </strong>
                               . If you want to experience the full features of
@@ -681,7 +685,7 @@ function EnvironmentSetupForm() {
                                 href="https://upstash.com"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-[var(--color-theme-primary)] underline font-bold hover:text-[var(--color-theme-secondary)] transition"
+                                className="text-theme-primary underline font-bold hover:text-theme-secondary transition"
                               >
                                 Upstash free tier
                               </a>{" "}
@@ -697,7 +701,7 @@ function EnvironmentSetupForm() {
                       type="text"
                       value={formData.redisUrl}
                       onChange={(e) => handleUpdate("redisUrl", e.target.value)}
-                      className="w-full bg-transparent border-b border-[var(--color-theme-outline)]/30 pb-4 text-sm text-[var(--color-theme-muted)] font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
+                      className="w-full bg-transparent border-b border-theme-outline/30 pb-4 text-sm text-theme-muted font-mono focus:outline-none focus:border-theme-primary transition"
                       placeholder="redis://127.0.0.1:6379"
                     />
                   </div>
@@ -715,36 +719,46 @@ function EnvironmentSetupForm() {
                   className="space-y-12"
                 >
                   <div className="space-y-4">
-                    <label className="block text-[11px] font-bold uppercase tracking-widest text-[var(--color-theme-text)] flex items-center gap-2">
-                      <FolderSync className="w-4 h-4" /> Version Control
-                      Interface
+                    <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text flex items-center gap-2">
+                      <FolderSync className="w-4 h-4" /> Version Control (GitHub
+                      PAT)
                     </label>
+                    <p className="text-[12px] text-theme-muted leading-relaxed mb-4">
+                      Required for the CLI to automatically provision
+                      repositories and push baseline scaffold architectures. The
+                      token requires `repo` and `workflow` scopes.
+                    </p>
                     <input
                       type="password"
-                      required
                       autoComplete="new-password"
                       spellCheck="false"
                       autoCorrect="off"
+                      required
                       value={formData.githubToken}
                       onChange={(e) =>
                         handleUpdate("githubToken", e.target.value)
                       }
-                      className="w-full bg-[var(--color-theme-surface)]/20 border border-[var(--color-theme-outline)]/30 rounded-xl p-4 text-sm text-[var(--color-theme-text)] font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition placeholder:text-[var(--color-theme-outline)]/50"
-                      placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                      className="w-full bg-transparent border-b border-theme-outline/30 pb-4 text-sm text-theme-text font-mono focus:outline-none focus:border-theme-primary transition"
+                      placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxx"
                     />
-                    <p className="text-[10px] text-[var(--color-theme-muted)] pl-1">
-                      Tokens are hashed instantly and never stored as plaintext.
-                    </p>
                   </div>
 
-                  <div className="space-y-6 pt-6 border-t border-[var(--color-theme-outline)]/10">
-                    <label className="block text-[11px] font-bold uppercase tracking-widest text-[var(--color-theme-text)] flex items-center gap-2">
-                      <Mail className="w-4 h-4" /> Outbound Notification Mail
-                    </label>
+                  <div className="space-y-6 pt-6 border-t border-theme-outline/20">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Mail className="w-5 h-5 text-theme-text" />
+                      <h3 className="text-sm font-bold text-theme-text uppercase tracking-widest">
+                        SMTP Gateway
+                      </h3>
+                    </div>
+                    <p className="text-[12px] text-theme-muted leading-relaxed mb-4">
+                      Required to dispatch magic links, alerts, and client
+                      communications. You can configure this post-deployment if
+                      you prefer.
+                    </p>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-2 gap-6">
                       <div className="space-y-3">
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-[var(--color-theme-muted)]">
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-theme-muted">
                           SMTP Host
                         </label>
                         <input
@@ -753,12 +767,12 @@ function EnvironmentSetupForm() {
                           onChange={(e) =>
                             handleUpdate("smtpHost", e.target.value)
                           }
-                          className="w-full bg-transparent border-b border-[var(--color-theme-outline)]/30 pb-3 text-sm text-[var(--color-theme-text)] font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
-                          placeholder="smtp.mailtrap.io"
+                          className="w-full bg-transparent border-b border-theme-outline/30 pb-3 text-sm text-theme-text font-mono focus:outline-none focus:border-theme-primary transition"
+                          placeholder="smtp.resend.com"
                         />
                       </div>
                       <div className="space-y-3">
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-[var(--color-theme-muted)]">
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-theme-muted">
                           Port
                         </label>
                         <input
@@ -767,31 +781,13 @@ function EnvironmentSetupForm() {
                           onChange={(e) =>
                             handleUpdate("smtpPort", e.target.value)
                           }
-                          className="w-full bg-transparent border-b border-[var(--color-theme-outline)]/30 pb-3 text-sm text-[var(--color-theme-text)] font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
+                          className="w-full bg-transparent border-b border-theme-outline/30 pb-3 text-sm text-theme-text font-mono focus:outline-none focus:border-theme-primary transition"
                           placeholder="587"
                         />
                       </div>
-                    </div>
-
-                    <div className="space-y-3 pt-2">
-                      <label className="block text-[10px] font-bold uppercase tracking-widest text-[var(--color-theme-muted)]">
-                        Critical Alert Email
-                      </label>
-                      <input
-                        type="email"
-                        value={formData.adminAlertEmail}
-                        onChange={(e) =>
-                          handleUpdate("adminAlertEmail", e.target.value)
-                        }
-                        className="w-full bg-transparent border-b border-[var(--color-theme-outline)]/30 pb-3 text-sm text-[var(--color-theme-text)] font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
-                        placeholder="admin@enterprise-studio.dev"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
                       <div className="space-y-3">
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-[var(--color-theme-muted)]">
-                          SMTP Username
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-theme-muted">
+                          SMTP User
                         </label>
                         <input
                           type="text"
@@ -799,12 +795,12 @@ function EnvironmentSetupForm() {
                           onChange={(e) =>
                             handleUpdate("smtpUser", e.target.value)
                           }
-                          className="w-full bg-transparent border-b border-[var(--color-theme-outline)]/30 pb-3 text-sm text-[var(--color-theme-text)] font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
+                          className="w-full bg-transparent border-b border-theme-outline/30 pb-3 text-sm text-theme-text font-mono focus:outline-none focus:border-theme-primary transition"
                           placeholder="Username Token"
                         />
                       </div>
                       <div className="space-y-3">
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-[var(--color-theme-muted)]">
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-theme-muted">
                           SMTP Password
                         </label>
                         <input
@@ -816,7 +812,7 @@ function EnvironmentSetupForm() {
                           onChange={(e) =>
                             handleUpdate("smtpPass", e.target.value)
                           }
-                          className="w-full bg-transparent border-b border-[var(--color-theme-outline)]/30 pb-3 text-sm text-[var(--color-theme-text)] font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
+                          className="w-full bg-transparent border-b border-theme-outline/30 pb-3 text-sm text-theme-text font-mono focus:outline-none focus:border-theme-primary transition"
                           placeholder="••••••••••••••••"
                         />
                       </div>
@@ -835,11 +831,10 @@ function EnvironmentSetupForm() {
                   transition={{ duration: 0.3 }}
                   className="space-y-8"
                 >
-                  <div className="space-y-6">
-                    <label className="block text-[11px] font-bold uppercase tracking-widest text-[var(--color-theme-text)]">
-                      Target Production Cloud Provider
+                  <div className="space-y-5">
+                    <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text flex items-center gap-2">
+                      <Cloud className="w-4 h-4" /> Deployment Provider
                     </label>
-
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {[
                         {
@@ -907,12 +902,11 @@ function EnvironmentSetupForm() {
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
-                      className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4"
+                      className="space-y-6 pt-4"
                     >
-                      <div className="space-y-3">
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-[var(--color-theme-muted)] flex items-center gap-2">
-                          <Key className="w-3.5 h-3.5" /> Platform Deployment
-                          API Key
+                      <div className="space-y-4">
+                        <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text flex items-center gap-2">
+                          <Key className="w-4 h-4" /> Provider API Key
                         </label>
                         <input
                           type="password"
@@ -923,14 +917,13 @@ function EnvironmentSetupForm() {
                           onChange={(e) =>
                             handleUpdate("deploymentApiKey", e.target.value)
                           }
-                          className="w-full bg-transparent border-b border-[var(--color-theme-outline)]/30 pb-3 text-sm text-[var(--color-theme-text)] font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
-                          placeholder="rnd_xxxxxxxxxxxxxxxxxxxxxx"
+                          className="w-full bg-transparent border-b border-theme-outline/30 pb-3 text-sm text-theme-text font-mono focus:outline-none focus:border-theme-primary transition"
+                          placeholder="Token / Secret"
                         />
                       </div>
-                      <div className="space-y-3">
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-[var(--color-theme-muted)] flex items-center gap-2">
-                          <User className="w-3.5 h-3.5" /> Target Account Group
-                          ID
+                      <div className="space-y-4">
+                        <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text flex items-center gap-2">
+                          <User className="w-4 h-4" /> Target Account Group ID
                         </label>
                         <input
                           type="text"
@@ -938,7 +931,7 @@ function EnvironmentSetupForm() {
                           onChange={(e) =>
                             handleUpdate("deploymentOwnerId", e.target.value)
                           }
-                          className="w-full bg-transparent border-b border-[var(--color-theme-outline)]/30 pb-3 text-sm text-[var(--color-theme-text)] font-mono focus:outline-none focus:border-[var(--color-theme-primary)] transition"
+                          className="w-full bg-transparent border-b border-theme-outline/30 pb-3 text-sm text-theme-text font-mono focus:outline-none focus:border-theme-primary transition"
                           placeholder="usr_xxxxxxxxxxxxxxx"
                         />
                       </div>
@@ -950,44 +943,41 @@ function EnvironmentSetupForm() {
           </div>
         </div>
 
-        <div className="w-full bg-[var(--color-theme-bg)] border-t border-[var(--color-theme-outline)]/10 p-6 px-8 sm:px-12 lg:px-20 z-20 shrink-0">
-          <div className="max-w-2xl mx-auto flex items-center justify-between">
-            {/* Previous Button */}
+        {/* Footer Actions */}
+        <div className="w-full bg-theme-bg/95 backdrop-blur-md border-t border-theme-outline/10 p-6 sm:px-12 lg:px-20 z-20 shrink-0">
+          <div className="max-w-2xl mx-auto flex justify-between items-center">
             <button
               type="button"
               onClick={prevStep}
-              className={`flex items-center gap-2 text-sm font-bold tracking-wide transition-all ${
+              className={`text-[12px] font-bold uppercase tracking-widest flex items-center gap-2 transition-colors ${
                 currentStep === 1
-                  ? "opacity-0 pointer-events-none"
-                  : "text-[var(--color-theme-muted)] hover:text-[var(--color-theme-text)]"
+                  ? "text-theme-outline/30 cursor-not-allowed"
+                  : "text-theme-muted hover:text-theme-text"
               }`}
+              disabled={currentStep === 1}
             >
-              <ArrowLeft className="w-4 h-4" /> Previous Step
+              <ArrowLeft className="w-4 h-4" /> Back
             </button>
 
-            {/* Action Buttons Wrapper */}
             <div className="flex items-center gap-4">
-              {/* NEXT BUTTON - Only shows on steps 1-3 */}
-              {currentStep < 4 && (
+              {currentStep < 4 ? (
                 <button
                   type="button"
                   onClick={nextStep}
-                  className="px-8 py-3.5 rounded-xl bg-[var(--color-theme-primary)]/10 hover:bg-[var(--color-theme-primary)]/20 text-[var(--color-theme-primary)] text-sm font-bold transition-all flex items-center gap-2 tracking-wide"
+                  className="bg-theme-surface hover:bg-theme-outline/10 text-theme-text border border-theme-outline/20 px-8 py-3.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 tracking-wide shadow-sm"
                 >
-                  {currentContext.nextLabel} <ArrowRight className="w-4 h-4" />
+                  {currentContext.nextLabel}{" "}
+                  <ArrowRight className="w-4 h-4 text-theme-muted" />
                 </button>
-              )}
-
-              {/* SUBMIT BUTTON - Only shows on step 4 */}
-              {currentStep === 4 && (
+              ) : (
                 <button
                   type="button" // Kept as "button" since we're handling the click manually without a true <form> tag
                   disabled={isSubmitting}
                   onClick={handleSubmit}
                   className={`px-8 py-3.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 tracking-wide ${
                     isSubmitting
-                      ? "bg-[var(--color-theme-surface)] text-[var(--color-theme-muted)] cursor-not-allowed"
-                      : "bg-[var(--color-theme-primary)] hover:brightness-110 text-[var(--color-theme-on-primary)] shadow-[0_0_20px_var(--color-theme-primary)]/30"
+                      ? "bg-theme-surface text-theme-muted cursor-not-allowed"
+                      : "bg-theme-primary hover:brightness-110 text-theme-on-primary shadow-[0_0_20px_var(--color-theme-primary)]/30"
                   }`}
                 >
                   {isSubmitting ? (
@@ -1014,8 +1004,8 @@ export default function EnvironmentSetupPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[var(--color-theme-bg)] flex items-center justify-center">
-          <Loader2 className="w-8 h-8 text-[var(--color-theme-primary)] animate-spin" />
+        <div className="min-h-screen bg-theme-bg flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-theme-primary animate-spin" />
         </div>
       }
     >

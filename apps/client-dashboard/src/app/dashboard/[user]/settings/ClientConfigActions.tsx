@@ -52,9 +52,9 @@ TARGET_OUTPUT_DIR="~/StudioFlow/projects"
   return (
     <button
       onClick={handleDownloadEnv}
-      className="lilac-pink-btn px-6 py-3 rounded-2xl flex items-center gap-2 text-sm font-bold mt-6 md:mt-0"
+      className="bg-gradient-to-r from-[var(--color-theme-primary)] to-[var(--color-theme-secondary)] px-6 py-3 rounded-2xl flex items-center gap-2 text-[13px] tracking-wider uppercase font-bold mt-6 md:mt-0 text-[var(--color-theme-on-primary)] transition-all hover:opacity-90 shadow-[0_0_15px_color-mix(in_srgb,var(--color-theme-outline)_20%,transparent)] font-['Plus_Jakarta_Sans',_sans-serif]"
     >
-      <span className="material-symbols-outlined">download</span>
+      <span className="material-symbols-outlined text-[18px]">download</span>
       Download .env
     </button>
   );
@@ -69,11 +69,13 @@ export function CliSetupCard() {
   };
 
   return (
-    <div className="glass-card rounded-2xl p-8 group relative overflow-hidden">
+    <div className="bg-[var(--color-theme-surface)]/20 backdrop-blur-md border border-[var(--color-theme-outline)]/20 shadow-xl rounded-2xl p-8 group relative overflow-hidden font-['Plus_Jakarta_Sans',_sans-serif]">
       <div className="flex justify-between items-start mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-theme-text">StudioFlow CLI</h3>
-          <p className="text-sm text-[var(--text-muted)] mt-1 max-w-sm">
+          <h3 className="text-lg font-semibold text-[var(--color-theme-text)]">
+            StudioFlow CLI
+          </h3>
+          <p className="text-sm text-[var(--color-theme-muted)] mt-1 max-w-sm leading-relaxed">
             Install the global daemon to provision architectures and sync
             environments directly from your local terminal.
           </p>
@@ -83,13 +85,13 @@ export function CliSetupCard() {
         </span>
       </div>
 
-      <div className="bg-black/40 border border-[var(--border-outline)] rounded-xl p-4 flex justify-between items-center group-hover:border-[#5a617a] transition-colors">
-        <code className="text-[var(--color-theme-secondary)] text-sm font-mono">
+      <div className="bg-[var(--color-theme-bg)]/50 border border-[var(--color-theme-outline)]/20 rounded-xl p-4 flex justify-between items-center group-hover:border-[var(--color-theme-primary)]/40 transition-colors">
+        <code className="text-[var(--color-theme-primary)] text-sm font-['JetBrains_Mono',_monospace] font-bold">
           {installCommand}
         </code>
         <button
           onClick={handleCopy}
-          className="text-[var(--text-muted)] hover:text-theme-text transition p-2 rounded-lg hover:bg-white/10 flex items-center justify-center"
+          className="text-[var(--color-theme-muted)] hover:text-[var(--color-theme-text)] transition p-2 rounded-lg hover:bg-[var(--color-theme-surface)]/50 flex items-center justify-center border border-transparent hover:border-[var(--color-theme-outline)]/20"
           title="Copy to clipboard"
         >
           <span className="material-symbols-outlined text-[18px]">
