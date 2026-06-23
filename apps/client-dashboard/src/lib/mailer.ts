@@ -142,22 +142,36 @@ export async function sendPortalAccessCodeEmail(payload: PortalCodePayload) {
 }
 
 export async function sendPortalWelcomeEmail(payload: PortalWelcomePayload) {
-  const transporter = createFallbackTransporter();
+  // 🚀 SPECIFICALLY USE RESEND FOR PORTAL LINKS
+  const resendTransporter = nodemailer.createTransport({
+    host: "smtp.resend.com",
+    port: 465,
+    secure: true, // Required for port 465 to bypass cloud blocks
+    auth: {
+      user: "resend", // Resend explicitly requires the username to be "resend"
+      pass: process.env.RESEND_API_KEY, // 🌟 EXPLICITLY USING YOUR RESEND API KEY
+    },
+  });
+
+  // Use your verified domain, or the default Resend testing email
   const systemSender =
     process.env.SMTP_FROM_EMAIL ||
-    `"StudioFlow Delivery" <delivery@studioflow.dev>`;
+    `"StudioFlow Delivery" <onboarding@resend.dev>`;
 
   const mailOptions = {
     from: systemSender,
     to: payload.clientEmail,
-    subject: `🔮 Your Client Portal Access - ${payload.projectName}`,
+    subject: `🚀 Ready for Launch: Your Interactive Portal for ${payload.projectName}`,
     html: `
-      <div style="font-family: 'Plus Jakarta Sans', sans-serif; padding: 32px; background-color: #0c0f16; color: #e0e2ec; max-width: 550px; margin: 0 auto; border-radius: 12px; border: 1px solid rgba(175, 186, 255, 0.1);">
-        <h2 style="font-size: 20px; color: #dac5ff; margin-bottom: 4px; font-weight: 600;">Welcome to your StudioFlow Portal</h2>
-        <p style="font-size: 13px; color: #94a3b8; margin-top: 0; margin-bottom: 24px;">StudioFlow Onboarding Infrastructure Gateway</p>
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #030712; color: #f8fafc; border-radius: 12px;">
+        <div style="text-align: center; margin-bottom: 32px;">
+          <h1 style="font-size: 24px; font-weight: 800; color: #ffffff; margin: 0; letter-spacing: -0.02em;">StudioFlow</h1>
+          <div style="height: 2px; width: 40px; background-color: #dac5ff; margin: 16px auto 0;"></div>
+        </div>
         
-        <p style="font-size: 14px; line-height: 1.6; color: #c6c5d1;">Your dedicated interactive client workspace for project <strong>${payload.projectName}</strong> has been provisioned and is ready for secure engagement.</p>
-        <p style="font-size: 14px; line-height: 1.6; color: #c6c5d1;">You can view and upload project assets, track pipeline updates, and chat with engineering teams directly inside your workspace console:</p>
+        <p style="font-size: 15px; line-height: 1.6; color: #cbd5e1; margin-bottom: 24px;">Hello,</p>
+        
+        <p style="font-size: 15px; line-height: 1.6; color: #cbd5e1; margin-bottom: 24px;">Your interactive project portal for <strong>${payload.projectName}</strong> has been provisioned and is ready for access. You can use this secure gateway to monitor deployment metrics, approve features, and communicate directly with your workspace console:</p>
         
         <div style="text-align: center; margin: 32px 0;">
           <a href="${payload.portalLink}" style="display: inline-block; padding: 12px 28px; background-color: #dac5ff; color: #030712; text-decoration: none; border-radius: 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; box-shadow: 0 4px 12px rgba(218, 197, 255, 0.15);">Access Secure Portal</a>
@@ -167,14 +181,20 @@ export async function sendPortalWelcomeEmail(payload: PortalWelcomePayload) {
           <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.15em; color: #94a3b8; display: block; margin-bottom: 8px;">Your 6-Digit Auto-Login Pin</span>
           <span style="font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700; color: #e8b3ff; letter-spacing: 0.2em;">${payload.securePin}</span>
         </div>
-
-        <p style="font-size: 11px; color: #94a3b8; line-height: 1.5;">Clicking the link above will automatically apply your pin. If you are prompted manually, use the code provided.</p>
-        <div style="border-top: 1px solid rgba(175, 186, 255, 0.08); margin-top: 32px; padding-top: 16px; text-align: center; font-size: 10px; color: #64748b;">
-          Powered securely via StudioFlow Universal Telemetry Clusters.
-        </div>
+        
+        <p style="font-size: 13px; color: #64748b; line-height: 1.5; margin-top: 40px; text-align: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 24px;">
+          This is a secure, single-use dispatch. If you did not request this link, please disregard this transmission.<br><br>
+          Powered by StudioFlow Infrastructure
+        </p>
       </div>
     `,
   };
 
-  return transporter.sendMail(mailOptions);
+  try {
+    await resendTransporter.sendMail(mailOptions);
+    return true;
+  } catch (error) {
+    console.error("❌ Resend Delivery Error:", error);
+    throw error; // Let the action catch block handle the failure
+  }
 }

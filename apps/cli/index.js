@@ -33,7 +33,6 @@ const c = {
 
 const STUDIOFLOW_HOME = path.join(os.homedir(), ".studioflow");
 const CONFIG_FILE_PATH = path.join(STUDIOFLOW_HOME, "config.json");
-
 const cliEnvPath = path.resolve(__dirname, ".env");
 const cwdEnvPath = path.resolve(process.cwd(), ".env");
 if (fs.existsSync(cliEnvPath)) dotenv.config({ path: cliEnvPath });
@@ -72,11 +71,79 @@ class EngineDaemonWorker {
       );
 
       try {
+        // =======================================================
+        // 🛠️ AUTO-GENERATE DRIZZLE CONFIG FOR GLOBAL RUNTIMES
+        // =======================================================
+        const drizzleConfigPath = path.join(__dirname, "drizzle.config.json");
+        if (!fs.existsSync(drizzleConfigPath)) {
+          console.log(
+            `   ${c.yellow}🔧 [System Auto-Fix]${c.reset} Generating missing drizzle.config.json dynamically...`,
+          );
+
+          let schemaPath = "./src/db/schema.js";
+          if (fs.existsSync(path.join(__dirname, "src", "schema.js"))) {
+            schemaPath = "./src/schema.js";
+          } else if (
+            fs.existsSync(path.join(__dirname, "src", "db", "schema.js"))
+          ) {
+            schemaPath = "./src/db/schema.js";
+          }
+
+          const configContent = {
+            schema: schemaPath,
+            dialect: "mysql",
+            dbCredentials: {
+              url: this.connectionString,
+            },
+          };
+
+          fs.writeFileSync(
+            drizzleConfigPath,
+            JSON.stringify(configContent, null, 2),
+          );
+          console.log(
+            `      - Configuration created pointing to schema: ${c.cyan}${schemaPath}${c.reset}\n`,
+          );
+        }
+
+        // =======================================================
+        // 🚀 PHASE 0: SELF-HEALING DEPENDENCY INSTALLER
+        // =======================================================
+        console.log(
+          `   ${c.magenta}⚙️  Phase 0:${c.reset} Verifying engine dependencies...`,
+        );
+        try {
+          // Check if drizzle-kit exists, if not, it throws to the catch block
+          execSync("npx --yes drizzle-kit --version", {
+            cwd: __dirname,
+            stdio: "ignore",
+          });
+          console.log(
+            `   ${c.green}✅ Phase 0:${c.reset} Core ORM tools are already installed.`,
+          );
+        } catch (e) {
+          console.log(
+            `   ${c.yellow}📦 [Downloading]${c.reset} Fetching required background tools (this only happens once)...`,
+          );
+          // Automatically installs them silently directly into the CLI's global install path
+          execSync("npm install drizzle-kit mysql2 prisma --no-save", {
+            cwd: __dirname,
+            stdio: "ignore",
+          });
+          console.log(
+            `   ${c.green}✅ Phase 0:${c.reset} Tools successfully installed.`,
+          );
+        }
+
+        // =======================================================
+        // 🚀 PHASE 1: DATABASE SYNC
+        // =======================================================
         console.log(
           `   ${c.magenta}⚙️  Phase 1:${c.reset} Synchronizing database schema (drizzle-kit push)...`,
         );
         execSync("npx --yes drizzle-kit push", {
           stdio: "pipe",
+          cwd: __dirname,
           env: { ...process.env, CI: "1" },
         });
         console.log(
@@ -527,7 +594,6 @@ async function fetchRemoteConfiguration() {
     if (envData.deploymentProvider)
       process.env.DEPLOYMENT_PROVIDER = envData.deploymentProvider;
 
-    // ✅ SYNC ALL DEPLOYMENT KEYS SO THE E2E TESTS CAN PASS!
     if (envData.deploymentApiKey) {
       process.env.RENDER_API_KEY = envData.deploymentApiKey;
       process.env.RAILWAY_API_KEY = envData.deploymentApiKey;
