@@ -74,10 +74,11 @@ function IngressSecurityProtocolScanner() {
             .map((email) => email.trim())
             .filter(Boolean);
 
-          const userEmailFromPayload = handshakeResult.user.email || "";
+          // ✅ FIXED: Added optional chaining (?.) for strict TypeScript safety
+          const userEmailFromPayload = handshakeResult.user?.email || "";
           const isSuperAdmin = superAdminEmails.includes(userEmailFromPayload);
 
-          let finalUserSlug = handshakeResult.user.username || targetUser;
+          let finalUserSlug = handshakeResult.user?.username || targetUser;
           if (isSuperAdmin && userEmailFromPayload) {
             finalUserSlug = userEmailFromPayload
               .split("@")[0]
