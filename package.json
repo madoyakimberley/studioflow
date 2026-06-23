@@ -9,7 +9,7 @@
     "check-types": "turbo run check-types",
     "predaemon": "brew services start redis",
     "daemon": "pnpm --filter studioflow-cli exec node -r dotenv/config index.js watch",
-    "db:reset": "node -r dotenv/config wipe.js && pnpm --filter @studioflow/db db:push",
+    "db:reset": "node -r dotenv/config wipe.js && pnpm --filter @studioflow/db db:push && node -r dotenv/config seed.js",
     "test:cli": "node tests/cli-tests/sandbox-e2e.mjs && node tests/cli-tests/test-scaffolder.js && node tests/cli-tests/chaos-e2e.mjs && node tests/cli-tests/seed-e2e.mjs && node tests/cli-tests/god-tier-e2e.mjs && node tests/cli-tests/ultimate-omni-e2e.mjs && node tests/cli-tests/doomsday-edge-e2e.mjs && node tests/cli-tests/nuke-e2e.mjs && node --test tests/cli-tests/orm-generator.test.mjs",
     "test:frontend": "node tests/frontend-tests/telemetry-e2e.mjs && node tests/frontend-tests/system-integration-part1.mjs && node tests/frontend-tests/system-integration-part2.mjs && node tests/frontend-tests/system-integration-part3.mjs && node tests/frontend-tests/system-integration-part4.mjs && node tests/frontend-tests/system-integration-part5-ratelimit.mjs && node tests/frontend-tests/system-integration-part6-portallimit.mjs",
     "test:all": "pnpm run test:cli && pnpm run test:frontend"
@@ -28,6 +28,8 @@
     "node": ">=18"
   },
   "dependencies": {
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.3",
     "drizzle-orm": "^0.45.2",
     "mysql2": "^3.22.5",
     "next-themes": "^0.4.6"
