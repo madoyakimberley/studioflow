@@ -9,7 +9,7 @@ import {
   users,
   workspaces,
 } from "@studioflow/db";
-import { desc, inArray, eq, and, or } from "drizzle-orm";
+import { desc, inArray, eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import SidebarConsole from "../../../components/SidebarConsole";
@@ -20,19 +20,18 @@ export const dynamic = "force-dynamic";
 const API_BASE_URL =
   process.env.API_BASE_URL || "https://studioflow-api-ieck.onrender.com";
 
-// SECURE SERVER-SIDE VALIDATION HELPER
-async function verifyServerSession(requestedUserSlug: string) {
+// ==========================================
+// 1. SECURE SESSION VALIDATOR
+// We return null on failure instead of redirecting here to avoid trapping the NEXT_REDIRECT error
+// ==========================================
+async function getSessionUser() {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get("sf_auth_token")?.value;
 
-  if (!sessionToken) {
-    redirect("/"); // Graceful fail instead of crashing
-  }
+  if (!sessionToken) return null;
 
   try {
-    let userPayload = null;
-
-    // DUAL-VERIFICATION MATRIX
+    // Local Developer Token vs Remote Telemetry Token
     if (sessionToken.startsWith("dev_")) {
       const parts = sessionToken.split("_");
       const workspaceId = Number(parts[1]);
@@ -41,19 +40,18 @@ async function verifyServerSession(requestedUserSlug: string) {
         where: eq(workspaces.id, workspaceId),
       });
 
-      if (!workspace) redirect("/");
+      if (!workspace) return null;
 
       const userRecord = await db.query.users.findFirst({
         where: eq(users.id, workspace.ownerId),
       });
 
-      if (!userRecord) redirect("/");
+      if (!userRecord) return null;
 
-      userPayload = {
+      return {
         id: userRecord.id,
         username: userRecord.username,
         email: userRecord.email,
-        name: userRecord.name,
       };
     } else {
       const response = await fetch(`${API_BASE_URL}/api/v1/verify-auth`, {
@@ -62,46 +60,20 @@ async function verifyServerSession(requestedUserSlug: string) {
         body: JSON.stringify({ token: sessionToken }),
       });
 
-      if (!response.ok) redirect("/");
+      if (!response.ok) return null;
 
       const payload = await response.json();
-      if (!payload.success || !payload.user) redirect("/");
+      if (!payload.success || !payload.user) return null;
 
-      userPayload = payload.user;
+      return {
+        id: payload.user.id,
+        username: payload.user.username,
+        email: payload.user.email,
+      };
     }
-
-    // Determine the true authorized user identity
-    const userEmail = userPayload.email || "";
-    const adminEmailsString = process.env.NEXT_PUBLIC_ADMIN_EMAILS || "";
-    const superAdminEmails = adminEmailsString
-      .split(",")
-      .map((e) => e.trim())
-      .filter(Boolean);
-
-    const isSuperAdmin = superAdminEmails.includes(userEmail);
-    let trueUserSlug = userPayload.username || "";
-
-    if (isSuperAdmin && userEmail) {
-      trueUserSlug = userEmail.split("@")[0].replace(/[^a-zA-Z0-9]/g, "");
-    }
-
-    // ISOLATION GUARD: Deny access if they try to look at another user's page unless they are admin
-    if (
-      requestedUserSlug !== "admin" &&
-      trueUserSlug !== requestedUserSlug &&
-      !isSuperAdmin
-    ) {
-      throw new Error(
-        "Access Denied: Attempted multi-tenant boundary violation.",
-      );
-    }
-
-    return { trueUserSlug, isSuperAdmin, email: userEmail };
-  } catch (err: any) {
-    if (err.message.includes("Access Denied")) {
-      throw err;
-    }
-    redirect("/");
+  } catch (error) {
+    console.error("[SESSION VERIFICATION ERROR]:", error);
+    return null;
   }
 }
 
@@ -113,64 +85,62 @@ export default async function SystemsOverviewDashboard({
   const { user } = await params;
 
   // ==========================================
-  // CRYPTOGRAPHIC BOUNDARY ENFORCEMENT
+  // 🚨 TOP-LEVEL REDIRECT ZONE
+  // Perfectly safe to redirect here because we are NOT inside a try/catch!
   // ==========================================
-  const sessionUser = await verifyServerSession(user);
+  const sessionUser = await getSessionUser();
 
-  // 1. Polymorphic Security Check: Query matching either username OR id
-  const userRecords = await db
-    .select()
-    .from(users)
-    .where(or(eq(users.username, user), eq(users.id, user)));
-
-  let userRecord = userRecords[0];
-
-  // 2. Smart Developer Fallback Engine
-  // Bypasses the strict DB check for the verified "admin" route to prevent local lockouts
-  if (!userRecord && user === "admin" && sessionUser.isSuperAdmin) {
-    userRecord = {
-      id: "dev-bootstrap-admin",
-      username: "admin",
-      email: "admin@studioflow.dev",
-      name: "Developer Console Admin",
-    } as any;
+  if (!sessionUser) {
+    redirect("/"); // Instantly boots unauthenticated requests back to the gate
   }
 
-  // 3. Strict Enforcement
-  if (!userRecord) {
-    throw new Error(
-      `Unauthorized Access: User identity "${user}" could not be verified within active operational registry matrix layer.`,
-    );
+  // ==========================================
+  // DYNAMIC SUPERADMIN RESOLUTION
+  // ==========================================
+  const adminEmailsString = process.env.NEXT_PUBLIC_ADMIN_EMAILS || "";
+  const superAdminEmails = adminEmailsString
+    .split(",")
+    .map((email) => email.trim())
+    .filter(Boolean);
+
+  const isSuperAdmin = superAdminEmails.includes(sessionUser.email);
+
+  // SECURITY ENFORCEMENT: If they aren't a superadmin, they cannot view other people's dashboards
+  if (!isSuperAdmin && sessionUser.username !== user) {
+    redirect(`/dashboard/${sessionUser.username}`);
   }
 
-  // 4. Resolve the workspace strictly owned by the authenticated user
-  let workspaceRecord = await db.query.workspaces.findFirst({
-    where: eq(workspaces.ownerId, userRecord.id),
+  // ==========================================
+  // SCOPED DATA EXTRACTION
+  // ==========================================
+  const workspaceRecord = await db.query.workspaces.findFirst({
+    where: eq(workspaces.ownerId, sessionUser.id),
   });
 
-  // Cold-start fallback for workspace if using the bootstrap user
-  if (!workspaceRecord && userRecord.id === "dev-bootstrap-admin") {
-    workspaceRecord = { id: 1 } as any;
-  }
-
-  if (!workspaceRecord) {
+  if (!workspaceRecord && !isSuperAdmin) {
     throw new Error(
       "Unauthorized Access: No active workspace assigned to this account.",
     );
   }
 
-  const currentWorkspaceId = workspaceRecord.id;
+  const currentWorkspaceId = workspaceRecord?.id;
 
-  // ==========================================
-  // SCOPED DATA EXTRACTION
-  // ==========================================
+  let fetchedProjects;
 
-  // Core dataset extraction sweep (Securely scoped)
-  const fetchedProjects = await db
-    .select()
-    .from(projects)
-    .where(eq(projects.workspaceId, currentWorkspaceId))
-    .orderBy(desc(projects.id));
+  if (isSuperAdmin) {
+    // 👑 GOD MODE: Fetch all projects across the entire system
+    fetchedProjects = await db
+      .select()
+      .from(projects)
+      .orderBy(desc(projects.id));
+  } else {
+    // 🔒 SECURED MODE: Fetch strictly from the user's workspace
+    fetchedProjects = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.workspaceId, currentWorkspaceId!))
+      .orderBy(desc(projects.id));
+  }
 
   let activeProjectsList: any[] = [];
 
@@ -237,29 +207,22 @@ export default async function SystemsOverviewDashboard({
   async function deleteProjectAction(formData: FormData) {
     "use server";
     try {
-      // Internal validation re-check to prevent cross-account payload forging
-      await verifyServerSession(user);
       const id = Number(formData.get("id"));
 
-      // RBAC CHECK: Ensure the project being deleted belongs to the user's workspace
       const targetProject = await db.query.projects.findFirst({
-        where: and(
-          eq(projects.id, id),
-          eq(projects.workspaceId, currentWorkspaceId),
-        ),
+        where: eq(projects.id, id),
       });
 
-      if (!targetProject)
+      if (!targetProject) throw new Error("Project not found");
+
+      if (!isSuperAdmin && targetProject.workspaceId !== currentWorkspaceId) {
         throw new Error("Unauthorized to access this project scope");
+      }
 
-      // 1. Delete dependent child records first to satisfy foreign key constraints
       await db.delete(checklistItems).where(eq(checklistItems.projectId, id));
-
       await db
         .delete(provisioningJobs)
         .where(eq(provisioningJobs.projectId, id));
-
-      // 2. Safely delete the parent project row once orphans are cleared
       await db.delete(projects).where(eq(projects.id, id));
 
       revalidatePath(`/dashboard/${user}`);
@@ -271,19 +234,16 @@ export default async function SystemsOverviewDashboard({
   async function pauseProjectAction(formData: FormData) {
     "use server";
     try {
-      await verifyServerSession(user);
       const id = Number(formData.get("id"));
 
-      // RBAC CHECK: Ensure scope ownership
       const targetProject = await db.query.projects.findFirst({
-        where: and(
-          eq(projects.id, id),
-          eq(projects.workspaceId, currentWorkspaceId),
-        ),
+        where: eq(projects.id, id),
       });
 
-      if (!targetProject)
+      if (!targetProject) throw new Error("Project not found");
+      if (!isSuperAdmin && targetProject.workspaceId !== currentWorkspaceId) {
         throw new Error("Unauthorized to access this project scope");
+      }
 
       await db
         .update(projects)
@@ -298,28 +258,33 @@ export default async function SystemsOverviewDashboard({
   async function updateProjectAction(formData: FormData) {
     "use server";
     try {
-      await verifyServerSession(user);
       const id = Number(formData.get("id"));
 
-      // RBAC CHECK: Ensure scope ownership
       const targetProject = await db.query.projects.findFirst({
-        where: and(
-          eq(projects.id, id),
-          eq(projects.workspaceId, currentWorkspaceId),
-        ),
+        where: eq(projects.id, id),
       });
 
-      if (!targetProject)
+      if (!targetProject) throw new Error("Project not found");
+      if (!isSuperAdmin && targetProject.workspaceId !== currentWorkspaceId) {
         throw new Error("Unauthorized to access this project scope");
+      }
 
       await db
         .update(projects)
         .set({ status: "pending", progressPercentage: 0 })
         .where(eq(projects.id, id));
+
       await db
         .update(provisioningJobs)
         .set({ status: "pending" })
         .where(eq(provisioningJobs.projectId, id));
+
+      // Reset checklist to match the 0% progress
+      await db
+        .update(checklistItems)
+        .set({ status: "pending", proofUrl: null })
+        .where(eq(checklistItems.projectId, id));
+
       revalidatePath(`/dashboard/${user}`);
     } catch (e) {
       console.error(
@@ -329,33 +294,56 @@ export default async function SystemsOverviewDashboard({
     }
   }
 
+  // 🚨 FIX: Dynamic Progress Calculation Engine
   async function submitDevProofAction(formData: FormData) {
     "use server";
     try {
-      await verifyServerSession(user);
       const itemId = Number(formData.get("itemId"));
       const proofUrl = formData.get("proofUrl")?.toString();
       const userSlug = formData.get("userSlug")?.toString();
 
-      if (!itemId || !proofUrl || userSlug !== user) return;
+      if (!itemId || !proofUrl) return;
 
-      // RBAC CHECK: Verify the checklist item belongs to a project in the user's workspace
       const targetItem = await db.query.checklistItems.findFirst({
         where: eq(checklistItems.id, itemId),
         with: { project: true },
       });
 
+      if (!targetItem) throw new Error("Checklist item not found");
+
       if (
-        !targetItem ||
+        !isSuperAdmin &&
         targetItem.project.workspaceId !== currentWorkspaceId
       ) {
         throw new Error("Unauthorized to modify this checklist item");
       }
 
+      // 1. Update the individual checklist item
       await db
         .update(checklistItems)
         .set({ status: "pending_client_review", proofUrl: proofUrl })
         .where(eq(checklistItems.id, itemId));
+
+      // 2. Fetch all checklist items to dynamically calculate the new progress percentage
+      const allProjectItems = await db
+        .select()
+        .from(checklistItems)
+        .where(eq(checklistItems.projectId, targetItem.projectId));
+
+      // 3. Count any items that are no longer "pending"
+      const completedCount = allProjectItems.filter(
+        (i) => i.status !== "pending",
+      ).length;
+
+      // 4. Calculate ratio and securely update the project
+      const newProgress = Math.round(
+        (completedCount / allProjectItems.length) * 100,
+      );
+
+      await db
+        .update(projects)
+        .set({ progressPercentage: newProgress })
+        .where(eq(projects.id, targetItem.projectId));
 
       revalidatePath(`/dashboard/${userSlug}`);
     } catch (e) {
@@ -526,6 +514,15 @@ export default async function SystemsOverviewDashboard({
                 Daemon Network Secure Sync Status: Active
               </span>
             </div>
+
+            {isSuperAdmin && (
+              <div className="bg-amber-500/10 border border-amber-500/20 text-amber-500 px-3 py-1.5 rounded-full flex items-center gap-2 text-[10px] font-bold tracking-widest uppercase">
+                <span className="material-symbols-outlined text-[14px]">
+                  admin_panel_settings
+                </span>
+                Superadmin Mode
+              </div>
+            )}
           </header>
 
           <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-6 md:py-10">
@@ -552,7 +549,9 @@ export default async function SystemsOverviewDashboard({
                       subdirectory_arrow_right
                     </span>
                     <p className="body-md italic text-[11px]">
-                      Running multi-stack operational environments
+                      {isSuperAdmin
+                        ? "Global cluster visibility"
+                        : "Running multi-stack operational environments"}
                     </p>
                   </div>
                 </div>
@@ -626,7 +625,9 @@ export default async function SystemsOverviewDashboard({
                   terminal
                 </span>
                 <h2 className="headline-sm text-[var(--color-theme-text)] text-base md:text-lg">
-                  Infrastructure Target Allotment Registries
+                  {isSuperAdmin
+                    ? "Global Infrastructure Registries"
+                    : "Infrastructure Target Allotment Registries"}
                 </h2>
               </div>
 
@@ -672,6 +673,11 @@ export default async function SystemsOverviewDashboard({
                               <span className="mono-code bg-[var(--color-theme-bg)] text-[var(--color-theme-muted)] border border-[var(--color-theme-outline)]/50 px-2 py-0.5 rounded text-[10px]">
                                 apps/{project.slug}
                               </span>
+                              {isSuperAdmin && (
+                                <span className="mono-code bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-0.5 rounded text-[10px]">
+                                  WS: {project.workspaceId}
+                                </span>
+                              )}
                             </div>
 
                             <div className="flex items-center gap-2">

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Terminal, ArrowRight, ArrowLeft, Zap } from "lucide-react";
+import { useRouter, useParams } from "next/navigation";
 import {
   queueProjectProvisioning,
   UniversalServiceConfig,
@@ -24,12 +25,17 @@ export default function ProjectWizard({
   onClose,
   workspaceId,
 }: ProjectWizardProps) {
+  const router = useRouter();
+  const params = useParams();
+
+  // Clean dynamic parameter resolution
+  const currentUser = (params?.user as string) || "admin";
+
   const [step, setStep] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const [formData, setFormData] = useState({
-    workspaceId: workspaceId || 1, // Fallback to 1, but overrides if passed as prop
-    workspacePath: "/Users/luna/Sites/work",
+    workspaceId: workspaceId || 1, // Satisfies table constraints cleanly if prop omitted
     name: "",
     clientName: "",
     clientEmail: "",
@@ -161,7 +167,6 @@ export default function ProjectWizard({
   const handleSubmitPipeline = async () => {
     setIsSubmitting(true);
     try {
-      // Force single service array if src_flat bypasses UI constraints
       const finalServices =
         formData.folderStructure === "src_flat" ? [services[0]] : services;
 
@@ -190,8 +195,9 @@ export default function ProjectWizard({
 
       const res = await queueProjectProvisioning(payload);
 
-      if (res.success) {
+      if (res.success && res.slug) {
         toast.success("Project created successfully with Zero-Trust Security!");
+        router.push(`/dashboard/${currentUser}/projects/${res.slug}`);
         if (onClose) onClose();
       } else {
         toast.error(res.error || "Failed to create project.");
