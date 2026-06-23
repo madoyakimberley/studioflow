@@ -15,15 +15,15 @@ export default function DeployNewNodeButton({
   };
 
   const baseClasses =
-    "px-8 py-3.5 rounded-2xl flex items-center gap-3 text-sm font-bold transition-all duration-300 active:scale-95 shadow-sm";
+    "px-8 py-3.5 rounded-2xl flex items-center gap-3 text-[12px] font-bold uppercase tracking-wider transition-all duration-300 active:scale-95 shadow-sm font-['Plus_Jakarta_Sans',_sans-serif]";
 
   if (variant === "primary") {
     return (
       <button
         onClick={handleClick}
-        className={`${baseClasses} bg-theme-primary text-theme-on-primary hover:brightness-110 shadow-lg shadow-theme-primary/20 border border-theme-primary/10`}
+        className={`${baseClasses} bg-[var(--color-theme-primary)] text-[var(--color-theme-on-primary)] hover:opacity-90 shadow-[0_0_20px_color-mix(in_srgb,var(--color-theme-primary)_30%,transparent)] border border-[var(--color-theme-primary)]/10`}
       >
-        <span className="material-symbols-outlined">add</span>
+        <span className="material-symbols-outlined text-[18px]">add</span>
         Deploy New Node
       </button>
     );
@@ -32,9 +32,9 @@ export default function DeployNewNodeButton({
   return (
     <button
       onClick={handleClick}
-      className={`${baseClasses} bg-theme-surface text-theme-text border border-theme-outline/50 hover:border-theme-primary/50 hover:bg-theme-primary/5`}
+      className={`${baseClasses} bg-[var(--color-theme-surface)]/50 text-[var(--color-theme-text)] border border-[var(--color-theme-outline)]/30 hover:border-[var(--color-theme-primary)]/50 hover:bg-[var(--color-theme-primary)]/5`}
     >
-      <span className="material-symbols-outlined">add_circle</span>
+      <span className="material-symbols-outlined text-[18px]">add_circle</span>
       Initialize Node
     </button>
   );

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { ThemeProvider } from "next-themes";
-import AuthProvider from "@/components/AuthProvider"; // ✨ THIS IS THE NEW IMPORT
+import { Providers } from "@/components/Providers"; // ✨ SAFELY INJECTS THEME + AUTH PROVIDERS
 import "./globals.css";
 
 const geistSans = Geist({
@@ -31,22 +30,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-theme-bg text-theme-text transition-colors duration-300">
-        {/* ✨ WRAP EVERYTHING IN AUTHPROVIDER */}
-        <AuthProvider>
-          <ThemeProvider
-            attribute="data-theme"
-            defaultTheme="active-systems-light"
-            enableSystem={true}
-            themes={[
-              "active-systems-light",
-              "night-matrix",
-              "aetheric-foundry",
-              "aetheric-foundry-light",
-            ]}
-          >
-            {children}
-          </ThemeProvider>
-        </AuthProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

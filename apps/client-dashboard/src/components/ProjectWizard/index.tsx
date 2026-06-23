@@ -17,14 +17,18 @@ import { WizardStepReview } from "./WizardStepReview";
 
 interface ProjectWizardProps {
   onClose?: () => void;
+  workspaceId?: number; // Added to allow dynamic injection from parent
 }
 
-export default function ProjectWizard({ onClose }: ProjectWizardProps) {
+export default function ProjectWizard({
+  onClose,
+  workspaceId,
+}: ProjectWizardProps) {
   const [step, setStep] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const [formData, setFormData] = useState({
-    workspaceId: 1,
+    workspaceId: workspaceId || 1, // Fallback to 1, but overrides if passed as prop
     workspacePath: "/Users/luna/Sites/work",
     name: "",
     clientName: "",
@@ -157,18 +161,22 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
   const handleSubmitPipeline = async () => {
     setIsSubmitting(true);
     try {
+      // Force single service array if src_flat bypasses UI constraints
+      const finalServices =
+        formData.folderStructure === "src_flat" ? [services[0]] : services;
+
       const payload: UniversalManifestPayload = {
         workspaceId: formData.workspaceId,
-        name: formData.name,
-        clientName: formData.clientName,
-        clientEmail: formData.clientEmail,
+        name: formData.name.trim(),
+        clientName: formData.clientName.trim(),
+        clientEmail: formData.clientEmail.trim(),
         brief: formData.brief,
         gitProvider: formData.gitProvider,
         folderStructure: formData.folderStructure,
         deploymentTarget: formData.deploymentTarget,
         nodePackageManager: formData.nodePackageManager,
         blueprintYaml: "",
-        services: services.map((s) => ({
+        services: finalServices.map((s) => ({
           id: s.id,
           name: s.name,
           type: s.type as "web" | "worker" | "private" | "cron",
@@ -239,38 +247,27 @@ export default function ProjectWizard({ onClose }: ProjectWizardProps) {
 
         <div className="p-6 flex-1 overflow-y-auto space-y-6 custom-scrollbar">
           {step === 1 && (
-            <div className="wizard-meta-fields">
-              <WizardStepDetails
-                formData={formData}
-                setFormData={setFormData}
-                handleFolderStructureChange={handleFolderStructureChange}
-                handlePackageManagerChange={handlePackageManagerChange}
-              />
-            </div>
+            <WizardStepDetails
+              formData={formData}
+              setFormData={setFormData}
+              handleFolderStructureChange={handleFolderStructureChange}
+              handlePackageManagerChange={handlePackageManagerChange}
+            />
           )}
           {step === 2 && (
-            <div className="wizard-apps-container">
-              <WizardStepApps
-                formData={formData}
-                services={services}
-                addBlankService={addBlankService}
-                updateServiceField={updateServiceField}
-                deleteService={deleteService}
-              />
-            </div>
+            <WizardStepApps
+              formData={formData}
+              services={services}
+              addBlankService={addBlankService}
+              updateServiceField={updateServiceField}
+              deleteService={deleteService}
+            />
           )}
           {step === 3 && (
-            <div className="wizard-packages-grid">
-              <WizardStepPackages
-                services={services}
-                setServices={setServices}
-              />
-            </div>
+            <WizardStepPackages services={services} setServices={setServices} />
           )}
           {step === 4 && (
-            <div className="wizard-review-terminal">
-              <WizardStepReview formData={formData} services={services} />
-            </div>
+            <WizardStepReview formData={formData} services={services} />
           )}
         </div>
 

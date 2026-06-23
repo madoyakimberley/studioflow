@@ -2,8 +2,9 @@
 import Image from "next/image";
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname, useParams } from "next/navigation";
+import { usePathname, useParams, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
+import { LogOut } from "lucide-react"; // ✨ NEW LUCIDE IMPORT
 import ProjectWizard from "./ProjectWizard";
 import ThemeModal from "./ThemeSelector";
 import DevDashboardTourEngine from "./tour/DevDashboardTourEngine";
@@ -15,8 +16,11 @@ export default function SidebarConsole({
 }) {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [tourActive, setTourActive] = useState(false);
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false); // ✨ LOGOUT STATE
+
   const pathname = usePathname();
   const params = useParams();
+  const router = useRouter(); // ✨ ROUTER FOR REDIRECT
 
   // Prioritize URL params over prop/localStorage
   const currentUser = (params?.user as string) || userSlug;
@@ -34,6 +38,11 @@ export default function SidebarConsole({
   const handleTourComplete = () => {
     setTourActive(false);
     localStorage.setItem("studioflow_tour_completed", "true");
+  };
+
+  const handleConfirmLogout = () => {
+    setLogoutModalOpen(false);
+    router.push("/welcome");
   };
 
   const navItems = [
@@ -143,7 +152,7 @@ export default function SidebarConsole({
       {/* ✨ Migrated to theme classes */}
       <aside className="w-[280px] h-full flex flex-col bg-theme-surface border-r border-theme-outline z-50 transition-colors duration-300">
         {/* ✨ Header: Contains Logo AND the ThemeModal Trigger */}
-        <div className="p-8 pb-16 flex justify-between items-center">
+        <div className="p-8 pb-10 flex justify-between items-center">
           <div className="headline-sm text-theme-text flex items-center gap-3">
             <div className="relative h-6 w-6 flex-shrink-0">
               <Image
@@ -181,6 +190,17 @@ export default function SidebarConsole({
               <span className="label-caps">{item.label}</span>
             </Link>
           ))}
+
+          {/* ✨ LOGOUT TRIGGER BUTTON */}
+          <button
+            onClick={() => setLogoutModalOpen(true)}
+            className="nav-link w-full text-left mt-4 group"
+          >
+            <LogOut className="w-[18px] h-[18px] ml-0.5 text-red-500/70 group-hover:text-red-500 transition-colors" />
+            <span className="label-caps group-hover:text-red-500 transition-colors">
+              Log Out
+            </span>
+          </button>
         </nav>
 
         {/* Fixed New Project Button at Bottom WITH TOUR MARKER */}
@@ -196,6 +216,7 @@ export default function SidebarConsole({
       </aside>
 
       <AnimatePresence>
+        {/* WIZARD MODAL */}
         {wizardOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-theme-bg/90 backdrop-blur-md overflow-y-auto">
             <motion.div
@@ -205,6 +226,47 @@ export default function SidebarConsole({
               transition={{ duration: 0.2 }}
             >
               <ProjectWizard onClose={() => setWizardOpen(false)} />
+            </motion.div>
+          </div>
+        )}
+
+        {/* ✨ LOGOUT CONFIRMATION MODAL */}
+        {logoutModalOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-theme-bg/80 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.2 }}
+              className="bg-theme-surface border border-theme-outline p-8 rounded-2xl max-w-sm w-full shadow-2xl flex flex-col items-center text-center relative"
+            >
+              <div className="w-14 h-14 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center mb-5">
+                <LogOut className="w-6 h-6 text-red-500" />
+              </div>
+
+              <h3 className="headline-sm text-theme-text mb-2 text-xl">
+                Terminate Session?
+              </h3>
+
+              <p className="text-theme-muted text-sm mb-8 leading-relaxed">
+                Are you sure you want to log out? You will be redirected back to
+                the welcome portal.
+              </p>
+
+              <div className="flex gap-3 w-full">
+                <button
+                  onClick={() => setLogoutModalOpen(false)}
+                  className="flex-1 py-3 rounded-xl border border-theme-outline text-theme-muted hover:bg-theme-outline/20 hover:text-theme-text transition-colors label-caps font-bold tracking-wider"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmLogout}
+                  className="flex-1 py-3 rounded-xl bg-red-500/90 hover:bg-red-500 text-white transition-colors shadow-[0_0_15px_rgba(239,68,68,0.3)] label-caps font-bold tracking-wider"
+                >
+                  Log Out
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

@@ -6,12 +6,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Workflow,
   Loader2,
-  UserCheck,
   AlertOctagon,
   Terminal,
   ShieldCheck,
-  Cpu,
 } from "lucide-react";
+import { establishSecureSessionAction } from "../action";
 
 const SIMULATED_PIPELINE_STEPS = [
   "Initializing container runtime parameters...",
@@ -22,10 +21,6 @@ const SIMULATED_PIPELINE_STEPS = [
   "Finalizing cluster authorization matrix lock...",
 ];
 
-// Set the API base URL. Uses environment variable if available, otherwise defaults to your Render production URL.
-const API_BASE_URL =
-  process.env.API_BASE_URL || "https://studioflow-api-ieck.onrender.com";
-
 function IngressSecurityProtocolScanner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -35,7 +30,6 @@ function IngressSecurityProtocolScanner() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
-  // Rotate informative log sequences to reassure users the pipeline is processing
   useEffect(() => {
     if (protocolState !== "evaluating") return;
 
@@ -60,44 +54,50 @@ function IngressSecurityProtocolScanner() {
       }
 
       try {
-        const networkCoreVerificationResponse = await fetch(
-          `${API_BASE_URL}/api/v1/verify-auth`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token: activeSessionToken }),
-          },
-        );
+        // ==========================================
+        // 🛡️ DELEGATE TO SECURE SERVER ACTION
+        // ==========================================
+        const handshakeResult =
+          await establishSecureSessionAction(activeSessionToken);
 
-        if (!networkCoreVerificationResponse.ok) {
-          throw new Error(
-            "Ingress verification matrix handshake failed configuration boundaries.",
-          );
-        }
-
-        const parsingResultPayload =
-          await networkCoreVerificationResponse.json();
-
-        if (parsingResultPayload.success) {
-          // Keep screen slightly engaged if everything returns immediately to showcase logs
+        if (handshakeResult.success && handshakeResult.user) {
           await new Promise((r) => setTimeout(r, 4000));
           setProtocolState("ready");
           await new Promise((r) => setTimeout(r, 800));
 
+          // ==========================================
+          // 🛡️ DYNAMIC ENVIRONMENTAL SUPERADMIN CHECK
+          // ==========================================
+          const adminEmailsString = process.env.NEXT_PUBLIC_ADMIN_EMAILS || "";
+          const superAdminEmails = adminEmailsString
+            .split(",")
+            .map((email) => email.trim())
+            .filter(Boolean);
+
+          const userEmailFromPayload = handshakeResult.user.email || "";
+          const isSuperAdmin = superAdminEmails.includes(userEmailFromPayload);
+
+          let finalUserSlug = handshakeResult.user.username || targetUser;
+          if (isSuperAdmin && userEmailFromPayload) {
+            finalUserSlug = userEmailFromPayload
+              .split("@")[0]
+              .replace(/[^a-zA-Z0-9]/g, "");
+          }
+
           if (needsOnboarding) {
-            router.push(`/onboarding/setup/?user=${targetUser}`);
+            router.push(`/onboarding/setup/?user=${finalUserSlug}`);
           } else {
-            router.push(`/dashboard/${targetUser}`);
+            router.push(`/dashboard/${finalUserSlug}`);
           }
         } else {
           setProtocolState("failed");
-          setErrorMessage("Unauthorized Session Token Parameters.");
+          setErrorMessage(
+            handshakeResult.error || "Unauthorized Session Token Parameters.",
+          );
         }
       } catch (err: any) {
         setProtocolState("failed");
-        setErrorMessage(
-          err.message || "Network Timeout reaching Python Core Telemetry Node.",
-        );
+        setErrorMessage(err.message || "Network Timeout reaching Core Matrix.");
       }
     };
 
@@ -115,21 +115,17 @@ function IngressSecurityProtocolScanner() {
 
   return (
     <div className="relative z-10 w-full max-w-lg bg-theme-surface/80 backdrop-blur-2xl border border-theme-outline rounded-3xl shadow-2xl p-8 md:p-10 text-center flex flex-col items-center transition-colors duration-300">
-      {/* Dynamic Animated Core */}
       <div className="relative w-32 h-32 mx-auto mb-10 flex items-center justify-center">
-        {/* Outer rotating gradient ring */}
         <motion.div
           className="absolute inset-0 rounded-full bg-gradient-to-tr from-theme-primary via-theme-secondary to-theme-primary blur-xl opacity-30"
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
         />
-        {/* Pulsing inner ring */}
         <motion.div
           className="absolute inset-2 rounded-2xl bg-theme-primary/10 border border-theme-primary/30"
           animate={{ scale: [1, 1.05, 1], opacity: [0.5, 0.8, 0.5] }}
           transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
         />
-        {/* Solid Center Hardware Block */}
         <motion.div
           className="relative w-20 h-20 rounded-2xl bg-theme-bg border border-theme-outline flex items-center justify-center shadow-inner overflow-hidden"
           initial={{ scale: 0.8, opacity: 0 }}
@@ -149,7 +145,6 @@ function IngressSecurityProtocolScanner() {
       </div>
 
       <div className="space-y-6 w-full">
-        {/* Status Header */}
         <div className="space-y-2">
           <h2 className="text-sm font-bold tracking-widest text-theme-text uppercase font-mono flex items-center justify-center gap-2">
             {protocolState === "evaluating" && (
@@ -171,9 +166,7 @@ function IngressSecurityProtocolScanner() {
           </p>
         </div>
 
-        {/* High-End Terminal Log Window */}
         <div className="w-full bg-theme-bg border border-theme-outline rounded-xl overflow-hidden shadow-inner flex flex-col text-left">
-          {/* Terminal Header */}
           <div className="bg-theme-surface border-b border-theme-outline/50 px-4 py-2 flex items-center justify-between">
             <div className="flex items-center gap-2 text-[10px] font-bold text-theme-muted tracking-widest uppercase">
               <Terminal className="w-3.5 h-3.5" />
@@ -194,7 +187,6 @@ function IngressSecurityProtocolScanner() {
             </div>
           </div>
 
-          {/* Terminal Body */}
           <div className="p-4 h-20 flex flex-col justify-end relative">
             <AnimatePresence mode="wait">
               <motion.div
@@ -227,7 +219,6 @@ function IngressSecurityProtocolScanner() {
             </AnimatePresence>
           </div>
 
-          {/* Progress Bar */}
           <div className="h-1 w-full bg-theme-surface/50">
             <motion.div
               className={`h-full ${protocolState === "failed" ? "bg-rose-500" : "bg-theme-primary"}`}
@@ -245,9 +236,7 @@ function IngressSecurityProtocolScanner() {
 export default function StudioFlowAuthGate() {
   return (
     <div className="min-h-screen bg-theme-bg flex flex-col items-center justify-center p-6 antialiased selection:bg-theme-primary/20 relative overflow-hidden transition-colors duration-300">
-      {/* Ambient background glow to match the theme */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-theme-primary/10 via-theme-bg/0 to-theme-bg/0 pointer-events-none transition-colors duration-300" />
-
       <Suspense
         fallback={
           <div className="flex flex-col items-center gap-4 text-theme-primary">

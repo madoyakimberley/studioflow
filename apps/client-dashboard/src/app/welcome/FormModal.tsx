@@ -21,6 +21,7 @@ import {
   ChevronRight,
   X,
 } from "lucide-react";
+import { loginUser, registerUser } from "../auth-actions";
 
 type FormValues = {
   username: string;
@@ -154,32 +155,55 @@ export default function FormModal({ onClose, initialMode }: FormModalProps) {
     setFormError(null);
 
     try {
-      const needsOnboarding = mode === "signup" ? "true" : "false";
-      const targetUser = data.username || "admin";
-
-      // In a real scenario, this would be returned from your backend auth actions
-      const sessionToken = "simulated_secure_token_123";
-
       if (mode === "login") {
         console.log(
           "Processing existing session verification metrics...",
           data,
         );
-        await new Promise((resolve) => setTimeout(resolve, 1500));
 
-        // Push to the Auth Gate for existing users
-        router.push(
-          `/auth-gate?user=${targetUser}&onboard=${needsOnboarding}&token=${sessionToken}`,
-        );
+        // 1. Map frontend state to the exact keys the server action expects
+        const payload = {
+          identity: data.email,
+          password: data.masterPassword || "",
+        };
+
+        // 2. Await the server action
+        const result = await loginUser(payload);
+
+        // 3. SECURE GATE: Do not redirect unless the system explicitly grants a token
+        if (!result.success || !result.token) {
+          console.error("Ingress Rejected:", result.message);
+          setFormError(result.message);
+          return;
+        }
+
+        // 4. Proceed to the scanner only with a valid dev_ token
+        router.push(result.redirectUrl);
         onClose();
       } else {
         console.log("Provisioning brand new tenant resources...", data);
-        await new Promise((resolve) => setTimeout(resolve, 2000));
 
-        // Push to the Auth Gate for new users
-        router.push(
-          `/auth-gate?user=${targetUser}&onboard=${needsOnboarding}&token=${sessionToken}`,
-        );
+        // 1. Map frontend registration state to the server action payload
+        const payload = {
+          username: data.username,
+          email: data.email,
+          name: data.fullName,
+          password: data.masterPassword || "",
+          workspaceName: data.workspaceId,
+        };
+
+        // 2. Await the provisioning server action
+        const result = await registerUser(payload);
+
+        // 3. Reject if provisioning fails
+        if (!result.success || !result.token) {
+          console.error("Provisioning Rejected:", result.message);
+          setFormError(result.message);
+          return;
+        }
+
+        // 4. Send directly to Auth Gate
+        router.push(result.redirectUrl);
         onClose();
       }
     } catch (err: any) {
