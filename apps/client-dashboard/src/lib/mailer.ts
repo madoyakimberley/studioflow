@@ -9,7 +9,7 @@ import { decryptSecret } from "@/lib/crypto";
 // --- MAILER CONFIGURATION & TEMPLATES ---
 // ==========================================
 
-// 1. NEW: Dynamic Multi-Tenant Transporter
+// 1. Dynamic Multi-Tenant Transporter (For custom developer/workspace setups)
 async function createDynamicTransporter(workspaceId: number) {
   const config = await db
     .select()
@@ -40,28 +40,17 @@ async function createDynamicTransporter(workspaceId: number) {
   };
 }
 
-// Fallback for generic portal emails if no workspace config is defined yet
+// 2. Primary Platform Transporter (Loads directly from your .env.local)
 function createFallbackTransporter() {
   const port = parseInt(process.env.SMTP_PORT || "587");
   const isSecure = port === 465;
 
-  // ==========================================
-  // 🔍 MAILER DEBUG LOGS
-  // ==========================================
-  console.log("\n🔍 MAILER DEBUG: Attempting fallback connection with:");
-  console.log(`   - Host: ${process.env.SMTP_HOST || "smtp.mailtrap.io"}`);
-  console.log(`   - Port: ${port}`);
-  console.log(`   - Secure: ${isSecure}`);
-  console.log(`   - User: ${process.env.SMTP_USER || "MISSING_USER"}`);
-  console.log(
-    `   - Pass: ${process.env.SMTP_PASS ? "✅ API Key Loaded" : "❌ NO API KEY"}`,
-  );
-  console.log("==========================================\n");
+  console.log("\n📬 NODEMAILER: Connecting via .env.local SMTP credentials...");
 
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || "smtp.mailtrap.io",
     port: port,
-    secure: isSecure, // Automatically sets true for 465, false for 587
+    secure: isSecure,
     auth: {
       user: process.env.SMTP_USER || "",
       pass: process.env.SMTP_PASS || "",
@@ -69,8 +58,56 @@ function createFallbackTransporter() {
   });
 }
 
+// 3. Premium High-Resilience Pipeline (Reserved strictly for Premium Tier delivery)
+async function tryHttpsDelivery(to: string, subject: string, html: string) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("⚠️ PREMIUM MAILER: Resend API Key missing. Reverting route.");
+    return false;
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+  try {
+    console.log(
+      "⚡ PREMIUM MAILER: Firing high-resilience Resend HTTPS infrastructure...",
+    );
+    const systemSender =
+      process.env.SMTP_FROM_EMAIL ||
+      "StudioFlow Premium <onboarding@resend.dev>";
+
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: systemSender,
+        to: [to],
+        subject: subject,
+        html: html,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    return response.ok;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    console.warn(
+      "⚠️ PREMIUM MAILER: API pipeline stalled or dropped. Falling back to SMTP.",
+    );
+    return false;
+  }
+}
+
+// ==========================================
+// --- INTERFACES & PAYLOAD MATRICES ---
+// ==========================================
+
 interface AlertEmailPayload {
-  workspaceId: number; // NEW: Required to fetch dynamic credentials
+  workspaceId: number;
   projectName: string;
   statusCode: number | null;
   errorTrace: string | null;
@@ -80,6 +117,7 @@ interface PortalCodePayload {
   clientEmail: string;
   projectName: string;
   securePin: string;
+  isPremium?: boolean; // ✨ Future-proof switch for routing
 }
 
 interface PortalWelcomePayload {
@@ -87,11 +125,15 @@ interface PortalWelcomePayload {
   projectName: string;
   portalLink: string;
   securePin: string;
+  isPremium?: boolean; // ✨ Future-proof switch for routing
 }
+
+// ==========================================
+// --- CORE DISPATCH ENGINES ---
+// ==========================================
 
 export async function sendSystemAlertEmail(payload: AlertEmailPayload) {
   try {
-    // Dynamically boot the transport based on the workspace ID
     const { transporter, senderEmail, adminAlertEmail } =
       await createDynamicTransporter(payload.workspaceId);
 
@@ -126,72 +168,80 @@ export async function sendSystemAlertEmail(payload: AlertEmailPayload) {
 }
 
 export async function sendPortalAccessCodeEmail(payload: PortalCodePayload) {
+  const subject = `🔑 Secure Access Passcode for ${payload.projectName} Shared Portal`;
+  const htmlTemplate = `
+    <div style="font-family: 'Plus Jakarta Sans', sans-serif; padding: 32px; background-color: #0c0f16; color: #e0e2ec; max-width: 550px; margin: 0 auto; border-radius: 12px; border: 1px solid rgba(175, 186, 255, 0.1);">
+      <h2 style="font-size: 20px; color: #dac5ff; margin-bottom: 4px; font-weight: 600;">Secure Portal Authorization Request</h2>
+      <p style="font-size: 13px; color: #94a3b8; margin-top: 0; margin-bottom: 24px;">StudioFlow Verification Gateway Infrastructure</p>
+      <p style="font-size: 14px; line-height: 1.6; color: #c6c5d1;">A request was made to unlock the shared interactive workspace for project <strong>${payload.projectName}</strong>.</p>
+      <div style="background: rgba(20, 24, 36, 0.5); border: 1px solid rgba(175, 186, 255, 0.15); padding: 20px; border-radius: 8px; text-align: center; margin: 28px 0;">
+        <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.15em; color: #94a3b8; display: block; margin-bottom: 8px;">Single-Use Access Pin</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 34px; font-weight: 700; color: #e8b3ff; letter-spacing: 0.2em; display: inline-block; padding-left: 0.2em;">${payload.securePin}</span>
+      </div>
+      <p style="font-size: 11px; color: #94a3b8; line-height: 1.5;">This verification pin is locked to your email address and remains valid for 15 minutes.</p>
+    </div>
+  `;
+
+  // 🌟 STRATEGY 1: Route premium users directly through Resend's HTTPS API
+  if (payload.isPremium) {
+    const apiSuccess = await tryHttpsDelivery(
+      payload.clientEmail,
+      subject,
+      htmlTemplate,
+    );
+    if (apiSuccess) return true;
+  }
+
+  // 🌟 STRATEGY 2: Default pipeline (Nodemailer using your .env.local credentials)
   const transporter = createFallbackTransporter();
   const systemSender =
     process.env.SMTP_FROM_EMAIL ||
     `"StudioFlow Delivery" <delivery@studioflow.dev>`;
 
-  const mailOptions = {
+  return transporter.sendMail({
     from: systemSender,
     to: payload.clientEmail,
-    subject: `🔑 Secure Access Passcode for ${payload.projectName} Shared Portal`,
-    html: `
-      <div style="font-family: 'Plus Jakarta Sans', sans-serif; padding: 32px; background-color: #0c0f16; color: #e0e2ec; max-width: 550px; margin: 0 auto; border-radius: 12px; border: 1px solid rgba(175, 186, 255, 0.1);">
-        <h2 style="font-size: 20px; color: #dac5ff; margin-bottom: 4px; font-weight: 600;">Secure Portal Authorization Request</h2>
-        <p style="font-size: 13px; color: #94a3b8; margin-top: 0; margin-bottom: 24px;">StudioFlow Verification Gateway Infrastructure</p>
-        
-        <p style="font-size: 14px; line-height: 1.6; color: #c6c5d1;">A request was made to unlock the shared interactive workspace for project <strong>${payload.projectName}</strong>.</p>
-        
-        <div style="background: rgba(20, 24, 36, 0.5); border: 1px solid rgba(175, 186, 255, 0.15); padding: 20px; border-radius: 8px; text-align: center; margin: 28px 0;">
-          <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.15em; color: #94a3b8; display: block; margin-bottom: 8px;">Single-Use Access Pin</span>
-          <span style="font-family: 'JetBrains Mono', monospace; font-size: 34px; font-weight: 700; color: #e8b3ff; letter-spacing: 0.2em; display: inline-block; padding-left: 0.2em;">${payload.securePin}</span>
-        </div>
-        
-        <p style="font-size: 11px; color: #94a3b8; line-height: 1.5;">This verification pin is locked to your email address and remains valid for <strong>15 minutes</strong>. If you did not trigger this request, safely discard this record.</p>
-        <div style="border-top: 1px solid rgba(175, 186, 255, 0.08); margin-top: 32px; padding-top: 16px; text-align: center; font-size: 10px; color: #64748b;">
-          Powered securely via StudioFlow Universal Telemetry Clusters.
-        </div>
-      </div>
-    `,
-  };
-
-  return transporter.sendMail(mailOptions);
+    subject: subject,
+    html: htmlTemplate,
+  });
 }
 
 export async function sendPortalWelcomeEmail(payload: PortalWelcomePayload) {
+  const subject = `🔮 Your Client Portal Access - ${payload.projectName}`;
+  const htmlTemplate = `
+    <div style="font-family: 'Plus Jakarta Sans', sans-serif; padding: 32px; background-color: #0c0f16; color: #e0e2ec; max-width: 550px; margin: 0 auto; border-radius: 12px; border: 1px solid rgba(175, 186, 255, 0.1);">
+      <h2 style="font-size: 20px; color: #dac5ff; margin-bottom: 4px; font-weight: 600;">Welcome to your StudioFlow Portal</h2>
+      <p style="font-size: 14px; line-height: 1.6; color: #c6c5d1;">Your dedicated interactive client workspace for project <strong>${payload.projectName}</strong> has been provisioned and is ready.</p>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${payload.portalLink}" style="display: inline-block; padding: 12px 28px; background-color: #dac5ff; color: #030712; text-decoration: none; border-radius: 8px; font-size: 12px; font-weight: 700; text-transform: uppercase;">Access Secure Portal</a>
+      </div>
+      <div style="background: rgba(20, 24, 36, 0.5); border: 1px solid rgba(175, 186, 255, 0.15); padding: 16px; border-radius: 8px; text-align: center; margin: 28px 0;">
+        <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.15em; color: #94a3b8; display: block; margin-bottom: 8px;">Your 6-Digit Auto-Login Pin</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700; color: #e8b3ff; letter-spacing: 0.2em;">${payload.securePin}</span>
+      </div>
+    </div>
+  `;
+
+  // 🌟 STRATEGY 1: Route premium users directly through Resend's HTTPS API
+  if (payload.isPremium) {
+    const apiSuccess = await tryHttpsDelivery(
+      payload.clientEmail,
+      subject,
+      htmlTemplate,
+    );
+    if (apiSuccess) return true;
+  }
+
+  // 🌟 STRATEGY 2: Default pipeline (Nodemailer using your .env.local credentials)
   const transporter = createFallbackTransporter();
   const systemSender =
     process.env.SMTP_FROM_EMAIL ||
     `"StudioFlow Delivery" <delivery@studioflow.dev>`;
 
-  const mailOptions = {
+  return transporter.sendMail({
     from: systemSender,
     to: payload.clientEmail,
-    subject: `🔮 Your Client Portal Access - ${payload.projectName}`,
-    html: `
-      <div style="font-family: 'Plus Jakarta Sans', sans-serif; padding: 32px; background-color: #0c0f16; color: #e0e2ec; max-width: 550px; margin: 0 auto; border-radius: 12px; border: 1px solid rgba(175, 186, 255, 0.1);">
-        <h2 style="font-size: 20px; color: #dac5ff; margin-bottom: 4px; font-weight: 600;">Welcome to your StudioFlow Portal</h2>
-        <p style="font-size: 13px; color: #94a3b8; margin-top: 0; margin-bottom: 24px;">StudioFlow Onboarding Infrastructure Gateway</p>
-        
-        <p style="font-size: 14px; line-height: 1.6; color: #c6c5d1;">Your dedicated interactive client workspace for project <strong>${payload.projectName}</strong> has been provisioned and is ready for secure engagement.</p>
-        <p style="font-size: 14px; line-height: 1.6; color: #c6c5d1;">You can view and upload project assets, track pipeline updates, and chat with engineering teams directly inside your workspace console:</p>
-        
-        <div style="text-align: center; margin: 32px 0;">
-          <a href="${payload.portalLink}" style="display: inline-block; padding: 12px 28px; background-color: #dac5ff; color: #030712; text-decoration: none; border-radius: 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; box-shadow: 0 4px 12px rgba(218, 197, 255, 0.15);">Access Secure Portal</a>
-        </div>
-        
-        <div style="background: rgba(20, 24, 36, 0.5); border: 1px solid rgba(175, 186, 255, 0.15); padding: 16px; border-radius: 8px; text-align: center; margin: 28px 0;">
-          <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.15em; color: #94a3b8; display: block; margin-bottom: 8px;">Your 6-Digit Auto-Login Pin</span>
-          <span style="font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700; color: #e8b3ff; letter-spacing: 0.2em;">${payload.securePin}</span>
-        </div>
-
-        <p style="font-size: 11px; color: #94a3b8; line-height: 1.5;">Clicking the link above will automatically apply your pin. If you are prompted manually, use the code provided.</p>
-        <div style="border-top: 1px solid rgba(175, 186, 255, 0.08); margin-top: 32px; padding-top: 16px; text-align: center; font-size: 10px; color: #64748b;">
-          Powered securely via StudioFlow Universal Telemetry Clusters.
-        </div>
-      </div>
-    `,
-  };
-
-  return transporter.sendMail(mailOptions);
+    subject: subject,
+    html: htmlTemplate,
+  });
 }
