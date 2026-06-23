@@ -33,7 +33,8 @@ const c = {
 
 const STUDIOFLOW_HOME = path.join(os.homedir(), ".studioflow");
 const CONFIG_FILE_PATH = path.join(STUDIOFLOW_HOME, "config.json");
-
+const errorText =
+  `${stderrText}\n${stdoutText}`.trim() || provisionError.message;
 const cliEnvPath = path.resolve(__dirname, ".env");
 const cwdEnvPath = path.resolve(process.cwd(), ".env");
 if (fs.existsSync(cliEnvPath)) dotenv.config({ path: cliEnvPath });
