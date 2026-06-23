@@ -42,9 +42,26 @@ async function createDynamicTransporter(workspaceId: number) {
 
 // Fallback for generic portal emails if no workspace config is defined yet
 function createFallbackTransporter() {
+  const port = parseInt(process.env.SMTP_PORT || "587");
+  const isSecure = port === 465;
+
+  // ==========================================
+  // 🔍 MAILER DEBUG LOGS
+  // ==========================================
+  console.log("\n🔍 MAILER DEBUG: Attempting fallback connection with:");
+  console.log(`   - Host: ${process.env.SMTP_HOST || "smtp.mailtrap.io"}`);
+  console.log(`   - Port: ${port}`);
+  console.log(`   - Secure: ${isSecure}`);
+  console.log(`   - User: ${process.env.SMTP_USER || "MISSING_USER"}`);
+  console.log(
+    `   - Pass: ${process.env.SMTP_PASS ? "✅ API Key Loaded" : "❌ NO API KEY"}`,
+  );
+  console.log("==========================================\n");
+
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || "smtp.mailtrap.io",
-    port: parseInt(process.env.SMTP_PORT || "2525"),
+    port: port,
+    secure: isSecure, // Automatically sets true for 465, false for 587
     auth: {
       user: process.env.SMTP_USER || "",
       pass: process.env.SMTP_PASS || "",
