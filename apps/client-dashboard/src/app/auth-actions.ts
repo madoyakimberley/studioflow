@@ -2,13 +2,21 @@
 
 import { db, users, workspaces, workspaceEnvironments } from "@studioflow/db";
 import { eq, or } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import crypto from "crypto";
+import { getVerifiedUserAndWorkspace } from "./action";
 
+// ==========================================
+// Password Hashing
+// ==========================================
 function secureHashPassword(password: string): string {
   const salt = process.env.AUTH_SALT || "studioflow_fallback_system_guard_salt";
   return crypto.pbkdf2Sync(password, salt, 1000, 64, "sha512").toString("hex");
 }
 
+// ==========================================
+// Types
+// ==========================================
 interface LoginPayload {
   identity: string;
   password: string;
@@ -22,12 +30,11 @@ interface RegisterPayload {
   workspaceName: string;
 }
 
-/**
- * Provisions a tenant profile, workspace, and environment settings atomically.
- */
+// ==========================================
+// Registration
+// ==========================================
 export async function registerUser(payload: RegisterPayload) {
   try {
-    // 1. Ensure username or email is not already registered
     const existingUser = await db.query.users.findFirst({
       where: or(
         eq(users.email, payload.email.trim().toLowerCase()),
@@ -49,9 +56,7 @@ export async function registerUser(payload: RegisterPayload) {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "");
 
-    // 2. Atomic Transaction to seed user, workspace, and environment settings
     const finalWorkspaceId = await db.transaction(async (tx) => {
-      // Persist user
       await tx.insert(users).values({
         id: userId,
         username: payload.username.trim().toLowerCase(),
@@ -60,7 +65,6 @@ export async function registerUser(payload: RegisterPayload) {
         passwordHash: computedHash,
       });
 
-      // Seed workspace
       const [workspaceResult] = await tx.insert(workspaces).values({
         ownerId: userId,
         name: payload.workspaceName.trim(),
@@ -69,7 +73,6 @@ export async function registerUser(payload: RegisterPayload) {
 
       const newWorkspaceId = Number(workspaceResult.insertId);
 
-      // Initialize workspace environment record
       await tx.insert(workspaceEnvironments).values({
         workspaceId: Number(newWorkspaceId),
         envVars: {},
@@ -78,11 +81,9 @@ export async function registerUser(payload: RegisterPayload) {
       return newWorkspaceId;
     });
 
-    // 3. Build session token
     const randomEntropySegment = Math.floor(100000 + Math.random() * 900000);
     const sessionToken = `dev_${finalWorkspaceId}_${randomEntropySegment}`;
 
-    // New users always need onboarding
     const targetGatewayUrl = `/auth-gate?token=${sessionToken}&user=${payload.username.trim().toLowerCase()}&onboard=true`;
 
     return {
@@ -102,9 +103,9 @@ export async function registerUser(payload: RegisterPayload) {
   }
 }
 
-/**
- * Validates credentials and handles dynamic redirection pass-through tokens.
- */
+// ==========================================
+// Login
+// ==========================================
 export async function loginUser(payload: LoginPayload) {
   try {
     const computedHash = secureHashPassword(payload.password);
@@ -136,7 +137,6 @@ export async function loginUser(payload: LoginPayload) {
       };
     }
 
-    // Check if the environment has been configured to determine onboarding status
     const envCheck = await db.query.workspaceEnvironments.findFirst({
       where: eq(workspaceEnvironments.workspaceId, activeWorkspace.id),
     });
@@ -160,5 +160,36 @@ export async function loginUser(payload: LoginPayload) {
       message:
         error.message || "Authentication gateway subsystem error encountered.",
     };
+  }
+}
+
+// ==========================================
+// REGENERATE CLI TOKEN (no expiry field)
+// ==========================================
+export async function regenerateCliToken(workspaceId: number) {
+  try {
+    const auth = await getVerifiedUserAndWorkspace();
+    if (!auth.success || !auth.data) {
+      return { success: false, error: "Unauthorized" };
+    }
+    if (auth.data.workspaceId !== workspaceId) {
+      return { success: false, error: "You don't own this workspace." };
+    }
+
+    const secureEntropy = crypto.randomUUID().replace(/-/g, "");
+    const newToken = `sf_pat_${secureEntropy}`;
+
+    await db
+      .update(users)
+      .set({
+        cliToken: newToken,
+        // cliTokenGeneratedAt removed for simplicity – we'll add later
+      })
+      .where(eq(users.id, auth.data.userId));
+
+    revalidatePath(`/dashboard/${auth.data.userSlug}/configs`);
+    return { success: true, token: newToken };
+  } catch (error: any) {
+    return { success: false, error: error.message };
   }
 }

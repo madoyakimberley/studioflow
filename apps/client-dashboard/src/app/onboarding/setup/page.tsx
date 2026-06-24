@@ -1,15 +1,12 @@
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useState, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Database,
-  Code,
   Cloud,
   FolderSync,
-  Terminal,
-  Save,
   Loader2,
   Mail,
   Key,
@@ -25,9 +22,11 @@ import {
   Copy,
   Lock,
   Info,
-  HelpCircle,
 } from "lucide-react";
-import { saveWorkspaceEnvironment } from "../../environment-actions";
+import {
+  saveWorkspaceEnvironment,
+  getCurrentWorkspaceId,
+} from "../../environment-actions";
 import { toast } from "sonner";
 
 function EnvironmentSetupForm() {
@@ -35,7 +34,8 @@ function EnvironmentSetupForm() {
   const searchParams = useSearchParams();
   const targetUser = searchParams.get("user") || "admin";
 
-  const currentWorkspaceId = Number(searchParams.get("workspaceId")) || 1;
+  const [workspaceId, setWorkspaceId] = useState<number | null>(null);
+  const [loadingWorkspace, setLoadingWorkspace] = useState(true);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [setupComplete, setSetupComplete] = useState(false);
@@ -60,6 +60,26 @@ function EnvironmentSetupForm() {
     adminAlertEmail: "",
   });
 
+  useEffect(() => {
+    async function fetchWorkspace() {
+      const result = await getCurrentWorkspaceId();
+      if (result.success && result.workspaceId) {
+        setWorkspaceId(result.workspaceId);
+      } else {
+        const urlWorkspaceId = searchParams.get("workspaceId");
+        if (urlWorkspaceId) {
+          setWorkspaceId(Number(urlWorkspaceId));
+        } else {
+          toast.error(
+            "Could not determine your workspace. Please log in again.",
+          );
+        }
+      }
+      setLoadingWorkspace(false);
+    }
+    fetchWorkspace();
+  }, [searchParams]);
+
   const handleUpdate = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -69,12 +89,10 @@ function EnvironmentSetupForm() {
       if ("showDirectoryPicker" in window) {
         const dirHandle = await (window as any).showDirectoryPicker();
         handleUpdate("targetOutputDir", `~/${dirHandle.name}`);
-        toast.success(
-          `Target mapped to folder: ${dirHandle.name}. Ensure absolute paths if running daemon outside root.`,
-        );
+        toast.success(`Target mapped to folder: ${dirHandle.name}.`);
       } else {
         toast.info(
-          "Browser security sandboxes prevent web apps from extracting absolute folder paths. To get your path easily, select the folder in Finder and press ⌥ + ⌘ + C, then paste it here.",
+          "Browser security sandboxes prevent web apps from extracting absolute folder paths. Select the folder in Finder and press ⌥ + ⌘ + C, then paste it here.",
           { duration: 8000 },
         );
       }
@@ -89,26 +107,25 @@ function EnvironmentSetupForm() {
   };
 
   const handleSubmit = async (e?: React.FormEvent | React.MouseEvent) => {
-    console.log("🚀 handleSubmit function triggered!");
-
     if (e) e.preventDefault();
 
+    if (!workspaceId) {
+      toast.error("Workspace ID not loaded. Please refresh the page.");
+      return;
+    }
+
     if (!formData.databaseUrl || !formData.githubToken) {
-      toast.error(
-        "Please ensure Database Connection URL and GitHub Token are provided in previous steps.",
-      );
+      toast.error("Database Connection URL and GitHub Token are required.");
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      console.log("🚀 Calling saveWorkspaceEnvironment API...");
       const res = await saveWorkspaceEnvironment({
-        workspaceId: currentWorkspaceId,
+        workspaceId,
         ...formData,
       });
-      console.log("🚀 Response received:", res);
 
       if (res && res.success) {
         setGeneratedCliToken(
@@ -120,10 +137,8 @@ function EnvironmentSetupForm() {
         toast.error(res?.message || "Failed to finalize environment setup.");
       }
     } catch (error: any) {
-      console.error("🔥 Error during submission:", error);
-      toast.error(
-        error?.message || "A critical error occurred while saving the matrix.",
-      );
+      console.error("Error during submission:", error);
+      toast.error(error?.message || "A critical error occurred.");
     } finally {
       setIsSubmitting(false);
     }
@@ -147,38 +162,37 @@ function EnvironmentSetupForm() {
 
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
 
-  // --- Step Context Data ---
   const stepData = {
     1: {
       tag: "MODULE 01 / 04",
       title: "Aetheric\nFoundry",
-      desc: "Initiating the Environment Scaffolding protocol. This process establishes the digital bedrock of your enterprise architecture, ensuring every node and matrix aligns with rigorous performance standards.",
+      desc: "Initiating the Environment Scaffolding protocol.",
       necessity:
-        "Without a defined local scaffolding directory, the CLI daemon cannot isolate your project files or generate the necessary repository structures on your host machine.",
+        "Without a defined local scaffolding directory, the CLI daemon cannot isolate your project files.",
       nextLabel: "Initialize CLI Path",
     },
     2: {
       tag: "ARCHITECTURAL LAYER 02",
       title: "Data Persistence\nStrategy",
-      desc: "Define the backbone of your application's memory. Our persistence engine ensures ACID compliance, high-availability replication, and seamless migration workflows.",
+      desc: "Define the backbone of your application's memory.",
       necessity:
-        "Your data layer defines application velocity. Selecting the right engine and an optimized ORM ensures your microservices communicate with optimal latency and strict type safety.",
+        "Your data layer defines application velocity. Selecting the right engine and an optimized ORM ensures optimal latency.",
       nextLabel: "Commit Strategy",
     },
     3: {
       tag: "STEP 03: SECURE CONNECTIVITY",
       title: "Integrated Pipeline\nSecurity",
-      desc: "Establish a fortified connection between your local environment and the global repository network. Our automated security protocols ensure your tokens are encrypted at rest and during transit.",
+      desc: "Establish a fortified connection between your local environment and the global repository network.",
       necessity:
-        "We require authenticated tokens and outbound mail relays to wire up your CI/CD pipelines, trigger deployment hooks, and dispatch critical systemic alerts.",
+        "We require authenticated tokens and outbound mail relays to wire up your CI/CD pipelines.",
       nextLabel: "Initialize Sync",
     },
     4: {
       tag: "STAGING 04 / GATED",
       title: "Ready for\nDeployment.",
-      desc: "All system parameters are locked. Architecture integrity verified across nodes. Finalize your target production cloud provider to initialize the environment.",
+      desc: "All system parameters are locked. Architecture integrity verified across nodes.",
       necessity:
-        "This final handshake connects your local scaffold to the global edge network. Selecting a target provider provisions the exact serverless or container orchestration you need.",
+        "This final handshake connects your local scaffold to the global edge network.",
       nextLabel: "Initialize Environment",
     },
   };
@@ -186,30 +200,60 @@ function EnvironmentSetupForm() {
   const currentContext = stepData[currentStep as keyof typeof stepData];
   const progressPercentage = (currentStep / 4) * 100;
 
+  if (loadingWorkspace) {
+    return (
+      <div className="min-h-screen bg-theme-bg flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-theme-primary animate-spin" />
+        <span className="ml-4 text-theme-muted font-mono">
+          Loading workspace...
+        </span>
+      </div>
+    );
+  }
+
+  if (!workspaceId) {
+    return (
+      <div className="min-h-screen bg-theme-bg flex items-center justify-center p-4">
+        <div className="bg-theme-surface/80 border border-rose-500/20 rounded-2xl p-8 max-w-md text-center">
+          <h2 className="text-xl font-bold text-theme-text">
+            Workspace Not Found
+          </h2>
+          <p className="text-theme-muted mt-2">
+            Could not determine your workspace. Please log out and try again.
+          </p>
+          <button
+            onClick={() => router.push("/")}
+            className="mt-6 bg-theme-primary hover:brightness-110 text-theme-on-primary px-6 py-2 rounded-xl text-sm font-bold"
+          >
+            Return to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (setupComplete) {
     return (
-      <div className="min-h-screen bg-theme-bg font-sans text-theme-text flex justify-center items-center py-12 px-4 sm:px-6 lg:px-8 selection:bg-theme-primary/30">
+      <div className="min-h-screen bg-theme-bg flex justify-center items-center py-12 px-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-2xl bg-theme-surface/20 backdrop-blur-md border border-theme-outline/30 rounded-2xl shadow-2xl overflow-hidden p-10 space-y-10 relative"
+          className="w-full max-w-2xl bg-theme-surface/20 backdrop-blur-md border border-theme-outline/30 rounded-2xl shadow-2xl p-10 space-y-10 relative"
         >
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-theme-primary to-theme-secondary" />
-
           <div className="text-center space-y-4">
             <div className="w-20 h-20 rounded-full bg-theme-primary/10 flex items-center justify-center mx-auto border border-theme-primary/20 shadow-[0_0_40px_var(--color-theme-primary)]/20">
               <CheckCircle className="w-10 h-10 text-theme-primary" />
             </div>
-            <h1 className="text-4xl font-serif text-theme-text tracking-tight">
+            <h1 className="text-4xl font-serif text-theme-text">
               Environment Locked.
             </h1>
             <p className="text-sm text-theme-muted font-mono max-w-md mx-auto">
               Your database nodes, mail servers, and cloud options are ready.
-              Connect your CLI engine to sync these keys directly.
             </p>
           </div>
 
-          <div className="bg-theme-bg/50 border border-theme-outline/20 rounded-xl p-6 space-y-8 shadow-inner">
+          <div className="bg-theme-bg/50 border border-theme-outline/20 rounded-xl p-6 space-y-8">
             <div className="space-y-3">
               <h3 className="text-xs font-bold text-theme-text uppercase tracking-widest flex items-center gap-3">
                 <span className="w-6 h-6 rounded bg-theme-primary/20 flex items-center justify-center text-theme-primary">
@@ -217,8 +261,8 @@ function EnvironmentSetupForm() {
                 </span>
                 Install the StudioFlow CLI
               </h3>
-              <div className="pl-9 relative">
-                <div className="bg-theme-surface/50 border border-theme-outline/30 rounded-lg p-4 flex justify-between items-center group hover:border-theme-primary/50 transition">
+              <div className="pl-9">
+                <div className="bg-theme-surface/50 border border-theme-outline/30 rounded-lg p-4 flex justify-between items-center">
                   <code className="text-theme-text text-[13px] font-mono">
                     npm install -g studioflow-cli
                   </code>
@@ -226,10 +270,10 @@ function EnvironmentSetupForm() {
                     onClick={() =>
                       copyToClipboard(
                         "npm install -g studioflow-cli",
-                        "Install command copied!",
+                        "Command copied!",
                       )
                     }
-                    className="text-theme-muted hover:text-theme-primary transition"
+                    className="text-theme-muted hover:text-theme-primary"
                   >
                     <Copy className="w-5 h-5" />
                   </button>
@@ -245,27 +289,23 @@ function EnvironmentSetupForm() {
                 Authenticate Local Engine
               </h3>
               <div className="pl-9 space-y-3">
-                <div className="bg-theme-surface/50 border border-theme-outline/30 rounded-lg p-4 flex justify-between items-center hover:border-theme-primary/50 transition">
+                <div className="bg-theme-surface/50 border border-theme-outline/30 rounded-lg p-4 flex justify-between items-center">
                   <div className="flex items-center gap-3 overflow-hidden">
                     <Lock className="w-4 h-4 text-theme-primary shrink-0" />
-                    <code className="text-theme-text text-[13px] font-mono truncate opacity-80">
+                    <code className="text-theme-text text-[13px] font-mono truncate">
                       {generatedCliToken}
                     </code>
                   </div>
                   <button
                     onClick={() =>
-                      copyToClipboard(
-                        generatedCliToken,
-                        "Token copied securely to clipboard!",
-                      )
+                      copyToClipboard(generatedCliToken, "Token copied!")
                     }
-                    className="text-theme-muted hover:text-theme-primary transition pl-3"
+                    className="text-theme-muted hover:text-theme-primary"
                   >
                     <Copy className="w-5 h-5" />
                   </button>
                 </div>
-
-                <div className="bg-theme-surface/50 border border-theme-outline/30 rounded-lg p-4 flex justify-between items-center group hover:border-theme-primary/50 transition">
+                <div className="bg-theme-surface/50 border border-theme-outline/30 rounded-lg p-4 flex justify-between items-center">
                   <code className="text-theme-text text-[13px] font-mono">
                     studioflow login
                   </code>
@@ -276,7 +316,7 @@ function EnvironmentSetupForm() {
                         "Login command copied!",
                       )
                     }
-                    className="text-theme-muted hover:text-theme-primary transition"
+                    className="text-theme-muted hover:text-theme-primary"
                   >
                     <Copy className="w-5 h-5" />
                   </button>
@@ -291,8 +331,8 @@ function EnvironmentSetupForm() {
                 </span>
                 Boot the Engine Daemon
               </h3>
-              <div className="pl-9 relative">
-                <div className="bg-theme-surface/50 border border-theme-outline/30 rounded-lg p-4 flex justify-between items-center group hover:border-theme-primary/50 transition">
+              <div className="pl-9">
+                <div className="bg-theme-surface/50 border border-theme-outline/30 rounded-lg p-4 flex justify-between items-center">
                   <code className="text-theme-primary text-[13px] font-mono font-bold">
                     studioflow
                   </code>
@@ -300,7 +340,7 @@ function EnvironmentSetupForm() {
                     onClick={() =>
                       copyToClipboard("studioflow", "Boot command copied!")
                     }
-                    className="text-theme-muted hover:text-theme-primary transition"
+                    className="text-theme-muted hover:text-theme-primary"
                   >
                     <Copy className="w-5 h-5" />
                   </button>
@@ -311,7 +351,7 @@ function EnvironmentSetupForm() {
 
           <button
             onClick={() => router.push(`/dashboard/${targetUser}`)}
-            className="w-full bg-theme-primary hover:brightness-110 text-theme-on-primary text-sm font-bold py-5 rounded-xl transition-all flex items-center justify-center gap-2 tracking-wide shadow-[0_0_20px_var(--color-theme-primary)]/30"
+            className="w-full bg-theme-primary hover:brightness-110 text-theme-on-primary text-sm font-bold py-5 rounded-xl transition-all flex items-center justify-center gap-2"
           >
             Finalize Synchronization <ArrowRight className="w-5 h-5" />
           </button>
@@ -320,9 +360,9 @@ function EnvironmentSetupForm() {
     );
   }
 
+  // Rest of the form (steps) – keep as before
   return (
     <div className="min-h-screen bg-theme-bg font-sans text-theme-text flex overflow-hidden selection:bg-theme-primary/30">
-      {/* LEFT PANE: Dynamic Context */}
       <div className="hidden lg:flex w-[40%] xl:w-[35%] bg-theme-surface border-r border-theme-outline/10 flex-col justify-between z-10 text-theme-text relative h-screen">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <motion.div
@@ -345,7 +385,7 @@ function EnvironmentSetupForm() {
               exit={{ opacity: 0, x: 20, filter: "blur(4px)" }}
               transition={{ duration: 0.4, ease: "easeOut" }}
             >
-              <p className="text-theme-primary font-bold tracking-[0.2em] text-[10px] uppercase mb-6 drop-shadow-md">
+              <p className="text-theme-primary font-bold tracking-[0.2em] text-[10px] uppercase mb-6">
                 {currentContext.tag}
               </p>
               <h1 className="text-5xl xl:text-6xl font-serif mb-6 tracking-tight leading-[1.1] whitespace-pre-line">
@@ -385,9 +425,7 @@ function EnvironmentSetupForm() {
         </div>
       </div>
 
-      {/* RIGHT PANE: Wizard Action Area */}
       <div className="w-full lg:w-[60%] xl:w-[65%] h-screen bg-theme-bg flex flex-col relative overflow-hidden">
-        {/* Fixed Progress Bar Header */}
         <div className="w-full bg-theme-bg/95 backdrop-blur-md border-b border-theme-outline/10 px-8 pt-8 pb-5 sm:px-12 lg:px-20 z-20 shrink-0">
           <div className="flex justify-between items-end mb-3">
             <span className="text-[10px] font-bold uppercase tracking-widest text-theme-muted">
@@ -399,7 +437,7 @@ function EnvironmentSetupForm() {
           </div>
           <div className="w-full h-1 bg-theme-surface/80 rounded-full overflow-hidden">
             <motion.div
-              className="h-full bg-gradient-to-r from-theme-primary to-theme-secondary shadow-[0_0_10px_var(--color-theme-primary)]/50"
+              className="h-full bg-gradient-to-r from-theme-primary to-theme-secondary"
               initial={{ width: 0 }}
               animate={{ width: `${progressPercentage}%` }}
               transition={{ duration: 0.6, ease: "circOut" }}
@@ -407,11 +445,9 @@ function EnvironmentSetupForm() {
           </div>
         </div>
 
-        {/* Scrolling Action Form Section */}
         <div className="flex-1 overflow-y-auto py-12 px-8 sm:px-12 lg:px-20 custom-scrollbar">
           <div className="max-w-2xl mx-auto pb-12">
             <AnimatePresence mode="wait">
-              {/* STEP 1 */}
               {currentStep === 1 && (
                 <motion.section
                   key="step-1"
@@ -422,14 +458,13 @@ function EnvironmentSetupForm() {
                   className="space-y-8"
                 >
                   <div>
-                    <h2 className="text-3xl font-serif text-theme-text mb-3 tracking-tight">
+                    <h2 className="text-3xl font-serif text-theme-text mb-3">
                       Project Identity
                     </h2>
                     <p className="text-sm text-theme-muted">
                       Define the foundational parameters for the new workspace.
                     </p>
                   </div>
-
                   <div className="space-y-4 pt-4">
                     <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text">
                       Local Scaffolding Directory
@@ -448,14 +483,12 @@ function EnvironmentSetupForm() {
                       <button
                         onClick={handleBrowseClick}
                         type="button"
-                        className="absolute right-0 top-0 bottom-4 px-3 flex items-center text-theme-muted hover:text-theme-primary hover:bg-theme-surface rounded-md transition"
-                        title="Browse or Info"
+                        className="absolute right-0 top-0 bottom-4 px-3 flex items-center text-theme-muted hover:text-theme-primary"
                       >
                         <FolderSearch className="w-5 h-5" />
                       </button>
                     </div>
                   </div>
-
                   <div className="space-y-4 pt-6">
                     <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text">
                       Admin Alert Email
@@ -474,7 +507,6 @@ function EnvironmentSetupForm() {
                 </motion.section>
               )}
 
-              {/* STEP 2 */}
               {currentStep === 2 && (
                 <motion.section
                   key="step-2"
@@ -489,59 +521,43 @@ function EnvironmentSetupForm() {
                       <Server className="w-4 h-4" /> Database Engine
                     </label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {[
-                        {
-                          id: "postgresql",
-                          label: "PostgreSQL",
-                          desc: "Relational standard with robust ACID compliance.",
-                        },
-                        {
-                          id: "mysql",
-                          label: "MySQL",
-                          desc: "High reliability multi-threaded SQL database.",
-                        },
-                        {
-                          id: "sqlite",
-                          label: "SQLite",
-                          desc: "Lightweight, file-based embedded SQL engine.",
-                        },
-                        {
-                          id: "mongodb",
-                          label: "MongoDB",
-                          desc: "Scalable NoSQL document database.",
-                        },
-                      ].map((db) => (
-                        <div
-                          key={db.id}
-                          onClick={() => handleUpdate("databaseEngine", db.id)}
-                          className={`p-5 rounded-xl border-2 cursor-pointer transition-all flex flex-col gap-3 ${
-                            formData.databaseEngine === db.id
-                              ? "border-theme-primary bg-theme-primary/10 shadow-[0_0_15px_var(--color-theme-primary)]/20"
-                              : "border-theme-outline/20 hover:border-theme-outline/50 bg-theme-surface/30"
-                          }`}
-                        >
-                          <div className="flex justify-between items-center">
-                            <Database
-                              className={`w-5 h-5 ${
-                                formData.databaseEngine === db.id
-                                  ? "text-theme-primary"
-                                  : "text-theme-muted"
-                              }`}
-                            />
-                            {formData.databaseEngine === db.id && (
-                              <CheckCircle className="w-4 h-4 text-theme-primary" />
-                            )}
+                      {["postgresql", "mysql", "sqlite", "mongodb"].map(
+                        (db) => (
+                          <div
+                            key={db}
+                            onClick={() => handleUpdate("databaseEngine", db)}
+                            className={`p-5 rounded-xl border-2 cursor-pointer transition-all flex flex-col gap-3 ${
+                              formData.databaseEngine === db
+                                ? "border-theme-primary bg-theme-primary/10"
+                                : "border-theme-outline/20 hover:border-theme-outline/50 bg-theme-surface/30"
+                            }`}
+                          >
+                            <div className="flex justify-between items-center">
+                              <Database
+                                className={`w-5 h-5 ${formData.databaseEngine === db ? "text-theme-primary" : "text-theme-muted"}`}
+                              />
+                              {formData.databaseEngine === db && (
+                                <CheckCircle className="w-4 h-4 text-theme-primary" />
+                              )}
+                            </div>
+                            <div>
+                              <h4 className="text-[13px] font-bold text-theme-text capitalize">
+                                {db}
+                              </h4>
+                              <p className="text-[11px] text-theme-muted mt-0.5">
+                                {db === "postgresql" &&
+                                  "Relational with robust ACID compliance."}
+                                {db === "mysql" &&
+                                  "High reliability multi-threaded SQL."}
+                                {db === "sqlite" &&
+                                  "Lightweight, file-based embedded SQL."}
+                                {db === "mongodb" &&
+                                  "Scalable NoSQL document database."}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="text-[13px] font-bold text-theme-text">
-                              {db.label}
-                            </h4>
-                            <p className="text-[11px] text-theme-muted mt-0.5">
-                              {db.desc}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
+                        ),
+                      )}
                     </div>
                   </div>
 
@@ -549,75 +565,54 @@ function EnvironmentSetupForm() {
                     <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text flex items-center gap-2">
                       <Database className="w-4 h-4" /> Database ORM
                     </label>
-                    <div className="grid grid-cols-1 gap-3 max-h-[360px] overflow-y-auto pr-2 custom-scrollbar">
+                    <div className="grid grid-cols-1 gap-3 max-h-[360px] overflow-y-auto pr-2">
                       {[
-                        {
-                          id: "drizzle",
-                          label: "Drizzle ORM",
-                          desc: "TypeScript-first performance, zero-overhead SQL mapping.",
-                        },
-                        {
-                          id: "prisma",
-                          label: "Prisma",
-                          desc: "Type-safe Node.js & TypeScript client with rich auto-migrations.",
-                        },
-                        {
-                          id: "mongoose",
-                          label: "Mongoose",
-                          desc: "Elegant asynchronous MongoDB object modeling schemas.",
-                        },
-                        {
-                          id: "sqlalchemy",
-                          label: "SQLAlchemy",
-                          desc: "The enterprise-standard relational Python SQL toolkit mapper.",
-                        },
-                        {
-                          id: "django_orm",
-                          label: "Django ORM",
-                          desc: "Robust, fully-integrated battery framework backend persistence.",
-                        },
-                        {
-                          id: "eloquent",
-                          label: "Eloquent",
-                          desc: "Expressive ActiveRecord implementation for highly efficient setups.",
-                        },
-                        {
-                          id: "hibernate",
-                          label: "Hibernate",
-                          desc: "High-performance object/relational persistence architecture for Java.",
-                        },
-                        {
-                          id: "entity_framework",
-                          label: "EF Core",
-                          desc: "Lightweight, extensible framework for .NET platforms.",
-                        },
+                        "drizzle",
+                        "prisma",
+                        "mongoose",
+                        "sqlalchemy",
+                        "django_orm",
+                        "eloquent",
+                        "hibernate",
+                        "entity_framework",
                       ].map((orm) => (
                         <div
-                          key={orm.id}
-                          onClick={() => handleUpdate("databaseOrm", orm.id)}
+                          key={orm}
+                          onClick={() => handleUpdate("databaseOrm", orm)}
                           className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center gap-4 ${
-                            formData.databaseOrm === orm.id
+                            formData.databaseOrm === orm
                               ? "border-theme-primary bg-theme-primary/10"
                               : "border-theme-outline/20 hover:border-theme-outline/50 bg-theme-surface/30"
                           }`}
                         >
                           <div
-                            className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                              formData.databaseOrm === orm.id
-                                ? "border-theme-primary"
-                                : "border-theme-outline/40"
-                            }`}
+                            className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${formData.databaseOrm === orm ? "border-theme-primary" : "border-theme-outline/40"}`}
                           >
-                            {formData.databaseOrm === orm.id && (
+                            {formData.databaseOrm === orm && (
                               <div className="w-2 h-2 rounded-full bg-theme-primary" />
                             )}
                           </div>
                           <div>
                             <h4 className="text-[13px] font-bold text-theme-text">
-                              {orm.label}
+                              {orm}
                             </h4>
                             <p className="text-[11px] text-theme-muted mt-0.5">
-                              {orm.desc}
+                              {orm === "drizzle" &&
+                                "TypeScript-first, zero-overhead SQL mapping."}
+                              {orm === "prisma" &&
+                                "Type-safe Node.js client with auto-migrations."}
+                              {orm === "mongoose" &&
+                                "Elegant MongoDB object modeling."}
+                              {orm === "sqlalchemy" &&
+                                "Enterprise-standard Python SQL toolkit."}
+                              {orm === "django_orm" &&
+                                "Batteries-included Django persistence."}
+                              {orm === "eloquent" &&
+                                "Expressive ActiveRecord implementation."}
+                              {orm === "hibernate" &&
+                                "High-performance Java ORM."}
+                              {orm === "entity_framework" &&
+                                "Lightweight .NET ORM framework."}
                             </p>
                           </div>
                         </div>
@@ -632,8 +627,6 @@ function EnvironmentSetupForm() {
                     <input
                       type="password"
                       autoComplete="new-password"
-                      spellCheck="false"
-                      autoCorrect="off"
                       required
                       value={formData.databaseUrl}
                       onChange={(e) =>
@@ -652,12 +645,11 @@ function EnvironmentSetupForm() {
                       <button
                         type="button"
                         onClick={() => setShowRedisInfo(!showRedisInfo)}
-                        className="text-[10px] text-theme-primary font-bold tracking-widest uppercase hover:underline"
+                        className="text-[10px] text-theme-primary font-bold uppercase hover:underline"
                       >
                         {showRedisInfo ? "Hide Context" : "Why do I need this?"}
                       </button>
                     </div>
-
                     <AnimatePresence>
                       {showRedisInfo && (
                         <motion.div
@@ -672,31 +664,25 @@ function EnvironmentSetupForm() {
                               <strong className="text-theme-text">
                                 optional but highly recommended
                               </strong>
-                              . If you want to experience the full features of
-                              your application infrastructure (including
-                              real-time websocket coordination, message queues,
-                              and execution caching layers), setting up a Redis
-                              engine is important.
+                              . It enables real-time websocket coordination,
+                              message queues, and caching layers.
                             </p>
                             <p>
-                              To test it out instantly with zero local overhead,
-                              you can create an instance on the{" "}
+                              You can create a free instance on{" "}
                               <a
                                 href="https://upstash.com"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-theme-primary underline font-bold hover:text-theme-secondary transition"
+                                className="text-theme-primary underline font-bold"
                               >
-                                Upstash free tier
+                                Upstash
                               </a>{" "}
-                              and paste the provided connection string right
-                              here.
+                              and paste the connection string here.
                             </p>
                           </div>
                         </motion.div>
                       )}
                     </AnimatePresence>
-
                     <input
                       type="text"
                       value={formData.redisUrl}
@@ -708,7 +694,6 @@ function EnvironmentSetupForm() {
                 </motion.section>
               )}
 
-              {/* STEP 3 */}
               {currentStep === 3 && (
                 <motion.section
                   key="step-3"
@@ -725,14 +710,12 @@ function EnvironmentSetupForm() {
                     </label>
                     <p className="text-[12px] text-theme-muted leading-relaxed mb-4">
                       Required for the CLI to automatically provision
-                      repositories and push baseline scaffold architectures. The
-                      token requires `repo` and `workflow` scopes.
+                      repositories and push scaffold architectures. The token
+                      requires `repo` and `workflow` scopes.
                     </p>
                     <input
                       type="password"
                       autoComplete="new-password"
-                      spellCheck="false"
-                      autoCorrect="off"
                       required
                       value={formData.githubToken}
                       onChange={(e) =>
@@ -806,8 +789,6 @@ function EnvironmentSetupForm() {
                         <input
                           type="password"
                           autoComplete="new-password"
-                          spellCheck="false"
-                          autoCorrect="off"
                           value={formData.smtpPass}
                           onChange={(e) =>
                             handleUpdate("smtpPass", e.target.value)
@@ -821,7 +802,6 @@ function EnvironmentSetupForm() {
                 </motion.section>
               )}
 
-              {/* STEP 4 */}
               {currentStep === 4 && (
                 <motion.section
                   key="step-4"
@@ -837,30 +817,10 @@ function EnvironmentSetupForm() {
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {[
-                        {
-                          id: "none",
-                          label: "Local Only",
-                          desc: "Infrastructure sandboxed to private particulate nodes.",
-                          icon: Monitor,
-                        },
-                        {
-                          id: "render",
-                          label: "Render API",
-                          desc: "Native automatic build v2 workers global edge network.",
-                          icon: Cloud,
-                        },
-                        {
-                          id: "railway",
-                          label: "Railway",
-                          desc: "Ephemerals scaling with high availability persistent volume.",
-                          icon: Cpu,
-                        },
-                        {
-                          id: "vercel",
-                          label: "Vercel",
-                          desc: "Optimized serverless functions & global CDN delivery.",
-                          icon: Server,
-                        },
+                        { id: "none", label: "Local Only", icon: Monitor },
+                        { id: "render", label: "Render API", icon: Cloud },
+                        { id: "railway", label: "Railway", icon: Cpu },
+                        { id: "vercel", label: "Vercel", icon: Server },
                       ].map((provider) => (
                         <div
                           key={provider.id}
@@ -869,28 +829,35 @@ function EnvironmentSetupForm() {
                           }
                           className={`cursor-pointer rounded-2xl border p-5 transition-all duration-300 flex flex-col gap-4 ${
                             formData.deploymentProvider === provider.id
-                              ? "border-[var(--color-theme-primary)] bg-[var(--color-theme-primary)]/5"
-                              : "border-[var(--color-theme-outline)]/20 bg-[var(--color-theme-surface)]/20 hover:border-[var(--color-theme-outline)]/50"
+                              ? "border-theme-primary bg-theme-primary/5"
+                              : "border-theme-outline/20 bg-theme-surface/20 hover:border-theme-outline/50"
                           }`}
                         >
                           <div className="flex justify-between items-start">
                             <div
-                              className={`p-2.5 rounded-xl ${formData.deploymentProvider === provider.id ? "bg-[var(--color-theme-primary)]/20" : "bg-[var(--color-theme-surface)]/50"}`}
+                              className={`p-2.5 rounded-xl ${formData.deploymentProvider === provider.id ? "bg-theme-primary/20" : "bg-theme-surface/50"}`}
                             >
                               <provider.icon
-                                className={`w-5 h-5 ${formData.deploymentProvider === provider.id ? "text-[var(--color-theme-primary)]" : "text-[var(--color-theme-muted)]"}`}
+                                className={`w-5 h-5 ${formData.deploymentProvider === provider.id ? "text-theme-primary" : "text-theme-muted"}`}
                               />
                             </div>
                             {formData.deploymentProvider === provider.id && (
-                              <CheckCircle className="w-5 h-5 text-[var(--color-theme-primary)]" />
+                              <CheckCircle className="w-5 h-5 text-theme-primary" />
                             )}
                           </div>
                           <div>
-                            <h4 className="text-[14px] font-bold text-[var(--color-theme-text)]">
+                            <h4 className="text-[14px] font-bold text-theme-text">
                               {provider.label}
                             </h4>
-                            <p className="text-[12px] text-[var(--color-theme-muted)] mt-1 leading-snug">
-                              {provider.desc}
+                            <p className="text-[12px] text-theme-muted mt-1 leading-snug">
+                              {provider.id === "none" &&
+                                "Infrastructure sandboxed to private nodes."}
+                              {provider.id === "render" &&
+                                "Automatic build v2 workers global edge network."}
+                              {provider.id === "railway" &&
+                                "Ephemerals scaling with high availability."}
+                              {provider.id === "vercel" &&
+                                "Optimized serverless functions & global CDN."}
                             </p>
                           </div>
                         </div>
@@ -911,8 +878,6 @@ function EnvironmentSetupForm() {
                         <input
                           type="password"
                           autoComplete="new-password"
-                          spellCheck="false"
-                          autoCorrect="off"
                           value={formData.deploymentApiKey}
                           onChange={(e) =>
                             handleUpdate("deploymentApiKey", e.target.value)
@@ -943,13 +908,12 @@ function EnvironmentSetupForm() {
           </div>
         </div>
 
-        {/* Footer Actions */}
         <div className="w-full bg-theme-bg/95 backdrop-blur-md border-t border-theme-outline/10 p-6 sm:px-12 lg:px-20 z-20 shrink-0">
           <div className="max-w-2xl mx-auto flex justify-between items-center">
             <button
               type="button"
               onClick={prevStep}
-              className={`text-[12px] font-bold uppercase tracking-widest flex items-center gap-2 transition-colors ${
+              className={`text-[12px] font-bold uppercase tracking-widest flex items-center gap-2 ${
                 currentStep === 1
                   ? "text-theme-outline/30 cursor-not-allowed"
                   : "text-theme-muted hover:text-theme-text"
@@ -964,18 +928,18 @@ function EnvironmentSetupForm() {
                 <button
                   type="button"
                   onClick={nextStep}
-                  className="bg-theme-surface hover:bg-theme-outline/10 text-theme-text border border-theme-outline/20 px-8 py-3.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 tracking-wide shadow-sm"
+                  className="bg-theme-surface hover:bg-theme-outline/10 text-theme-text border border-theme-outline/20 px-8 py-3.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2"
                 >
                   {currentContext.nextLabel}{" "}
                   <ArrowRight className="w-4 h-4 text-theme-muted" />
                 </button>
               ) : (
                 <button
-                  type="button" // Kept as "button" since we're handling the click manually without a true <form> tag
-                  disabled={isSubmitting}
+                  type="button"
+                  disabled={isSubmitting || !workspaceId}
                   onClick={handleSubmit}
-                  className={`px-8 py-3.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 tracking-wide ${
-                    isSubmitting
+                  className={`px-8 py-3.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+                    isSubmitting || !workspaceId
                       ? "bg-theme-surface text-theme-muted cursor-not-allowed"
                       : "bg-theme-primary hover:brightness-110 text-theme-on-primary shadow-[0_0_20px_var(--color-theme-primary)]/30"
                   }`}
