@@ -14,7 +14,7 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import Redis from "ioredis";
 import crypto from "crypto";
-
+import { getTenantDb } from "@/lib/tenant-db";
 // ==========================================
 // REDIS CONNECTION POOL
 // ==========================================
@@ -285,7 +285,6 @@ export async function queueProjectProvisioning(
 ) {
   try {
     const authResult = await getVerifiedUserAndWorkspace();
-
     if (!authResult.success || !authResult.data) {
       return { success: false, error: authResult.error };
     }
@@ -322,11 +321,16 @@ export async function queueProjectProvisioning(
       };
     }
 
-    let targetClient = await db.query.clients.findFirst({
-      where: and(
-        eq(clients.email, payload.clientEmail),
-        eq(clients.workspaceId, actualWorkspaceId),
-      ),
+    // 👇 Get tenant DB client
+    const tenantDb = await getTenantDb(actualWorkspaceId);
+
+    // ---- Client lookup / creation ----
+    let targetClient = await tenantDb.query.clients.findFirst({
+      where: (clients: { email: any; workspaceId: any }, { eq, and }: any) =>
+        and(
+          eq(clients.email, payload.clientEmail),
+          eq(clients.workspaceId, actualWorkspaceId),
+        ),
     });
 
     if (!targetClient) {
@@ -341,7 +345,7 @@ export async function queueProjectProvisioning(
         const portalSlug = `${clientSlug}-portal-${crypto.randomBytes(4).toString("hex")}`;
 
         await safeInsert(
-          db.insert(clients).values({
+          tenantDb.insert(clients).values({
             workspaceId: actualWorkspaceId,
             name: payload.clientName,
             slug: clientSlug,
@@ -351,11 +355,15 @@ export async function queueProjectProvisioning(
           } as any),
         );
 
-        targetClient = await db.query.clients.findFirst({
-          where: and(
-            eq(clients.email, payload.clientEmail),
-            eq(clients.workspaceId, actualWorkspaceId),
-          ),
+        targetClient = await tenantDb.query.clients.findFirst({
+          where: (
+            clients: { email: any; workspaceId: any },
+            { eq, and }: any,
+          ) =>
+            and(
+              eq(clients.email, payload.clientEmail),
+              eq(clients.workspaceId, actualWorkspaceId),
+            ),
         });
       } catch (err) {
         console.error("[SYS-LOG] Failed to create new client: ", err);
@@ -374,7 +382,7 @@ export async function queueProjectProvisioning(
       };
     }
 
-    // 🚨 FIX: Generate a fully unique project slug so it never fails insertion silently
+    // ---- Project creation ----
     const baseProjectSlug = payload.name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
@@ -382,13 +390,12 @@ export async function queueProjectProvisioning(
     const uniqueProjectSuffix = crypto.randomBytes(3).toString("hex");
     const projectSlug = `${baseProjectSlug}-${uniqueProjectSuffix}`;
 
-    // Attempt to extract intelligent defaults for frameworks if available
     const webService = payload.services?.find((s) => s.type === "web");
     const extractedFrontend = webService?.framework || "Next.js";
-    const extractedBackend = "Node.js"; // Fallback default for robust insertion
+    const extractedBackend = "Node.js";
 
     await safeInsert(
-      db.insert(projects).values({
+      tenantDb.insert(projects).values({
         workspaceId: actualWorkspaceId,
         clientId: targetClient.id,
         name: payload.name,
@@ -410,20 +417,20 @@ export async function queueProjectProvisioning(
       } as any),
     );
 
-    // 🚨 FIX: Implement a safe retry loop so we don't prematurely read before DB confirms save
+    // ---- Retrieve project ID ----
     let createdProject = null;
     let retries = 3;
     while (!createdProject && retries > 0) {
-      createdProject = await db.query.projects.findFirst({
-        where: eq(projects.slug, projectSlug),
+      createdProject = await tenantDb.query.projects.findFirst({
+        where: (projects: { slug: any }, { eq }: any) =>
+          eq(projects.slug, projectSlug),
       });
       if (!createdProject) {
-        await new Promise((resolve) => setTimeout(resolve, 500)); // Wait 500ms before retrying
+        await new Promise((resolve) => setTimeout(resolve, 500));
         retries--;
       }
     }
 
-    // 🚨 FIX: Safe ID extraction. Never destructure if undefined.
     if (!createdProject || !createdProject.id) {
       throw new Error(
         "Database allocated the project, but immediate readback failed. Please try again.",
@@ -432,8 +439,9 @@ export async function queueProjectProvisioning(
 
     const projectId = createdProject.id;
 
+    // ---- Checklist items ----
     await safeInsert(
-      db.insert(checklistItems).values([
+      tenantDb.insert(checklistItems).values([
         {
           projectId,
           title: "Environment Setup (Staging Server Link)",
@@ -509,10 +517,11 @@ export async function queueProjectProvisioning(
       ]),
     );
 
+    // ---- Provisioning job ----
     const uniqueIdempotencyKey = `job_${crypto.randomBytes(16).toString("hex")}`;
 
     await safeInsert(
-      db.insert(provisioningJobs).values({
+      tenantDb.insert(provisioningJobs).values({
         projectId: projectId,
         idempotencyKey: uniqueIdempotencyKey,
         status: "pending",
@@ -529,7 +538,7 @@ export async function queueProjectProvisioning(
       } as any),
     );
 
-    // ✅ FIX: Use actualWorkspaceId from authenticated session, not payload (which may be undefined)
+    // ---- Redis publish ----
     if (redis && redis.status === "ready") {
       try {
         await redis.publish(
@@ -538,7 +547,7 @@ export async function queueProjectProvisioning(
             event: "NEW_JOB",
             slug: projectSlug,
             trackingKey: uniqueIdempotencyKey,
-            workspaceId: actualWorkspaceId, // <-- CORRECT
+            workspaceId: actualWorkspaceId,
           }),
         );
       } catch (redisError) {
@@ -547,7 +556,6 @@ export async function queueProjectProvisioning(
     }
 
     revalidatePath(`/dashboard/${resolvedUserSlug}`);
-
     return { success: true, slug: projectSlug };
   } catch (error: any) {
     console.error("[CRITICAL ENGINE FAULT]: ", error);
