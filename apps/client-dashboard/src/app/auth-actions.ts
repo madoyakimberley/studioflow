@@ -57,6 +57,30 @@ export async function registerUser(payload: RegisterPayload) {
       .replace(/(^-|-$)/g, "");
 
     const finalWorkspaceId = await db.transaction(async (tx) => {
+      // Ensure the workspace_environments table exists (safe)
+      await tx.execute(`
+        CREATE TABLE IF NOT EXISTS workspace_environments (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          workspace_id INT NOT NULL UNIQUE,
+          database_url TEXT,
+          database_engine VARCHAR(50) DEFAULT 'postgresql',
+          database_orm VARCHAR(50) DEFAULT 'drizzle',
+          redis_url TEXT,
+          target_output_dir VARCHAR(255) DEFAULT '~/StudioFlow/projects',
+          github_token TEXT,
+          deployment_provider VARCHAR(50) DEFAULT 'none',
+          deployment_api_key TEXT,
+          deployment_owner_id VARCHAR(255),
+          smtp_host VARCHAR(255),
+          smtp_port VARCHAR(50),
+          smtp_user VARCHAR(255),
+          smtp_pass TEXT,
+          admin_alert_email VARCHAR(255),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )
+      `);
+
       await tx.insert(users).values({
         id: userId,
         username: payload.username.trim().toLowerCase(),
@@ -70,20 +94,22 @@ export async function registerUser(payload: RegisterPayload) {
         name: payload.workspaceName.trim(),
         slug: `${workspaceSlug}-${Math.floor(1000 + Math.random() * 9000)}`,
       });
-
       const newWorkspaceId = Number(workspaceResult.insertId);
 
+      // Insert a row with default values
       await tx.insert(workspaceEnvironments).values({
         workspaceId: Number(newWorkspaceId),
-        envVars: {},
+        databaseUrl: null,
+        githubToken: null,
+        targetOutputDir: "~/StudioFlow/projects",
       } as any);
 
       return newWorkspaceId;
     });
 
+    // Build session token and redirect URL
     const randomEntropySegment = Math.floor(100000 + Math.random() * 900000);
     const sessionToken = `dev_${finalWorkspaceId}_${randomEntropySegment}`;
-
     const targetGatewayUrl = `/auth-gate?token=${sessionToken}&user=${payload.username.trim().toLowerCase()}&onboard=true`;
 
     return {
@@ -137,11 +163,12 @@ export async function loginUser(payload: LoginPayload) {
       };
     }
 
+    // Check if environment is configured (row exists and databaseUrl is not null)
     const envCheck = await db.query.workspaceEnvironments.findFirst({
       where: eq(workspaceEnvironments.workspaceId, activeWorkspace.id),
     });
 
-    const needsOnboarding = envCheck ? "false" : "true";
+    const needsOnboarding = envCheck && envCheck.databaseUrl ? "false" : "true";
 
     const randomEntropySegment = Math.floor(100000 + Math.random() * 900000);
     const sessionToken = `dev_${activeWorkspace.id}_${randomEntropySegment}`;
@@ -164,7 +191,7 @@ export async function loginUser(payload: LoginPayload) {
 }
 
 // ==========================================
-// REGENERATE CLI TOKEN (no expiry field)
+// REGENERATE CLI TOKEN
 // ==========================================
 export async function regenerateCliToken(workspaceId: number) {
   try {
@@ -183,7 +210,6 @@ export async function regenerateCliToken(workspaceId: number) {
       .update(users)
       .set({
         cliToken: newToken,
-        // cliTokenGeneratedAt removed for simplicity – we'll add later
       })
       .where(eq(users.id, auth.data.userId));
 
