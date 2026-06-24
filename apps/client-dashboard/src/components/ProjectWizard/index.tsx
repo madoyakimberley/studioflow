@@ -290,7 +290,7 @@ export default function ProjectWizard({
             {step > 1 && (
               <button
                 onClick={() => setStep((p) => p - 1)}
-                className="px-4 py-2.5 rounded-xl text-theme-muted text-xs font-bold hover:bg-theme-surface border border-transparent hover:border-theme-outline flex items-center gap-1 transition"
+                className="wizard-back-btn px-4 py-2.5 rounded-xl text-theme-muted text-xs font-bold hover:bg-theme-surface border border-transparent hover:border-theme-outline flex items-center gap-1 transition"
               >
                 <ArrowLeft className="w-4 h-4" /> Back
               </button>
@@ -312,7 +312,7 @@ export default function ProjectWizard({
                 }
                 setStep((p) => p + 1);
               }}
-              className="px-6 py-2.5 rounded-xl bg-theme-primary text-theme-on-primary text-xs font-bold hover:brightness-110 shadow-lg flex items-center gap-1 active:scale-95 transition"
+              className="wizard-continue-btn px-6 py-2.5 rounded-xl bg-theme-primary text-theme-on-primary text-xs font-bold hover:brightness-110 shadow-lg flex items-center gap-1 active:scale-95 transition"
             >
               Continue <ArrowRight className="w-4 h-4" />
             </button>

@@ -57,10 +57,9 @@ export const getDevDashboardSteps = (
         classes: "shepherd-btn-primary",
         action: function () {
           openWizardModal();
-          // Give the modal animation time to complete before positioning the tour
           setTimeout(() => {
             tour.next();
-          }, 400);
+          }, 600); // Wait for modal mount and animation
         },
       },
     ],
@@ -80,13 +79,12 @@ export const getDevDashboardSteps = (
         text: "Next Step",
         classes: "shepherd-btn-primary",
         action: function () {
-          // Find and click the wizard's native "Continue" button
           const continueBtn = document.querySelector(
             ".wizard-continue-btn",
           ) as HTMLButtonElement;
           if (continueBtn) {
             continueBtn.click();
-            setTimeout(() => tour.next(), 250);
+            setTimeout(() => tour.next(), 600); // Delay increased for framer-motion transitions
           } else {
             tour.next();
           }
@@ -112,7 +110,7 @@ export const getDevDashboardSteps = (
           ) as HTMLButtonElement;
           if (backBtn) {
             backBtn.click();
-            setTimeout(() => tour.back(), 250);
+            setTimeout(() => tour.back(), 600);
           } else {
             tour.back();
           }
@@ -127,7 +125,7 @@ export const getDevDashboardSteps = (
           ) as HTMLButtonElement;
           if (continueBtn) {
             continueBtn.click();
-            setTimeout(() => tour.next(), 250);
+            setTimeout(() => tour.next(), 600);
           } else {
             tour.next();
           }
@@ -153,7 +151,7 @@ export const getDevDashboardSteps = (
           ) as HTMLButtonElement;
           if (backBtn) {
             backBtn.click();
-            setTimeout(() => tour.back(), 250);
+            setTimeout(() => tour.back(), 600);
           } else {
             tour.back();
           }
@@ -168,7 +166,7 @@ export const getDevDashboardSteps = (
           ) as HTMLButtonElement;
           if (continueBtn) {
             continueBtn.click();
-            setTimeout(() => tour.next(), 250);
+            setTimeout(() => tour.next(), 600);
           } else {
             tour.next();
           }

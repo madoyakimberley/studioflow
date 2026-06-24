@@ -15,16 +15,28 @@ export default function DevDashboardTourEngine({
   openWizardModal,
   onTourComplete,
 }: DevDashboardTourEngineProps) {
-  // FIXED: Changed to <any> to bypass TypeScript's strict Shepherd class definitions
   const tourInstanceRef = useRef<any>(null);
 
+  // Use a ref for callbacks so we don't need them in the useEffect dependency array
+  // This completely stops the infinite looping issue if the parent component re-renders.
+  const callbacksRef = useRef({ openWizardModal, onTourComplete });
   useEffect(() => {
-    // FIXED: Ensure this never runs on the Next.js server (prevents window is not defined errors)
+    callbacksRef.current = { openWizardModal, onTourComplete };
+  }, [openWizardModal, onTourComplete]);
+
+  useEffect(() => {
     if (!onboardingActive || typeof window === "undefined") return;
 
-    // FIXED: Dynamically import Shepherd so it only initializes in the browser
+    let isMounted = true;
+
     import("shepherd.js").then((ShepherdModule) => {
+      if (!isMounted) return;
       const Shepherd = ShepherdModule.default;
+
+      // Clean up any rogue tours before starting a new one
+      if (Shepherd.activeTour) {
+        Shepherd.activeTour.cancel();
+      }
 
       const tour = new Shepherd.Tour({
         defaultStepOptions: {
@@ -37,18 +49,19 @@ export default function DevDashboardTourEngine({
 
       tourInstanceRef.current = tour;
 
-      // Pass the tour instance to your steps
-      const steps = getDevDashboardSteps(tour, { openWizardModal });
+      const steps = getDevDashboardSteps(tour, {
+        openWizardModal: () => callbacksRef.current.openWizardModal(),
+      });
+
       tour.addSteps(steps);
 
-      tour.on("complete", onTourComplete);
-      tour.on("cancel", onTourComplete);
+      tour.on("complete", () => callbacksRef.current.onTourComplete());
+      tour.on("cancel", () => callbacksRef.current.onTourComplete());
 
       tour.start();
 
       const handleWindowResizeUpdate = () => {
         if (tour.isActive()) {
-          // FIXED: Cast the active step to 'any' so TypeScript allows the updateStep() method
           const activeStep = Shepherd.activeTour?.getCurrentStep() as any;
           if (activeStep && activeStep.updateStep) {
             activeStep.updateStep();
@@ -60,15 +73,15 @@ export default function DevDashboardTourEngine({
     });
 
     return () => {
-      // FIXED: Safely check for the destroy method before calling it
+      isMounted = false;
       if (
         tourInstanceRef.current &&
-        typeof tourInstanceRef.current.destroy === "function"
+        typeof tourInstanceRef.current.cancel === "function"
       ) {
-        tourInstanceRef.current.destroy();
+        tourInstanceRef.current.cancel();
       }
     };
-  }, [onboardingActive, openWizardModal, onTourComplete]);
+  }, [onboardingActive]); // Safely omitted the callbacks to stop the loop
 
   return null;
 }
