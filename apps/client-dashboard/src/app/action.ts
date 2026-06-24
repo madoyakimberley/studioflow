@@ -161,7 +161,8 @@ export async function establishSecureSessionAction(token: string) {
 // ==========================================
 // HELPER: SECURE AUTHENTICATION & WORKSPACE RESOLUTION
 // ==========================================
-async function getVerifiedUserAndWorkspace() {
+// ✅ EXPORTED so it can be used in auth-actions.ts
+export async function getVerifiedUserAndWorkspace() {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get("sf_auth_token")?.value;
 
@@ -528,6 +529,7 @@ export async function queueProjectProvisioning(
       } as any),
     );
 
+    // ✅ FIX: Use actualWorkspaceId from authenticated session, not payload (which may be undefined)
     if (redis && redis.status === "ready") {
       try {
         await redis.publish(
@@ -536,6 +538,7 @@ export async function queueProjectProvisioning(
             event: "NEW_JOB",
             slug: projectSlug,
             trackingKey: uniqueIdempotencyKey,
+            workspaceId: actualWorkspaceId, // <-- CORRECT
           }),
         );
       } catch (redisError) {

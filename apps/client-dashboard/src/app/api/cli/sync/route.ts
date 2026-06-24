@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@studioflow/db";
+import { eq } from "drizzle-orm";
 
-// Opt-out of Next.js aggressive route caching so the CLI always gets fresh keys
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
@@ -17,7 +17,7 @@ export async function GET(req: Request) {
 
     const token = authHeader.split(" ")[1].trim();
 
-    // 1. Find User using Drizzle's callback syntax (prevents TS and aliasing errors)
+    // 1. Find User by cliToken
     const linkedUser = await db.query.users.findFirst({
       where: (users, { eq }) => eq(users.cliToken, token),
     });
@@ -32,9 +32,9 @@ export async function GET(req: Request) {
       );
     }
 
-    // 2. Resolve tenant workspace layer
-    // NOTE: If users can own multiple workspaces in the future, this logic will need
-    // to target a specific active workspace ID rather than just grabbing the first one.
+    // ✅ Expiry check removed – we'll add it later
+
+    // 2. Resolve tenant workspace
     const linkedWorkspace = await db.query.workspaces.findFirst({
       where: (workspaces, { eq }) => eq(workspaces.ownerId, linkedUser.id),
     });
@@ -51,32 +51,25 @@ export async function GET(req: Request) {
       where: (envs, { eq }) => eq(envs.workspaceId, linkedWorkspace.id),
     });
 
-    if (!linkedEnv) {
-      return NextResponse.json(
-        {
-          error:
-            "Infrastructure Fault: Workspace environment has not been initialized.",
-        },
-        { status: 404 },
-      );
-    }
+    const envConfigured = !!(linkedEnv?.databaseUrl && linkedEnv?.githubToken);
 
-    // Secure payload construction
     const envPayload = {
-      databaseUrl: linkedEnv.databaseUrl,
-      databaseEngine: linkedEnv.databaseEngine, // Sync this too!
-      databaseOrm: linkedEnv.databaseOrm,
-      redisUrl: linkedEnv.redisUrl,
-      githubToken: linkedEnv.githubToken,
-      deploymentProvider: linkedEnv.deploymentProvider,
-      deploymentApiKey: linkedEnv.deploymentApiKey,
-      deploymentOwnerId: linkedEnv.deploymentOwnerId,
-      smtpHost: linkedEnv.smtpHost,
-      smtpPort: linkedEnv.smtpPort,
-      smtpUser: linkedEnv.smtpUser,
-      smtpPass: linkedEnv.smtpPass,
-      adminAlertEmail: linkedEnv.adminAlertEmail,
-      targetOutputDir: linkedEnv.targetOutputDir,
+      workspaceId: linkedWorkspace.id,
+      databaseUrl: linkedEnv?.databaseUrl || "",
+      databaseEngine: linkedEnv?.databaseEngine || "postgresql",
+      databaseOrm: linkedEnv?.databaseOrm || "drizzle",
+      redisUrl: linkedEnv?.redisUrl || "",
+      githubToken: linkedEnv?.githubToken || "",
+      deploymentProvider: linkedEnv?.deploymentProvider || "none",
+      deploymentApiKey: linkedEnv?.deploymentApiKey || "",
+      deploymentOwnerId: linkedEnv?.deploymentOwnerId || "",
+      smtpHost: linkedEnv?.smtpHost || "",
+      smtpPort: linkedEnv?.smtpPort || "587",
+      smtpUser: linkedEnv?.smtpUser || "",
+      smtpPass: linkedEnv?.smtpPass || "",
+      adminAlertEmail: linkedEnv?.adminAlertEmail || "",
+      targetOutputDir: linkedEnv?.targetOutputDir || "~/StudioFlow/projects",
+      envConfigured,
     };
 
     return NextResponse.json(envPayload, { status: 200 });

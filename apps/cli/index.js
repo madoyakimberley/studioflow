@@ -44,12 +44,122 @@ const rl = readline.createInterface({
 });
 
 class EngineDaemonWorker {
-  constructor(dbConnectionString) {
+  constructor(dbConnectionString, workspaceId) {
     this.connectionString = dbConnectionString;
+    this.workspaceId = workspaceId;
     this.poolInstance = null;
     this.redis = null;
     this.isProcessing = false;
     this.dbBreaker = new SystemCircuitBreaker("Database Connection", 3, 5000);
+  }
+
+  // SMART TABLE MIGRATION – adds missing columns, no data loss
+  async ensureTablesExist() {
+    console.log(
+      `   ${c.magenta}⚙️  Table Migration:${c.reset} Verifying and upgrading schema...`,
+    );
+
+    const projectColumns = {
+      id: "INT AUTO_INCREMENT PRIMARY KEY",
+      workspace_id: "INT NOT NULL",
+      client_id: "INT NOT NULL",
+      name: "VARCHAR(255) NOT NULL",
+      slug: "VARCHAR(255) NOT NULL UNIQUE",
+      frontend_framework: "VARCHAR(50) DEFAULT 'dynamic'",
+      backend_framework: "VARCHAR(50) DEFAULT 'dynamic'",
+      database_provider: "VARCHAR(50) DEFAULT 'dynamic'",
+      folder_structure: "VARCHAR(50) DEFAULT 'monorepo'",
+      deployment_target: "VARCHAR(50) DEFAULT 'custom'",
+      universal_manifest: "JSON NOT NULL",
+      blueprint_yaml: "TEXT",
+      status: "VARCHAR(50) DEFAULT 'planning'",
+      live_url: "VARCHAR(255)",
+      github_repo: "VARCHAR(255)",
+      payment_status: "VARCHAR(50) DEFAULT 'pending'",
+      progress_percentage: "INT DEFAULT 0",
+      mvp_edit_count: "INT DEFAULT 0",
+      client_email: "VARCHAR(255) NOT NULL",
+      portal_verification_code: "VARCHAR(6)",
+      portal_code_expires_at: "TIMESTAMP",
+      portal_last_code_sent_at: "TIMESTAMP",
+      portal_emails_sent_count: "INT DEFAULT 0",
+      portal_link_sent_count: "INT DEFAULT 0",
+      created_at: "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+    };
+
+    const jobColumns = {
+      id: "INT AUTO_INCREMENT PRIMARY KEY",
+      project_id: "INT NOT NULL",
+      idempotency_key: "VARCHAR(255) NOT NULL UNIQUE",
+      status: "VARCHAR(50) DEFAULT 'pending'",
+      manifest: "JSON NOT NULL",
+      execution_logs: "TEXT",
+      created_at: "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+      started_at: "TIMESTAMP",
+      completed_at: "TIMESTAMP",
+    };
+
+    async function getExistingColumns(tableName) {
+      const [rows] = await this.poolInstance.query(
+        `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ? AND TABLE_SCHEMA = DATABASE()`,
+        [tableName],
+      );
+      return rows.map((row) => row.COLUMN_NAME);
+    }
+
+    async function addMissingColumns(tableName, columnsDef) {
+      const existing = await getExistingColumns.call(this, tableName);
+      const missing = Object.keys(columnsDef).filter(
+        (col) => !existing.includes(col),
+      );
+      if (missing.length === 0) return;
+
+      console.log(
+        `   ${c.yellow}→ Adding missing columns to ${tableName}: ${missing.join(", ")}${c.reset}`,
+      );
+      for (const col of missing) {
+        const definition = columnsDef[col];
+        await this.poolInstance.query(
+          `ALTER TABLE ${tableName} ADD COLUMN IF NOT EXISTS ${col} ${definition}`,
+        );
+      }
+    }
+
+    // projects
+    const projectsExists = await this.poolInstance.query(
+      `SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'projects' AND TABLE_SCHEMA = DATABASE()`,
+    );
+    if (projectsExists[0].length === 0) {
+      const createSQL = `CREATE TABLE projects (${Object.entries(projectColumns)
+        .map(([k, v]) => `${k} ${v}`)
+        .join(", ")})`;
+      await this.poolInstance.query(createSQL);
+      console.log(`   ${c.green}✅ projects table created.${c.reset}`);
+    } else {
+      await addMissingColumns.call(this, "projects", projectColumns);
+      console.log(`   ${c.green}✅ projects table up to date.${c.reset}`);
+    }
+
+    // provisioning_jobs
+    const jobsExists = await this.poolInstance.query(
+      `SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'provisioning_jobs' AND TABLE_SCHEMA = DATABASE()`,
+    );
+    if (jobsExists[0].length === 0) {
+      const createSQL = `CREATE TABLE provisioning_jobs (${Object.entries(
+        jobColumns,
+      )
+        .map(([k, v]) => `${k} ${v}`)
+        .join(", ")})`;
+      await this.poolInstance.query(createSQL);
+      console.log(`   ${c.green}✅ provisioning_jobs table created.${c.reset}`);
+    } else {
+      await addMissingColumns.call(this, "provisioning_jobs", jobColumns);
+      console.log(
+        `   ${c.green}✅ provisioning_jobs table up to date.${c.reset}`,
+      );
+    }
+
+    console.log(`   ${c.dim}→ Tables are ready.${c.reset}`);
   }
 
   async initializeConnections() {
@@ -64,175 +174,139 @@ class EngineDaemonWorker {
         `${c.cyan}===========================================${c.reset}`,
       );
       console.log(
-        `\n${c.yellow}🔔 [System Check]${c.reset} We're preparing to initialize your environment and structure your database.`,
+        `\n${c.yellow}🔔 [System Check]${c.reset} We're preparing to initialize your environment.`,
       );
+      console.log(`${c.dim}Verifying database connectivity...${c.reset}\n`);
+
       console.log(
-        `${c.dim}Please stand by while we run automated pre-flight sequences...${c.reset}\n`,
+        `   ${c.magenta}⚙️  Phase 1:${c.reset} Testing database connection pool...`,
       );
 
+      let parsedUrl;
       try {
-        // =======================================================
-        // 🛠️ AUTO-GENERATE DRIZZLE CONFIG FOR GLOBAL RUNTIMES
-        // =======================================================
-        const drizzleConfigPath = path.join(__dirname, "drizzle.config.json");
-        if (!fs.existsSync(drizzleConfigPath)) {
-          console.log(
-            `   ${c.yellow}🔧 [System Auto-Fix]${c.reset} Generating missing drizzle.config.json dynamically...`,
-          );
-
-          let schemaPath = "./src/db/schema.js";
-          if (fs.existsSync(path.join(__dirname, "src", "schema.js"))) {
-            schemaPath = "./src/schema.js";
-          } else if (
-            fs.existsSync(path.join(__dirname, "src", "db", "schema.js"))
-          ) {
-            schemaPath = "./src/db/schema.js";
-          }
-
-          const configContent = {
-            schema: schemaPath,
-            dialect: "mysql",
-            dbCredentials: {
-              url: this.connectionString,
-            },
-          };
-
-          fs.writeFileSync(
-            drizzleConfigPath,
-            JSON.stringify(configContent, null, 2),
-          );
-          console.log(
-            `      - Configuration created pointing to schema: ${c.cyan}${schemaPath}${c.reset}\n`,
-          );
-        }
-
-        // =======================================================
-        // 🚀 PHASE 0: SELF-HEALING DEPENDENCY INSTALLER
-        // =======================================================
+        parsedUrl = new URL(this.connectionString);
+        const maskedHost = parsedUrl.hostname;
+        const maskedUser = parsedUrl.username || "(not set)";
         console.log(
-          `   ${c.magenta}⚙️  Phase 0:${c.reset} Verifying engine dependencies...`,
+          `   ${c.dim}→ Target: ${maskedUser}@${maskedHost}${c.reset}`,
         );
-        try {
-          // Check if drizzle-kit exists, if not, it throws to the catch block
-          execSync("npx --yes drizzle-kit --version", {
-            cwd: __dirname,
-            stdio: "ignore",
-          });
-          console.log(
-            `   ${c.green}✅ Phase 0:${c.reset} Core ORM tools are already installed.`,
-          );
-        } catch (e) {
-          console.log(
-            `   ${c.yellow}📦 [Downloading]${c.reset} Fetching required background tools (this only happens once)...`,
-          );
-          // Automatically installs them silently directly into the CLI's global install path
-          execSync("npm install drizzle-kit mysql2 prisma --no-save", {
-            cwd: __dirname,
-            stdio: "ignore",
-          });
-          console.log(
-            `   ${c.green}✅ Phase 0:${c.reset} Tools successfully installed.`,
-          );
-        }
-
-        // =======================================================
-        // 🚀 PHASE 1: DATABASE SYNC
-        // =======================================================
-        console.log(
-          `   ${c.magenta}⚙️  Phase 1:${c.reset} Synchronizing database schema (drizzle-kit push)...`,
-        );
-        execSync("npx --yes drizzle-kit push", {
-          stdio: "pipe",
-          cwd: __dirname,
-          env: { ...process.env, CI: "1" },
-        });
-        console.log(
-          `   ${c.green}✅ Phase 1:${c.reset} Schema is perfectly aligned.`,
-        );
-      } catch (provisionError) {
+      } catch (parseErr) {
         console.error(
-          `\n${c.red}❌ [Infrastructure Alert]${c.reset} We ran into a snag while updating your database tables.`,
+          `   ${c.red}✖ Invalid DATABASE_URL format:${c.reset} ${parseErr.message}`,
         );
-        const errorText = provisionError.stderr
-          ? provisionError.stderr.toString()
-          : provisionError.message;
-
-        if (
-          errorText.includes("ER_ACCESS_DENIED_ERROR") ||
-          errorText.includes("Access denied")
-        ) {
-          console.error(
-            `   ${c.yellow}🔍 Diagnostics:${c.reset} Access Denied. It looks like your database password or username is incorrect.`,
-          );
-        } else if (
-          errorText.includes("ECONNREFUSED") ||
-          errorText.includes("ENOTFOUND")
-        ) {
-          console.error(
-            `   ${c.yellow}🔍 Diagnostics:${c.reset} Host Unreachable. Your database seems to be offline or the port is blocked.`,
-          );
-        } else if (
-          errorText.includes("syntax") ||
-          errorText.includes("parse") ||
-          errorText.includes("SQLMessage")
-        ) {
-          console.error(
-            `   ${c.yellow}🔍 Diagnostics:${c.reset} Schema Syntax Error. There's an invalid mapping in your Drizzle schema.`,
-          );
-        } else {
-          console.error(
-            `   ${c.yellow}🔍 Diagnostics:${c.reset} Here's the raw output to help you debug:\n${c.dim}${errorText.trim()}${c.reset}`,
-          );
-        }
-        process.exit(1);
+        throw parseErr;
       }
 
-      console.log(
-        `   ${c.magenta}⚙️  Phase 2:${c.reset} Verifying runtime connection pool...`,
-      );
-
-      const parsedUrl = new URL(this.connectionString);
       let sslConfig = undefined;
-
       if (
         parsedUrl.hostname !== "localhost" &&
         parsedUrl.hostname !== "127.0.0.1"
       ) {
         sslConfig = { rejectUnauthorized: true };
+        console.log(`   ${c.dim}→ SSL enabled (non-localhost)${c.reset}`);
       }
 
       const dbName = parsedUrl.pathname.replace("/", "") || undefined;
 
-      this.poolInstance = mysql.createPool({
-        uri: this.connectionString,
-        database: dbName,
-        ssl: sslConfig,
-        waitForConnections: true,
-        connectionLimit: 5,
-        queueLimit: 0,
-        connectTimeout: 15000,
-      });
+      try {
+        this.poolInstance = mysql.createPool({
+          uri: this.connectionString,
+          database: dbName,
+          ssl: sslConfig,
+          waitForConnections: true,
+          connectionLimit: 5,
+          queueLimit: 0,
+          connectTimeout: 15000,
+        });
+        console.log(`   ${c.green}✓ Pool created successfully.${c.reset}`);
+      } catch (poolErr) {
+        console.error(
+          `   ${c.red}✖ Failed to create connection pool:${c.reset} ${poolErr.message}`,
+        );
+        throw poolErr;
+      }
 
       await this.dbBreaker.execute(async () => {
         try {
-          await this.poolInstance.query("SELECT 1");
+          console.log(`   ${c.dim}→ Sending SELECT 1...${c.reset}`);
+          const [rows] = await this.poolInstance.query("SELECT 1");
           console.log(
-            `   ${c.green}✅ Phase 2:${c.reset} Connection established. All systems go.\n`,
+            `   ${c.green}✅ Phase 1:${c.reset} Connection established. Response: ${JSON.stringify(rows)}`,
           );
-        } catch (connectionErr) {
-          throw connectionErr;
+          console.log(`   ${c.dim}→ All systems go.${c.reset}\n`);
+        } catch (queryErr) {
+          console.error(
+            `   ${c.red}✖ Query failed:${c.reset} ${queryErr.message}`,
+          );
+          if (queryErr.code) {
+            console.error(`   ${c.dim}→ Code: ${queryErr.code}${c.reset}`);
+          }
+          if (queryErr.errno) {
+            console.error(`   ${c.dim}→ errno: ${queryErr.errno}${c.reset}`);
+          }
+          if (queryErr.sqlMessage) {
+            console.error(
+              `   ${c.dim}→ SQL Message: ${queryErr.sqlMessage}${c.reset}`,
+            );
+          }
+          if (
+            queryErr.message.includes("ER_ACCESS_DENIED_ERROR") ||
+            queryErr.message.includes("Access denied")
+          ) {
+            console.error(
+              `   ${c.yellow}💡 Hint: Check your database username and password.${c.reset}`,
+            );
+          } else if (
+            queryErr.message.includes("ECONNREFUSED") ||
+            queryErr.message.includes("ENOTFOUND")
+          ) {
+            console.error(
+              `   ${c.yellow}💡 Hint: The database host is unreachable. Is it running?${c.reset}`,
+            );
+          } else if (queryErr.message.includes("ETIMEDOUT")) {
+            console.error(
+              `   ${c.yellow}💡 Hint: Connection timed out. Verify network/firewall.${c.reset}`,
+            );
+          }
+          throw queryErr;
         }
       });
 
+      // PHASE 2: SMART TABLE MIGRATION
+      await this.ensureTablesExist();
+
+      // Redis (optional)
       if (process.env.REDIS_URL) {
-        this.redis = new Redis(process.env.REDIS_URL, {
-          maxRetriesPerRequest: 2,
-        });
-        this.redis.on("error", () => {});
+        console.log(
+          `   ${c.magenta}⚙️  Redis:${c.reset} Connecting to Redis...`,
+        );
+        try {
+          this.redis = new Redis(process.env.REDIS_URL, {
+            maxRetriesPerRequest: 2,
+          });
+          this.redis.on("error", (err) => {
+            console.warn(
+              `   ${c.yellow}⚠️ Redis warning:${c.reset} ${err.message}`,
+            );
+          });
+          console.log(`   ${c.green}✅ Redis connected.${c.reset}`);
+        } catch (redisErr) {
+          console.warn(
+            `   ${c.yellow}⚠️ Redis not available:${c.reset} ${redisErr.message}`,
+          );
+        }
+      } else {
+        console.log(`   ${c.dim}→ Redis not configured (skipping).${c.reset}`);
       }
+
+      console.log(
+        `\n${c.green}✅ Initialization complete. Worker is ready.${c.reset}\n`,
+      );
     } catch (err) {
+      console.error(`\n${c.red}❌ Critical Startup Failure:${c.reset}`);
+      console.error(`   ${c.dim}${err.stack || err.message}${c.reset}`);
       console.error(
-        `\n${c.red}❌ Critical Startup Failure:${c.reset} ${err.message}`,
+        `\n${c.yellow}Please verify your DATABASE_URL and ensure the database is accessible.${c.reset}`,
       );
       process.exit(1);
     }
@@ -282,37 +356,49 @@ class EngineDaemonWorker {
         let jobs;
 
         try {
-          [jobs] = await this.poolInstance.execute(
-            "SELECT * FROM provisioning_jobs WHERE status = 'pending' ORDER BY id ASC LIMIT 1",
-          );
-        } catch (dbErr) {
-          if (
-            dbErr.code === "ER_NO_SUCH_TABLE" ||
-            dbErr.message.includes("doesn't exist")
-          ) {
-            console.error(
-              `\n${c.red}🚨 [Database Missing Tables]${c.reset} The worker connected, but the tables aren't there!`,
-            );
-            console.error(
-              `   👉 Please run your migrations (e.g., 'npx drizzle-kit push').\n`,
-            );
+          const queryStr = `
+            SELECT j.* FROM provisioning_jobs j
+            INNER JOIN projects p ON j.project_id = p.id
+            WHERE j.status = 'pending' AND p.workspace_id = ?
+            ORDER BY j.id ASC LIMIT 1
+          `;
+          [jobs] = await this.poolInstance.execute(queryStr, [
+            this.workspaceId,
+          ]);
+          if (!jobs || jobs.length === 0) {
+            return;
           }
+        } catch (dbErr) {
+          console.error(
+            `\n${c.red}🚨 Database error while fetching jobs:${c.reset} ${dbErr.message}`,
+          );
           throw dbErr;
         }
 
-        if (!jobs || jobs.length === 0) return;
-
         const currentJob = jobs[0];
-        let manifest = currentJob.manifest;
-        if (typeof manifest === "string") manifest = JSON.parse(manifest);
+        let manifest;
+        try {
+          manifest =
+            typeof currentJob.manifest === "string"
+              ? JSON.parse(currentJob.manifest)
+              : currentJob.manifest;
+        } catch (parseErr) {
+          await this.poolInstance.execute(
+            "UPDATE provisioning_jobs SET status = 'failed', execution_logs = 'Failed to parse JSON manifest.' WHERE id = ?",
+            [currentJob.id],
+          );
+          return;
+        }
 
-        const projectSlug = manifest.slug || `project-${currentJob.project_id}`;
-
+        const projectSlug = manifest.slug || manifest.projectName;
         console.log(
-          `\n${c.bold}${c.green}✨ New Provisioning Request Detected!${c.reset}`,
+          `\n${c.cyan}===========================================${c.reset}`,
         );
         console.log(
-          `${c.dim}Starting automated setup for:${c.reset} ${c.cyan}[${projectSlug}]${c.reset}\n`,
+          `${c.bold} 🚀 Initiating Provisioning: ${projectSlug} ${c.reset}`,
+        );
+        console.log(
+          `${c.cyan}===========================================${c.reset}\n`,
         );
 
         await this.poolInstance.execute(
@@ -344,95 +430,33 @@ class EngineDaemonWorker {
           );
           await scaffolder.processExecutionPipeline();
 
-          await this.appendJobLog(
-            currentJob.id,
-            "Pushing secure codebase to GitHub...",
-          );
-          await scaffolder.setupGitRepository();
-
-          await this.appendJobLog(
-            currentJob.id,
-            "Triggering Cloud Deployment...",
-          );
-          let deployedLiveUrl = `https://${projectSlug}.vercel.app`;
-
-          try {
-            let dynamicUrlResult;
-            if (manifest.deploymentTarget === "vercel") {
-              dynamicUrlResult = await scaffolder.deployToVercelAPI();
-            } else if (manifest.deploymentTarget === "render") {
-              dynamicUrlResult = await scaffolder.deployToRenderAPI();
-            } else if (manifest.deploymentTarget === "railway") {
-              dynamicUrlResult = await scaffolder.deployToRailwayAPI();
-            }
-            if (dynamicUrlResult) deployedLiveUrl = dynamicUrlResult;
-          } catch (deployError) {
-            await this.appendJobLog(
-              currentJob.id,
-              `⚠️ Could not finish cloud deployment: ${deployError.message}. Code generation was successful though!`,
-            );
-          }
-
           await this.poolInstance.execute(
-            "UPDATE provisioning_jobs SET status = 'completed' WHERE id = ?",
+            "UPDATE provisioning_jobs SET status = 'completed', completed_at = CURRENT_TIMESTAMP WHERE id = ?",
             [currentJob.id],
           );
-          await this.updateProjectTracking(
-            currentJob.project_id,
-            "active",
-            deployedLiveUrl,
-          );
+          await this.updateProjectTracking(currentJob.project_id, "active");
 
+          console.log(
+            `\n${c.green}✅ Pipeline completed successfully for ${projectSlug}.${c.reset}\n`,
+          );
+        } catch (jobExecutionError) {
+          console.error(
+            `\n${c.red}❌ Pipeline Exception:${c.reset} ${jobExecutionError.message}\n`,
+          );
           await this.appendJobLog(
             currentJob.id,
-            `Project finished! Live at: ${deployedLiveUrl}`,
+            `CRITICAL ERROR: ${jobExecutionError.message}`,
           );
-          console.log(
-            `\n${c.green}🎉 Setup Complete!${c.reset} ${c.cyan}[${projectSlug}]${c.reset} is fully generated and online.`,
-          );
-          console.log(
-            `   🌐 Live URL: ${c.bold}${deployedLiveUrl}${c.reset}\n`,
-          );
-        } catch (jobException) {
-          console.error(
-            `\n${c.red}=======================================================${c.reset}`,
-          );
-          console.error(`${c.bold}${c.red}❌ PROJECT SETUP ABORTED${c.reset}`);
-          console.error(
-            `${c.red}=======================================================${c.reset}`,
-          );
-          console.error(
-            `   ${c.dim}Time:  ${new Date().toISOString()}${c.reset}`,
-          );
-          console.error(
-            `   ${c.yellow}Error: ${jobException.message}${c.reset}`,
-          );
-          console.error(
-            `${c.red}=======================================================${c.reset}\n`,
-          );
-
           await this.poolInstance.execute(
             "UPDATE provisioning_jobs SET status = 'failed' WHERE id = ?",
             [currentJob.id],
           );
           await this.updateProjectTracking(currentJob.project_id, "failed");
-          await this.appendJobLog(
-            currentJob.id,
-            `Deployment halted: ${jobException.message}`,
-          );
-
-          try {
-            const scaffolder = new MultiStackTemplateScaffolder(
-              projectSlug,
-              manifest,
-            );
-            await scaffolder.cleanupFailedRun();
-          } catch (unlinkError) {}
         }
       });
-    } catch (criticalCycleFault) {
+    } catch (breakerError) {
       console.error(
-        `   ${c.red}⚠️  Worker Fault:${c.reset} ${criticalCycleFault.message}`,
+        `\n${c.red}🚨 Execution aborted by Circuit Breaker:${c.reset} ${breakerError.message}`,
       );
     } finally {
       this.isProcessing = false;
@@ -442,10 +466,8 @@ class EngineDaemonWorker {
   async bootDaemonLoop() {
     await this.initializeConnections();
     console.log(
-      `${c.green}🛸 StudioFlow Worker is online and listening for new projects in the background...${c.reset}`,
+      `\n${c.dim}📡 Background worker listening for jobs on Workspace [${this.workspaceId}]...${c.reset}`,
     );
-
-    setInterval(() => this.runProcessingCycle(), 4000);
 
     if (this.redis) {
       this.redis.subscribe("provisioning_queue", (err) => {
@@ -453,12 +475,23 @@ class EngineDaemonWorker {
           this.redis.on("message", (channel, message) => {
             try {
               const parsed = JSON.parse(message);
-              if (parsed.event === "NEW_JOB") this.runProcessingCycle();
+              if (parsed.event === "NEW_JOB") {
+                if (
+                  parsed.workspaceId &&
+                  Number(parsed.workspaceId) !== Number(this.workspaceId)
+                ) {
+                  return;
+                }
+                this.runProcessingCycle();
+              }
             } catch (e) {}
           });
         }
       });
     }
+
+    setInterval(() => this.runProcessingCycle(), 5000);
+    this.runProcessingCycle();
   }
 }
 
@@ -520,42 +553,62 @@ async function handleAuthenticationLogin() {
   console.log(
     `\n${c.cyan}===========================================${c.reset}`,
   );
-  console.log(`${c.bold} StudioFlow Secure Login ${c.reset}`);
+  console.log(`${c.bold} StudioFlow Remote Authentication ${c.reset}`);
   console.log(
     `${c.cyan}===========================================${c.reset}\n`,
   );
 
   rl.question(
-    `Paste your ${c.magenta}StudioFlow CLI Token${c.reset}: `,
-    (token) => {
-      const cleanToken = token.trim();
-      if (!cleanToken) {
-        console.error(
-          `\n${c.red}❌ Hold on! The token cannot be empty.${c.reset}\n`,
-        );
+    `🔑 Enter your Developer CLI Token (sf_pat_...): `,
+    async (token) => {
+      const rawToken = token.trim();
+      if (!rawToken) {
+        console.log(`\n${c.red}❌ No token provided. Exiting.${c.reset}`);
         process.exit(1);
       }
 
-      if (!fs.existsSync(STUDIOFLOW_HOME))
-        fs.mkdirSync(STUDIOFLOW_HOME, { recursive: true });
-
-      const syncUrl = getBaseApiUrl();
-
-      const configPayload = {
-        token: cleanToken,
-        apiUrl: syncUrl,
-      };
-      fs.writeFileSync(
-        CONFIG_FILE_PATH,
-        JSON.stringify(configPayload, null, 2),
-      );
-
-      console.log(`\n${c.green}✅ Authentication successful!${c.reset}`);
       console.log(
-        `Your machine is now linked to ${c.magenta}${syncUrl}${c.reset}. Type ${c.cyan}'studioflow'${c.reset} to start the engine.\n`,
+        `\n${c.dim}⏳ Verifying token with StudioFlow Cloud...${c.reset}`,
       );
-      rl.close();
-      process.exit(0);
+
+      try {
+        const apiUrl = getBaseApiUrl();
+        const res = await fetch(apiUrl, {
+          headers: { Authorization: `Bearer ${rawToken}` },
+        });
+
+        if (!res.ok) {
+          console.log(
+            `\n${c.red}❌ Authentication Failed:${c.reset} Invalid or expired token.`,
+          );
+          console.log(`${c.dim}Error Code: ${res.status}${c.reset}\n`);
+          process.exit(1);
+        }
+
+        const envData = await res.json();
+        const workspaceId = envData.workspaceId;
+
+        if (!fs.existsSync(STUDIOFLOW_HOME)) {
+          fs.mkdirSync(STUDIOFLOW_HOME, { recursive: true });
+        }
+
+        fs.writeFileSync(
+          CONFIG_FILE_PATH,
+          JSON.stringify({ token: rawToken, workspaceId }, null, 2),
+        );
+
+        console.log(`\n${c.green}✅ Credentials Verified!${c.reset}`);
+        console.log(`Configuration saved to: ${CONFIG_FILE_PATH}\n`);
+        console.log(
+          `You can now run ${c.cyan}'studioflow'${c.reset} to start the daemon.\n`,
+        );
+        process.exit(0);
+      } catch (networkErr) {
+        console.log(
+          `\n${c.red}❌ Network Error:${c.reset} Could not reach StudioFlow Cloud.`,
+        );
+        process.exit(1);
+      }
     },
   );
 }
@@ -564,61 +617,53 @@ async function fetchRemoteConfiguration() {
   if (!fs.existsSync(CONFIG_FILE_PATH)) return false;
 
   try {
-    const configData = JSON.parse(fs.readFileSync(CONFIG_FILE_PATH, "utf-8"));
-    if (!configData.token) return false;
+    const config = JSON.parse(fs.readFileSync(CONFIG_FILE_PATH, "utf-8"));
+    if (!config.token) return false;
 
-    console.log(
-      `\n${c.dim}🔄 Syncing your cloud environment settings...${c.reset}`,
-    );
+    // ✅ FALLBACK: Use workspaceId from config if available
+    if (config.workspaceId) {
+      process.env.WORKSPACE_ID = config.workspaceId;
+    }
 
-    const targetUrl = configData.apiUrl || getBaseApiUrl();
-
-    const res = await fetch(targetUrl, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${configData.token}`,
-        "Content-Type": "application/json",
-      },
+    const apiUrl = getBaseApiUrl();
+    const res = await fetch(apiUrl, {
+      headers: { Authorization: `Bearer ${config.token}` },
     });
 
     if (!res.ok) {
-      const errPayload = await res.json().catch(() => ({}));
-      throw new Error(errPayload.error || `Server rejected the token.`);
+      console.error(
+        `\n${c.red}❌ Session Expired:${c.reset} Your CLI token was rejected by the server.`,
+      );
+      console.error(
+        `Please run ${c.cyan}'studioflow login'${c.reset} again.\n`,
+      );
+      process.exit(1);
     }
 
     const envData = await res.json();
 
+    // Update workspaceId from server if present
+    if (envData.workspaceId) {
+      process.env.WORKSPACE_ID = envData.workspaceId;
+      // Update config if changed
+      if (!config.workspaceId || config.workspaceId !== envData.workspaceId) {
+        config.workspaceId = envData.workspaceId;
+        fs.writeFileSync(CONFIG_FILE_PATH, JSON.stringify(config, null, 2));
+      }
+    }
+
     if (envData.databaseUrl) process.env.DATABASE_URL = envData.databaseUrl;
     if (envData.redisUrl) process.env.REDIS_URL = envData.redisUrl;
-    if (envData.githubToken) process.env.GITHUB_PAT = envData.githubToken;
-    if (envData.deploymentProvider)
-      process.env.DEPLOYMENT_PROVIDER = envData.deploymentProvider;
-
-    if (envData.deploymentApiKey) {
-      process.env.RENDER_API_KEY = envData.deploymentApiKey;
-      process.env.RAILWAY_API_KEY = envData.deploymentApiKey;
-      process.env.VERCEL_TOKEN = envData.deploymentApiKey;
-    }
-    if (envData.railwayApiKey)
-      process.env.RAILWAY_API_KEY = envData.railwayApiKey;
-
-    if (envData.deploymentOwnerId)
-      process.env.RENDER_OWNER_ID = envData.deploymentOwnerId;
-    if (envData.smtpHost) process.env.SMTP_HOST = envData.smtpHost;
-    if (envData.smtpPort) process.env.SMTP_PORT = envData.smtpPort;
-    if (envData.smtpUser) process.env.SMTP_USER = envData.smtpUser;
-    if (envData.smtpPass) process.env.SMTP_PASS = envData.smtpPass;
     if (envData.targetOutputDir)
       process.env.TARGET_OUTPUT_DIR = envData.targetOutputDir;
+    if (envData.githubToken) process.env.GITHUB_TOKEN = envData.githubToken;
+    // Add other env vars as needed
 
     console.log(`${c.green}✅ Cloud settings downloaded and mapped.${c.reset}`);
     return true;
   } catch (err) {
     console.error(
-      `\n${c.red}❌ We couldn't reach the StudioFlow servers:${c.reset} ${err.message}`,
-    );
-    console.log(
-      `Try generating a new token and running ${c.cyan}'studioflow login'${c.reset} again.\n`,
+      `\n${c.red}❌ Sync Error:${c.reset} Failed to communicate with StudioFlow Cloud.`,
     );
     process.exit(1);
   }
@@ -635,12 +680,32 @@ async function main() {
 
   const isTokenAuthed = await fetchRemoteConfiguration();
 
+  if (!isTokenAuthed) {
+    console.error(
+      `\n${c.red}❌ Authentication Error:${c.reset} No valid session found.`,
+    );
+    console.error(
+      `Please run ${c.cyan}'studioflow login'${c.reset} to connect.\n`,
+    );
+    process.exit(1);
+  }
+
   if (!process.env.DATABASE_URL) {
     console.error(
       `\n${c.red}❌ Environment Error:${c.reset} We don't have a database connection string.`,
     );
     console.error(
       `Please run ${c.cyan}'studioflow login'${c.reset} to sync your settings from the dashboard.\n`,
+    );
+    process.exit(1);
+  }
+
+  if (!process.env.WORKSPACE_ID) {
+    console.error(
+      `\n${c.red}❌ Environment Error:${c.reset} No Workspace ID mapped to this session.`,
+    );
+    console.error(
+      `Please run ${c.cyan}'studioflow login'${c.reset} to refresh your cloud credentials.\n`,
     );
     process.exit(1);
   }
@@ -655,13 +720,13 @@ async function main() {
 
   rl.question(`\nWhat would you like to do? `, async (choice) => {
     if (choice.trim() === "1") {
-      const daemon = new EngineDaemonWorker(process.env.DATABASE_URL);
+      const daemon = new EngineDaemonWorker(
+        process.env.DATABASE_URL,
+        process.env.WORKSPACE_ID,
+      );
       await daemon.bootDaemonLoop();
     } else {
-      console.log(
-        `\n${c.dim}Shutting down gracefully. See you later!${c.reset}\n`,
-      );
-      rl.close();
+      console.log(`\n${c.dim}Exiting...${c.reset}\n`);
       process.exit(0);
     }
   });
