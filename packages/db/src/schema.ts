@@ -302,6 +302,7 @@ export const provisioningJobs = mysqlTable(
   {
     id: int("id").autoincrement().primaryKey(),
     projectId: int("project_id").notNull(),
+    workspaceId: int("workspace_id").notNull(),
     idempotencyKey: varchar("idempotency_key", { length: 255 })
       .notNull()
       .unique(),
@@ -314,6 +315,7 @@ export const provisioningJobs = mysqlTable(
   },
   (table) => ({
     projectJobIdx: index("project_job_idx").on(table.projectId),
+    workspaceJobIdx: index("workspace_job_idx").on(table.workspaceId),
     ...(!isIsolatedDev
       ? {
           projectFk: foreignKey({
