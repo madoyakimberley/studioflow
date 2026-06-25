@@ -17,7 +17,6 @@ function ensureTlsUrl(url: string): string {
   return url;
 }
 
-// Central DB pool (raw mysql2, no Drizzle)
 let centralPool: mysql.Pool | null = null;
 
 async function getCentralPool() {
@@ -38,7 +37,6 @@ async function getCentralPool() {
   return centralPool;
 }
 
-// Ensure the central table exists
 async function ensureCentralTables() {
   const pool = await getCentralPool();
   await pool.execute(`
@@ -66,7 +64,6 @@ async function ensureCentralTables() {
   console.log("✅ Central table `workspace_environments` verified/created");
 }
 
-// Ensure tenant tables exist (projects only)
 async function ensureTenantSchema(client: any) {
   await client.execute(`
     CREATE TABLE IF NOT EXISTS projects (
@@ -100,15 +97,16 @@ async function ensureTenantSchema(client: any) {
 }
 
 export async function getTenantDb(workspaceId: number) {
-  // 1. Ensure central table exists
+  console.log(`🔍 getTenantDb called for workspace ${workspaceId}`);
   await ensureCentralTables();
 
-  // 2. Check cache
   if (clientCache.has(workspaceId)) {
+    console.log(
+      `✅ Using cached tenant DB client for workspace ${workspaceId}`,
+    );
     return clientCache.get(workspaceId);
   }
 
-  // 3. Get central pool and query workspace_environments
   const pool = await getCentralPool();
   let rows: any[] = [];
   try {
@@ -117,11 +115,9 @@ export async function getTenantDb(workspaceId: number) {
       [workspaceId],
     );
     rows = result as any[];
+    console.log(`✅ Found ${rows.length} row(s) for workspace ${workspaceId}`);
   } catch (err) {
-    console.error(
-      `❌ Error querying workspace_environments for workspace ${workspaceId}:`,
-      err,
-    );
+    console.error(`❌ Error querying workspace_environments:`, err);
     throw new Error(`Failed to query workspace environment: ${err}`);
   }
 
@@ -132,6 +128,11 @@ export async function getTenantDb(workspaceId: number) {
   }
 
   const env = rows[0];
+  console.log(`🔍 Environment row:`, {
+    workspace_id: env.workspace_id,
+    database_url: env.database_url?.substring(0, 50) + "...",
+  });
+
   if (!env.database_url) {
     throw new Error(`No database URL found for workspace ${workspaceId}`);
   }
@@ -139,7 +140,6 @@ export async function getTenantDb(workspaceId: number) {
   const engine = env.database_engine || "postgresql";
   let client;
 
-  // 4. Build tenant DB client
   try {
     if (engine === "postgresql" || engine === "postgres") {
       const tenantUrl = ensureTlsUrl(env.database_url);
@@ -165,10 +165,10 @@ export async function getTenantDb(workspaceId: number) {
     throw err;
   }
 
-  // 5. Ensure tenant tables exist
   await ensureTenantSchema(client);
-
-  // 6. Cache and return
   clientCache.set(workspaceId, client);
+  console.log(
+    `✅ Tenant DB client created and cached for workspace ${workspaceId}`,
+  );
   return client;
 }

@@ -289,6 +289,11 @@ export async function queueProjectProvisioning(
     const { userSlug: resolvedUserSlug, workspaceId: actualWorkspaceId } =
       authResult.data;
 
+    console.log(
+      `🚀 Starting project provisioning for workspace ${actualWorkspaceId}`,
+    );
+
+    // ---- Validation checks ----
     if (
       !payload.name?.trim() ||
       !payload.clientName?.trim() ||
@@ -318,17 +323,36 @@ export async function queueProjectProvisioning(
       };
     }
 
-    // 👇 Get tenant DB client for project data
-    const tenantDb = await getTenantDb(actualWorkspaceId);
+    // ---- Get tenant DB client ----
+    let tenantDb;
+    try {
+      tenantDb = await getTenantDb(actualWorkspaceId);
+      console.log(
+        `✅ Tenant DB client obtained for workspace ${actualWorkspaceId}`,
+      );
+    } catch (err: any) {
+      console.error(`❌ Failed to get tenant DB:`, err);
+      return {
+        success: false,
+        error: `Failed to connect to tenant database: ${err.message}`,
+      };
+    }
 
-    // ---- Client lookup / creation (tenant DB) ----
-    let targetClient = await tenantDb.query.clients.findFirst({
-      where: (clients: { email: any; workspaceId: any }, { eq, and }: any) =>
-        and(
-          eq(clients.email, payload.clientEmail),
-          eq(clients.workspaceId, actualWorkspaceId),
-        ),
-    });
+    // ---- Client lookup / creation ----
+    let targetClient;
+    try {
+      targetClient = await tenantDb.query.clients.findFirst({
+        where: (clients: any, { eq, and }: any) =>
+          and(
+            eq(clients.email, payload.clientEmail),
+            eq(clients.workspaceId, actualWorkspaceId),
+          ),
+      });
+      console.log(`🔍 Client lookup: ${targetClient ? "found" : "not found"}`);
+    } catch (err: any) {
+      console.error(`❌ Client lookup failed:`, err);
+      return { success: false, error: `Client lookup failed: ${err.message}` };
+    }
 
     if (!targetClient) {
       try {
@@ -353,21 +377,18 @@ export async function queueProjectProvisioning(
         );
 
         targetClient = await tenantDb.query.clients.findFirst({
-          where: (
-            clients: { email: any; workspaceId: any },
-            { eq, and }: any,
-          ) =>
+          where: (clients: any, { eq, and }: any) =>
             and(
               eq(clients.email, payload.clientEmail),
               eq(clients.workspaceId, actualWorkspaceId),
             ),
         });
-      } catch (err) {
-        console.error("[SYS-LOG] Failed to create new client: ", err);
+        console.log(`✅ Created new client`);
+      } catch (err: any) {
+        console.error(`❌ Client creation failed:`, err);
         return {
           success: false,
-          error:
-            "We encountered an issue saving the client profile. Please try again.",
+          error: `Client creation failed: ${err.message}`,
         };
       }
     }
@@ -379,7 +400,7 @@ export async function queueProjectProvisioning(
       };
     }
 
-    // ---- Project creation (tenant DB) ----
+    // ---- Project creation ----
     const baseProjectSlug = payload.name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
@@ -391,150 +412,175 @@ export async function queueProjectProvisioning(
     const extractedFrontend = webService?.framework || "Next.js";
     const extractedBackend = "Node.js";
 
-    await safeInsert(
-      tenantDb.insert(projects).values({
-        workspaceId: actualWorkspaceId,
-        clientId: targetClient.id,
-        name: payload.name,
-        slug: projectSlug,
-        clientEmail: payload.clientEmail,
-        brief: payload.brief || "No brief provided.",
-        status: "pending",
-        progressPercentage: 0,
-        portalLinkSentCount: 0,
-        universalManifest: {
-          services: payload.services || [],
-          gitProvider: payload.gitProvider,
-          folderStructure: payload.folderStructure,
-          deploymentTarget: payload.deploymentTarget,
-          nodePackageManager: payload.nodePackageManager,
-        },
-        frontendFramework: extractedFrontend,
-        backendFramework: extractedBackend,
-      } as any),
-    );
-
-    // ---- Retrieve project ID (tenant DB) ----
-    let createdProject = null;
-    let retries = 3;
-    while (!createdProject && retries > 0) {
-      createdProject = await tenantDb.query.projects.findFirst({
-        where: (projects: { slug: any }, { eq }: any) =>
-          eq(projects.slug, projectSlug),
-      });
-      if (!createdProject) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        retries--;
-      }
-    }
-
-    if (!createdProject || !createdProject.id) {
-      throw new Error(
-        "Database allocated the project, but immediate readback failed. Please try again.",
-      );
-    }
-
-    const projectId = createdProject.id;
-
-    // ---- Checklist items (tenant DB) ----
-    await safeInsert(
-      tenantDb.insert(checklistItems).values([
-        {
-          projectId,
-          title: "Environment Setup (Staging Server Link)",
-          type: "MVP",
-          status: "pending",
-        },
-        {
-          projectId,
-          title: "Database Migration (Schema Logs)",
-          type: "MVP",
-          status: "pending",
-        },
-        {
-          projectId,
-          title: "Domain & SSL Configuration",
-          type: "MVP",
-          status: "pending",
-        },
-        {
-          projectId,
-          title: "Build Automation (CI/CD Logs)",
-          type: "MVP",
-          status: "pending",
-        },
-        {
-          projectId,
-          title: "Component Testing (Unit/Integration Success PDF)",
-          type: "MVP",
-          status: "pending",
-        },
-        {
-          projectId,
-          title: "User Acceptance Testing (UAT Screen Share)",
-          type: "MVP",
-          status: "pending",
-        },
-        {
-          projectId,
-          title: "Cross-Browser Check (Layout Compatibility)",
-          type: "MVP",
-          status: "pending",
-        },
-        {
-          projectId,
-          title: "API Verification (200 OK Responses Proof)",
-          type: "MVP",
-          status: "pending",
-        },
-        {
-          projectId,
-          title: "Authentication Security (Failure & Token Expiry Clip)",
-          type: "MVP",
-          status: "pending",
-        },
-        {
-          projectId,
-          title: "Dependency Audit (0 Critical Vulnerabilities)",
-          type: "MVP",
-          status: "pending",
-        },
-        {
-          projectId,
-          title: "Environment Variables (Hidden Private Keys Proof)",
-          type: "MVP",
-          status: "pending",
-        },
-        {
-          projectId,
-          title: "SQL Injection / XSS Protection Check",
-          type: "MVP",
-          status: "pending",
-        },
-      ]),
-    );
-
-    // ---- 🔥 Provisioning job (CENTRAL DB) ----
-    const uniqueIdempotencyKey = `job_${crypto.randomBytes(16).toString("hex")}`;
-
-    await safeInsert(
-      db.insert(provisioningJobs).values({
-        projectId: projectId,
-        workspaceId: actualWorkspaceId,
-        idempotencyKey: uniqueIdempotencyKey,
-        status: "pending",
-        manifest: {
-          projectName: payload.name,
+    let createdProject;
+    let projectId;
+    try {
+      await safeInsert(
+        tenantDb.insert(projects).values({
+          workspaceId: actualWorkspaceId,
+          clientId: targetClient.id,
+          name: payload.name,
           slug: projectSlug,
-          gitProvider: payload.gitProvider,
-          folderStructure: payload.folderStructure,
-          deploymentTarget: payload.deploymentTarget,
-          nodePackageManager: payload.nodePackageManager,
-          services: payload.services || [],
-          blueprintYaml: payload.blueprintYaml || "",
-        } as any,
-      } as any),
-    );
+          clientEmail: payload.clientEmail,
+          brief: payload.brief || "No brief provided.",
+          status: "pending",
+          progressPercentage: 0,
+          portalLinkSentCount: 0,
+          universalManifest: {
+            services: payload.services || [],
+            gitProvider: payload.gitProvider,
+            folderStructure: payload.folderStructure,
+            deploymentTarget: payload.deploymentTarget,
+            nodePackageManager: payload.nodePackageManager,
+          },
+          frontendFramework: extractedFrontend,
+          backendFramework: extractedBackend,
+        } as any),
+      );
+
+      // Retrieve project ID
+      let retries = 3;
+      while (!createdProject && retries > 0) {
+        createdProject = await tenantDb.query.projects.findFirst({
+          where: (projects: any, { eq }: any) => eq(projects.slug, projectSlug),
+        });
+        if (!createdProject) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          retries--;
+        }
+      }
+
+      if (!createdProject || !createdProject.id) {
+        throw new Error("Project creation failed – ID not found.");
+      }
+      projectId = createdProject.id;
+      console.log(
+        `✅ Project created with slug: ${projectSlug}, id: ${projectId}`,
+      );
+    } catch (err: any) {
+      console.error(`❌ Project creation failed:`, err);
+      return {
+        success: false,
+        error: `Project creation failed: ${err.message}`,
+      };
+    }
+
+    // ---- Checklist items ----
+    try {
+      await safeInsert(
+        tenantDb.insert(checklistItems).values([
+          {
+            projectId,
+            title: "Environment Setup (Staging Server Link)",
+            type: "MVP",
+            status: "pending",
+          },
+          {
+            projectId,
+            title: "Database Migration (Schema Logs)",
+            type: "MVP",
+            status: "pending",
+          },
+          {
+            projectId,
+            title: "Domain & SSL Configuration",
+            type: "MVP",
+            status: "pending",
+          },
+          {
+            projectId,
+            title: "Build Automation (CI/CD Logs)",
+            type: "MVP",
+            status: "pending",
+          },
+          {
+            projectId,
+            title: "Component Testing (Unit/Integration Success PDF)",
+            type: "MVP",
+            status: "pending",
+          },
+          {
+            projectId,
+            title: "User Acceptance Testing (UAT Screen Share)",
+            type: "MVP",
+            status: "pending",
+          },
+          {
+            projectId,
+            title: "Cross-Browser Check (Layout Compatibility)",
+            type: "MVP",
+            status: "pending",
+          },
+          {
+            projectId,
+            title: "API Verification (200 OK Responses Proof)",
+            type: "MVP",
+            status: "pending",
+          },
+          {
+            projectId,
+            title: "Authentication Security (Failure & Token Expiry Clip)",
+            type: "MVP",
+            status: "pending",
+          },
+          {
+            projectId,
+            title: "Dependency Audit (0 Critical Vulnerabilities)",
+            type: "MVP",
+            status: "pending",
+          },
+          {
+            projectId,
+            title: "Environment Variables (Hidden Private Keys Proof)",
+            type: "MVP",
+            status: "pending",
+          },
+          {
+            projectId,
+            title: "SQL Injection / XSS Protection Check",
+            type: "MVP",
+            status: "pending",
+          },
+        ]),
+      );
+      console.log(`✅ Checklist items created`);
+    } catch (err: any) {
+      console.error(`❌ Checklist insertion failed:`, err);
+      return {
+        success: false,
+        error: `Checklist insertion failed: ${err.message}`,
+      };
+    }
+
+    // ---- Provisioning job (central DB) ----
+    let uniqueIdempotencyKey;
+    try {
+      uniqueIdempotencyKey = `job_${crypto.randomBytes(16).toString("hex")}`;
+      await safeInsert(
+        db.insert(provisioningJobs).values({
+          projectId: projectId,
+          workspaceId: actualWorkspaceId,
+          idempotencyKey: uniqueIdempotencyKey,
+          status: "pending",
+          manifest: {
+            projectName: payload.name,
+            slug: projectSlug,
+            gitProvider: payload.gitProvider,
+            folderStructure: payload.folderStructure,
+            deploymentTarget: payload.deploymentTarget,
+            nodePackageManager: payload.nodePackageManager,
+            services: payload.services || [],
+            blueprintYaml: payload.blueprintYaml || "",
+          } as any,
+        } as any),
+      );
+      console.log(
+        `✅ Provisioning job created with ID: ${uniqueIdempotencyKey}`,
+      );
+    } catch (err: any) {
+      console.error(`❌ Job insertion failed:`, err);
+      return { success: false, error: `Job insertion failed: ${err.message}` };
+    }
 
     // ---- Redis publish ----
     if (redis && redis.status === "ready") {
@@ -556,11 +602,10 @@ export async function queueProjectProvisioning(
     revalidatePath(`/dashboard/${resolvedUserSlug}`);
     return { success: true, slug: projectSlug };
   } catch (error: any) {
-    console.error("[CRITICAL ENGINE FAULT]: ", error);
+    console.error("[CRITICAL ENGINE FAULT]:", error);
     return {
       success: false,
-      error:
-        "An unexpected error occurred while creating your project. Please check your details and try again.",
+      error: error.message || "An unexpected error occurred.",
     };
   }
 }
