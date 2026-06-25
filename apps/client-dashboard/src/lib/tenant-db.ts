@@ -4,12 +4,44 @@ import { drizzle as drizzlePg } from "drizzle-orm/postgres-js";
 import mysql from "mysql2/promise";
 import postgres from "postgres";
 import * as schema from "@studioflow/db";
-import { db as centralDb } from "@studioflow/db";
 
 const clientCache = new Map<number, any>();
 
+// Helper to ensure TLS for TiDB Cloud Serverless
+function ensureTlsUrl(url: string): string {
+  if (url.includes("tidbcloud.com") && !url.includes("ssl=")) {
+    const separator = url.includes("?") ? "&" : "?";
+    const sslParam = `ssl=${encodeURIComponent(JSON.stringify({ rejectUnauthorized: true }))}`;
+    return `${url}${separator}${sslParam}`;
+  }
+  return url;
+}
+
+// Central DB pool (raw mysql2, no Drizzle)
+let centralPool: mysql.Pool | null = null;
+
+async function getCentralPool() {
+  if (!centralPool) {
+    const rawUrl = process.env.DATABASE_URL;
+    if (!rawUrl) throw new Error("DATABASE_URL is not set");
+    const url = ensureTlsUrl(rawUrl);
+    console.log(
+      `🔌 Connecting to central DB: ${url.replace(/\/\/.*@/, "//***@")}`,
+    );
+    centralPool = mysql.createPool({
+      uri: url,
+      waitForConnections: true,
+      connectionLimit: 5,
+      connectTimeout: 15000,
+    });
+  }
+  return centralPool;
+}
+
+// Ensure the central table exists
 async function ensureCentralTables() {
-  await centralDb.execute(`
+  const pool = await getCentralPool();
+  await pool.execute(`
     CREATE TABLE IF NOT EXISTS workspace_environments (
       id INT AUTO_INCREMENT PRIMARY KEY,
       workspace_id INT NOT NULL UNIQUE,
@@ -31,10 +63,11 @@ async function ensureCentralTables() {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )
   `);
+  console.log("✅ Central table `workspace_environments` verified/created");
 }
 
+// Ensure tenant tables exist (projects only)
 async function ensureTenantSchema(client: any) {
-  // Only create projects and checklist tables – no provisioning_jobs
   await client.execute(`
     CREATE TABLE IF NOT EXISTS projects (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -67,40 +100,75 @@ async function ensureTenantSchema(client: any) {
 }
 
 export async function getTenantDb(workspaceId: number) {
+  // 1. Ensure central table exists
   await ensureCentralTables();
 
+  // 2. Check cache
   if (clientCache.has(workspaceId)) {
     return clientCache.get(workspaceId);
   }
 
-  const env = await centralDb.query.workspaceEnvironments.findFirst({
-    where: (envs, { eq }) => eq(envs.workspaceId, workspaceId),
-  });
+  // 3. Get central pool and query workspace_environments
+  const pool = await getCentralPool();
+  let rows: any[] = [];
+  try {
+    const [result] = await pool.execute(
+      "SELECT * FROM workspace_environments WHERE workspace_id = ?",
+      [workspaceId],
+    );
+    rows = result as any[];
+  } catch (err) {
+    console.error(
+      `❌ Error querying workspace_environments for workspace ${workspaceId}:`,
+      err,
+    );
+    throw new Error(`Failed to query workspace environment: ${err}`);
+  }
 
-  if (!env?.databaseUrl) {
+  if (rows.length === 0) {
+    throw new Error(
+      `No workspace environment found for workspace ${workspaceId}`,
+    );
+  }
+
+  const env = rows[0];
+  if (!env.database_url) {
     throw new Error(`No database URL found for workspace ${workspaceId}`);
   }
 
-  const engine = env.databaseEngine || "postgresql";
+  const engine = env.database_engine || "postgresql";
   let client;
 
-  if (engine === "postgresql" || engine === "postgres") {
-    const connection = postgres(env.databaseUrl, { max: 5, idle_timeout: 10 });
-    client = drizzlePg(connection, { schema });
-  } else if (engine === "mysql") {
-    const pool = mysql.createPool({
-      uri: env.databaseUrl,
-      waitForConnections: true,
-      connectionLimit: 5,
-      connectTimeout: 15000,
-    });
-    client = drizzle(pool, { schema, mode: "default" });
-  } else {
-    throw new Error(`Unsupported database engine: ${engine}`);
+  // 4. Build tenant DB client
+  try {
+    if (engine === "postgresql" || engine === "postgres") {
+      const tenantUrl = ensureTlsUrl(env.database_url);
+      const connection = postgres(tenantUrl, {
+        max: 5,
+        idle_timeout: 10,
+      });
+      client = drizzlePg(connection, { schema });
+    } else if (engine === "mysql") {
+      const tenantUrl = ensureTlsUrl(env.database_url);
+      const tenantPool = mysql.createPool({
+        uri: tenantUrl,
+        waitForConnections: true,
+        connectionLimit: 5,
+        connectTimeout: 15000,
+      });
+      client = drizzle(tenantPool, { schema, mode: "default" });
+    } else {
+      throw new Error(`Unsupported database engine: ${engine}`);
+    }
+  } catch (err) {
+    console.error(`❌ Failed to create tenant DB client:`, err);
+    throw err;
   }
 
+  // 5. Ensure tenant tables exist
   await ensureTenantSchema(client);
 
+  // 6. Cache and return
   clientCache.set(workspaceId, client);
   return client;
 }
