@@ -42,15 +42,20 @@ const API_BASE_URL =
   process.env.API_BASE_URL || "https://studioflow-api-ieck.onrender.com";
 
 // ==========================================
-// 🚨 DRIZZLE ORM CRASH BYPASS HELPER
+// 🚨 DRIZZLE ORM CRASH BYPASS HELPER (FIXED)
 // ==========================================
 async function safeInsert(insertPromise: Promise<any>) {
   try {
-    await insertPromise;
+    return await insertPromise;
   } catch (err: any) {
     if (err?.message?.toLowerCase().includes("resultset")) {
       return;
     }
+    // STOP SWALLOWING ERRORS - Log to terminal and throw to the UI
+    console.error("🚨 [DATABASE WRITE FAULT]:", {
+      message: err?.message,
+      stack: err?.stack,
+    });
     throw err;
   }
 }
@@ -338,7 +343,7 @@ export async function queueProjectProvisioning(
       };
     }
 
-    // ---- Client lookup / creation ----
+    // ---- Client lookup / creation in Tenant DB ----
     let targetClient;
     try {
       targetClient = await tenantDb.query.clients.findFirst({
@@ -400,7 +405,7 @@ export async function queueProjectProvisioning(
       };
     }
 
-    // ---- Project creation ----
+    // ---- Project creation in Tenant DB ----
     const baseProjectSlug = payload.name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
@@ -455,17 +460,17 @@ export async function queueProjectProvisioning(
       }
       projectId = createdProject.id;
       console.log(
-        `✅ Project created with slug: ${projectSlug}, id: ${projectId}`,
+        `✅ Project created in Tenant DB with slug: ${projectSlug}, id: ${projectId}`,
       );
     } catch (err: any) {
-      console.error(`❌ Project creation failed:`, err);
+      console.error(`❌ Project creation failed in Tenant DB:`, err);
       return {
         success: false,
         error: `Project creation failed: ${err.message}`,
       };
     }
 
-    // ---- Checklist items ----
+    // ---- Checklist items in Tenant DB ----
     try {
       await safeInsert(
         tenantDb.insert(checklistItems).values([
@@ -543,7 +548,7 @@ export async function queueProjectProvisioning(
           },
         ]),
       );
-      console.log(`✅ Checklist items created`);
+      console.log(`✅ Checklist items created in Tenant DB`);
     } catch (err: any) {
       console.error(`❌ Checklist insertion failed:`, err);
       return {
@@ -552,7 +557,7 @@ export async function queueProjectProvisioning(
       };
     }
 
-    // ---- Provisioning job (central DB) ----
+    // ---- Provisioning job (Central DB) ----
     let uniqueIdempotencyKey;
     try {
       uniqueIdempotencyKey = `job_${crypto.randomBytes(16).toString("hex")}`;
@@ -575,10 +580,10 @@ export async function queueProjectProvisioning(
         } as any),
       );
       console.log(
-        `✅ Provisioning job created with ID: ${uniqueIdempotencyKey}`,
+        `✅ Provisioning job created in Central DB with ID: ${uniqueIdempotencyKey}`,
       );
     } catch (err: any) {
-      console.error(`❌ Job insertion failed:`, err);
+      console.error(`❌ Job insertion failed in Central DB:`, err);
       return { success: false, error: `Job insertion failed: ${err.message}` };
     }
 
