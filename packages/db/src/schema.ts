@@ -306,9 +306,10 @@ export const provisioningJobs = mysqlTable(
     idempotencyKey: varchar("idempotency_key", { length: 255 })
       .notNull()
       .unique(),
+
     status: varchar("status", { length: 50 }).default("pending"),
     manifest: json("manifest").notNull(),
-    executionLogs: text("execution_logs"),
+    executionLogs: json("execution_logs"),
     createdAt: timestamp("created_at").defaultNow(),
     startedAt: timestamp("started_at"),
     completedAt: timestamp("completed_at"),
