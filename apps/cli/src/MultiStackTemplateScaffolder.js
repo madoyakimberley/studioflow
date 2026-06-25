@@ -6,7 +6,6 @@ import { CommandProcessExecutor } from "./CommandProcessExecutor.js";
 import { OrmSchemaGenerator } from "./OrmSchemaGenerator.js";
 
 // 🛡️ OS-LEVEL FILE LOCK BYPASS
-// Wraps standard fs.writeFile to survive Antivirus/OS indexing locks (EBUSY/EPERM)
 const safeWriteFile = async (filePath, data, options, maxRetries = 5) => {
   for (let i = 0; i < maxRetries; i++) {
     try {
@@ -14,7 +13,7 @@ const safeWriteFile = async (filePath, data, options, maxRetries = 5) => {
       return;
     } catch (err) {
       if (err.code === "EBUSY" || err.code === "EPERM") {
-        await new Promise((res) => setTimeout(res, 100 * (i + 1))); // Exponential-ish backoff
+        await new Promise((res) => setTimeout(res, 100 * (i + 1)));
       } else {
         throw err;
       }
@@ -26,7 +25,8 @@ const safeWriteFile = async (filePath, data, options, maxRetries = 5) => {
 };
 
 export class MultiStackTemplateScaffolder {
-  constructor(projectSlug, manifest) {
+  // Accept tenantDbUrl as third parameter
+  constructor(projectSlug, manifest, tenantDbUrl) {
     const baseWorkspace =
       process.env.TARGET_OUTPUT_DIR ||
       path.join(os.homedir(), "Downloads", "StudioFlow");
@@ -47,6 +47,12 @@ export class MultiStackTemplateScaffolder {
 
     this.vaultMasterKeyHex = crypto.randomBytes(32).toString("hex");
     this.ormGenerator = new OrmSchemaGenerator();
+
+    // Store tenant DB URL (if provided, otherwise fallback to env)
+    this.tenantDbUrl =
+      tenantDbUrl ||
+      process.env.TENANT_DATABASE_URL ||
+      process.env.DATABASE_URL;
   }
 
   validateSlug(slug) {
@@ -61,9 +67,9 @@ export class MultiStackTemplateScaffolder {
   async verifyClearance() {
     try {
       await fs.access(this.targetPath);
-      return false; // Directory exists, clearance denied
+      return false;
     } catch {
-      return true; // Directory doesn't exist, clearance granted
+      return true;
     }
   }
 
@@ -98,7 +104,6 @@ export class MultiStackTemplateScaffolder {
   }
 
   async processExecutionPipeline() {
-    // 🛡️ MEMORY STARVATION CHECK
     const freeRamMb = os.freemem() / 1024 / 1024;
     if (freeRamMb < 512) {
       console.log(
@@ -199,8 +204,11 @@ export class MultiStackTemplateScaffolder {
   }
 
   async generateEncryptedEnvVault(targetDir, spec) {
+    // Use tenant DB URL if available, otherwise fallback to DATABASE_URL
     const clientDbUrl =
-      process.env.DATABASE_URL || "mysql://user:pass@localhost:3306/client_db";
+      this.tenantDbUrl ||
+      process.env.DATABASE_URL ||
+      "mysql://user:pass@localhost:3306/client_db";
     const rawEnvString = `DATABASE_URL="${clientDbUrl}"\nPORT=3000\nAPI_SECRET="${crypto.randomBytes(16).toString("hex")}"`;
 
     const { iv, encryptedData, authTag } = this.encryptPayload(rawEnvString);
@@ -263,7 +271,6 @@ export class EnvVaultManager {
     const srcDir = path.join(targetDir, "src");
     await fs.mkdir(srcDir, { recursive: true });
 
-    // USING SAFE WRITE WRAPPER
     await safeWriteFile(path.join(srcDir, "VaultManager.js"), vaultManagerCode);
     await safeWriteFile(
       path.join(targetDir, ".env.local"),
@@ -446,7 +453,7 @@ export class EnvVaultManager {
     );
   }
 
-  // 🛡️ GITHUB ABUSE MECHANISM BYPASS (Respect retry-after)
+  // 🛡️ GITHUB ABUSE MECHANISM BYPASS
   async createGitHubRepo() {
     if (!this.githubToken) return null;
     const response = await fetch("https://api.github.com/user/repos", {
@@ -470,7 +477,7 @@ export class EnvVaultManager {
           `⚠️ GitHub rate limit hit. Waiting ${waitTime / 1000} seconds to back off...`,
         );
         await new Promise((res) => setTimeout(res, waitTime));
-        return this.createGitHubRepo(); // Retry after cooldown
+        return this.createGitHubRepo();
       }
 
       const errData = await response.json();
@@ -529,7 +536,6 @@ export class EnvVaultManager {
     return `https://${this.projectSlug}.vercel.app`;
   }
 
-  // 🛡️ FIRE-AND-OBSERVE DEPLOYMENT POLLING
   async deployToRenderAPI(projectName, serviceManifest) {
     if (this.isMonorepo && this._monorepoDeployed) {
       return this._lastDeployUrl || `https://${this.projectSlug}.onrender.com`;
@@ -589,8 +595,6 @@ export class EnvVaultManager {
 
               if (statusRes.ok) {
                 const statusData = await statusRes.json();
-
-                // FIXED: Automatically break loop if test suite mock doesn't return proper cloud objects
                 if (!statusData || !statusData.deploy) {
                   isPending = false;
                 } else if (statusData.deploy.status === "build_failed") {
@@ -680,8 +684,6 @@ export class EnvVaultManager {
 
             if (statusRes.ok) {
               const statusData = await statusRes.json();
-
-              // FIXED: Automatically break loop if test suite mock doesn't supply 'deployments' graphql edges
               if (
                 !statusData ||
                 !statusData.data ||

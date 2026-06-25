@@ -15,6 +15,7 @@ import { cookies } from "next/headers";
 import Redis from "ioredis";
 import crypto from "crypto";
 import { getTenantDb } from "@/lib/tenant-db";
+
 // ==========================================
 // REDIS CONNECTION POOL
 // ==========================================
@@ -43,17 +44,14 @@ const API_BASE_URL =
 // ==========================================
 // 🚨 DRIZZLE ORM CRASH BYPASS HELPER
 // ==========================================
-// This intercepts the fake "No resultset" crash caused by the MySQL driver bug
 async function safeInsert(insertPromise: Promise<any>) {
   try {
     await insertPromise;
   } catch (err: any) {
     if (err?.message?.toLowerCase().includes("resultset")) {
-      // The DB write succeeded, but Drizzle panicked reading the response.
-      // We safely ignore it and continue the pipeline!
       return;
     }
-    throw err; // Throw real errors (like missing fields)
+    throw err;
   }
 }
 
@@ -69,7 +67,7 @@ export interface UniversalServiceConfig {
   buildCommand: string;
   startCommand: string;
   dependencies: Array<{ name: string; version: string }>;
-  framework?: string; // Optional property to extract framework intent
+  framework?: string;
 }
 
 export interface UniversalManifestPayload {
@@ -145,7 +143,7 @@ export async function establishSecureSessionAction(token: string) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 86400, // 24 hours
+      maxAge: 86400,
     });
 
     return { success: true, user: userPayload };
@@ -161,7 +159,6 @@ export async function establishSecureSessionAction(token: string) {
 // ==========================================
 // HELPER: SECURE AUTHENTICATION & WORKSPACE RESOLUTION
 // ==========================================
-// ✅ EXPORTED so it can be used in auth-actions.ts
 export async function getVerifiedUserAndWorkspace() {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get("sf_auth_token")?.value;
@@ -321,10 +318,10 @@ export async function queueProjectProvisioning(
       };
     }
 
-    // 👇 Get tenant DB client
+    // 👇 Get tenant DB client for project data
     const tenantDb = await getTenantDb(actualWorkspaceId);
 
-    // ---- Client lookup / creation ----
+    // ---- Client lookup / creation (tenant DB) ----
     let targetClient = await tenantDb.query.clients.findFirst({
       where: (clients: { email: any; workspaceId: any }, { eq, and }: any) =>
         and(
@@ -382,7 +379,7 @@ export async function queueProjectProvisioning(
       };
     }
 
-    // ---- Project creation ----
+    // ---- Project creation (tenant DB) ----
     const baseProjectSlug = payload.name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
@@ -417,7 +414,7 @@ export async function queueProjectProvisioning(
       } as any),
     );
 
-    // ---- Retrieve project ID ----
+    // ---- Retrieve project ID (tenant DB) ----
     let createdProject = null;
     let retries = 3;
     while (!createdProject && retries > 0) {
@@ -439,7 +436,7 @@ export async function queueProjectProvisioning(
 
     const projectId = createdProject.id;
 
-    // ---- Checklist items ----
+    // ---- Checklist items (tenant DB) ----
     await safeInsert(
       tenantDb.insert(checklistItems).values([
         {
@@ -517,12 +514,13 @@ export async function queueProjectProvisioning(
       ]),
     );
 
-    // ---- Provisioning job ----
+    // ---- 🔥 Provisioning job (CENTRAL DB) ----
     const uniqueIdempotencyKey = `job_${crypto.randomBytes(16).toString("hex")}`;
 
     await safeInsert(
-      tenantDb.insert(provisioningJobs).values({
+      db.insert(provisioningJobs).values({
         projectId: projectId,
+        workspaceId: actualWorkspaceId,
         idempotencyKey: uniqueIdempotencyKey,
         status: "pending",
         manifest: {
