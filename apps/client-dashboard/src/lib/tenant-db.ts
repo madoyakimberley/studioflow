@@ -34,6 +34,7 @@ async function ensureCentralTables() {
 }
 
 async function ensureTenantSchema(client: any) {
+  // Only create projects and checklist tables – no provisioning_jobs
   await client.execute(`
     CREATE TABLE IF NOT EXISTS projects (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -63,30 +64,15 @@ async function ensureTenantSchema(client: any) {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
-  await client.execute(`
-    CREATE TABLE IF NOT EXISTS provisioning_jobs (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      project_id INT NOT NULL,
-      idempotency_key VARCHAR(255) NOT NULL UNIQUE,
-      status VARCHAR(50) DEFAULT 'pending',
-      manifest JSON NOT NULL,
-      execution_logs TEXT,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      started_at TIMESTAMP,
-      completed_at TIMESTAMP
-    )
-  `);
 }
 
 export async function getTenantDb(workspaceId: number) {
-  // Ensure central table exists
   await ensureCentralTables();
 
   if (clientCache.has(workspaceId)) {
     return clientCache.get(workspaceId);
   }
 
-  // Fetch workspace environment from central DB
   const env = await centralDb.query.workspaceEnvironments.findFirst({
     where: (envs, { eq }) => eq(envs.workspaceId, workspaceId),
   });
@@ -95,7 +81,7 @@ export async function getTenantDb(workspaceId: number) {
     throw new Error(`No database URL found for workspace ${workspaceId}`);
   }
 
-  const engine = env.databaseEngine || "mysql";
+  const engine = env.databaseEngine || "postgresql";
   let client;
 
   if (engine === "postgresql" || engine === "postgres") {

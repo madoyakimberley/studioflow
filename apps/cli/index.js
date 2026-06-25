@@ -59,6 +59,7 @@ class EngineDaemonWorker {
       `   ${c.magenta}⚙️  Table Migration:${c.reset} Verifying and upgrading schema...`,
     );
 
+    // We only need provisioning_jobs for the queue, but we keep projects for compatibility.
     const projectColumns = {
       id: "INT AUTO_INCREMENT PRIMARY KEY",
       workspace_id: "INT NOT NULL",
@@ -90,6 +91,7 @@ class EngineDaemonWorker {
     const jobColumns = {
       id: "INT AUTO_INCREMENT PRIMARY KEY",
       project_id: "INT NOT NULL",
+      workspace_id: "INT NOT NULL", // added for filtering
       idempotency_key: "VARCHAR(255) NOT NULL UNIQUE",
       status: "VARCHAR(50) DEFAULT 'pending'",
       manifest: "JSON NOT NULL",
@@ -119,6 +121,7 @@ class EngineDaemonWorker {
       );
       for (const col of missing) {
         const definition = columnsDef[col];
+        // Use IF NOT EXISTS – safe to run even if column exists
         await this.poolInstance.query(
           `ALTER TABLE ${tableName} ADD COLUMN IF NOT EXISTS ${col} ${definition}`,
         );
@@ -153,6 +156,7 @@ class EngineDaemonWorker {
       await this.poolInstance.query(createSQL);
       console.log(`   ${c.green}✅ provisioning_jobs table created.${c.reset}`);
     } else {
+      // Ensure workspace_id column exists (critical fix)
       await addMissingColumns.call(this, "provisioning_jobs", jobColumns);
       console.log(
         `   ${c.green}✅ provisioning_jobs table up to date.${c.reset}`,
@@ -326,27 +330,6 @@ class EngineDaemonWorker {
     } catch (e) {}
   }
 
-  async updateProjectTracking(projectId, statusCode, liveUrl = null) {
-    try {
-      if (!this.poolInstance) return;
-      if (liveUrl) {
-        await this.poolInstance.execute(
-          "UPDATE projects SET status = ?, live_url = ? WHERE id = ?",
-          [statusCode, liveUrl, projectId],
-        );
-      } else {
-        await this.poolInstance.execute(
-          "UPDATE projects SET status = ? WHERE id = ?",
-          [statusCode, projectId],
-        );
-      }
-    } catch (err) {
-      console.error(
-        `   ${c.yellow}⚠️  Note: Could not sync project status back to database. (${err.message})${c.reset}`,
-      );
-    }
-  }
-
   async runProcessingCycle() {
     if (this.isProcessing) return;
     this.isProcessing = true;
@@ -356,18 +339,26 @@ class EngineDaemonWorker {
         let jobs;
 
         try {
+          // Query central DB for pending jobs of this workspace
           const queryStr = `
-            SELECT j.* FROM provisioning_jobs j
-            INNER JOIN projects p ON j.project_id = p.id
-            WHERE j.status = 'pending' AND p.workspace_id = ?
-            ORDER BY j.id ASC LIMIT 1
+            SELECT * FROM provisioning_jobs
+            WHERE workspace_id = ? AND status = 'pending'
+            ORDER BY id ASC LIMIT 1
           `;
+          // Debug logging
+          console.log(
+            `   ${c.dim}🔍 Polling central DB for workspace ${this.workspaceId}...${c.reset}`,
+          );
           [jobs] = await this.poolInstance.execute(queryStr, [
             this.workspaceId,
           ]);
           if (!jobs || jobs.length === 0) {
+            console.log(`   ${c.dim}→ No pending jobs found.${c.reset}`);
             return;
           }
+          console.log(
+            `   ${c.green}✅ Found ${jobs.length} pending job(s).${c.reset}`,
+          );
         } catch (dbErr) {
           console.error(
             `\n${c.red}🚨 Database error while fetching jobs:${c.reset} ${dbErr.message}`,
@@ -401,16 +392,21 @@ class EngineDaemonWorker {
           `${c.cyan}===========================================${c.reset}\n`,
         );
 
+        // Update job status to 'processing'
         await this.poolInstance.execute(
           "UPDATE provisioning_jobs SET status = 'processing' WHERE id = ?",
           [currentJob.id],
         );
-        await this.updateProjectTracking(currentJob.project_id, "provisioning");
 
         try {
+          // Get tenant DB URL from environment
+          const tenantDbUrl =
+            process.env.TENANT_DATABASE_URL || process.env.DATABASE_URL;
+
           const scaffolder = new MultiStackTemplateScaffolder(
             projectSlug,
             manifest,
+            tenantDbUrl,
           );
 
           await this.appendJobLog(
@@ -430,11 +426,11 @@ class EngineDaemonWorker {
           );
           await scaffolder.processExecutionPipeline();
 
+          // Mark job as completed
           await this.poolInstance.execute(
             "UPDATE provisioning_jobs SET status = 'completed', completed_at = CURRENT_TIMESTAMP WHERE id = ?",
             [currentJob.id],
           );
-          await this.updateProjectTracking(currentJob.project_id, "active");
 
           console.log(
             `\n${c.green}✅ Pipeline completed successfully for ${projectSlug}.${c.reset}\n`,
@@ -451,7 +447,6 @@ class EngineDaemonWorker {
             "UPDATE provisioning_jobs SET status = 'failed' WHERE id = ?",
             [currentJob.id],
           );
-          await this.updateProjectTracking(currentJob.project_id, "failed");
         }
       });
     } catch (breakerError) {
@@ -482,6 +477,7 @@ class EngineDaemonWorker {
                 ) {
                   return;
                 }
+                // Wake up immediately
                 this.runProcessingCycle();
               }
             } catch (e) {}
@@ -620,7 +616,6 @@ async function fetchRemoteConfiguration() {
     const config = JSON.parse(fs.readFileSync(CONFIG_FILE_PATH, "utf-8"));
     if (!config.token) return false;
 
-    // ✅ FALLBACK: Use workspaceId from config if available
     if (config.workspaceId) {
       process.env.WORKSPACE_ID = config.workspaceId;
     }
@@ -642,17 +637,42 @@ async function fetchRemoteConfiguration() {
 
     const envData = await res.json();
 
-    // Update workspaceId from server if present
+    // -------- CRITICAL: Set central queue DB URL ----------
+    if (envData.queueDatabaseUrl) {
+      process.env.DATABASE_URL = envData.queueDatabaseUrl;
+      console.log(
+        `   ${c.dim}→ Queue DB set to: ${envData.queueDatabaseUrl.replace(/\/\/.*@/, "//***@")}${c.reset}`,
+      );
+    } else if (envData.databaseUrl) {
+      // Fallback to old field for backward compatibility
+      process.env.DATABASE_URL = envData.databaseUrl;
+      console.log(
+        `   ${c.dim}→ Queue DB (fallback) set to: ${envData.databaseUrl.replace(/\/\/.*@/, "//***@")}${c.reset}`,
+      );
+    } else {
+      console.error(
+        `\n${c.red}❌ No database URL provided by sync endpoint.${c.reset}`,
+      );
+      return false;
+    }
+
+    // -------- Tenant DB URL for generated projects ----------
+    if (envData.tenantDatabaseUrl) {
+      process.env.TENANT_DATABASE_URL = envData.tenantDatabaseUrl;
+    } else if (envData.databaseUrl) {
+      // If no separate tenant URL, use the same as queue (fallback)
+      process.env.TENANT_DATABASE_URL = envData.databaseUrl;
+    }
+
+    // Update workspaceId
     if (envData.workspaceId) {
       process.env.WORKSPACE_ID = envData.workspaceId;
-      // Update config if changed
       if (!config.workspaceId || config.workspaceId !== envData.workspaceId) {
         config.workspaceId = envData.workspaceId;
         fs.writeFileSync(CONFIG_FILE_PATH, JSON.stringify(config, null, 2));
       }
     }
 
-    if (envData.databaseUrl) process.env.DATABASE_URL = envData.databaseUrl;
     if (envData.redisUrl) process.env.REDIS_URL = envData.redisUrl;
     if (envData.targetOutputDir)
       process.env.TARGET_OUTPUT_DIR = envData.targetOutputDir;
