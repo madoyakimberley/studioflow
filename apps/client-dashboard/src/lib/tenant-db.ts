@@ -33,8 +33,8 @@ async function ensureCentralTables() {
   `);
 }
 
-// ── Only create projects and checklist tables in tenant DB ──
 async function ensureTenantSchema(client: any) {
+  // Only create projects and checklist tables – no provisioning_jobs
   await client.execute(`
     CREATE TABLE IF NOT EXISTS projects (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -64,7 +64,6 @@ async function ensureTenantSchema(client: any) {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
-  // No provisioning_jobs table in tenant DB – only central DB holds the queue.
 }
 
 export async function getTenantDb(workspaceId: number) {
@@ -82,7 +81,7 @@ export async function getTenantDb(workspaceId: number) {
     throw new Error(`No database URL found for workspace ${workspaceId}`);
   }
 
-  const engine = env.databaseEngine || "mysql";
+  const engine = env.databaseEngine || "postgresql";
   let client;
 
   if (engine === "postgresql" || engine === "postgres") {
