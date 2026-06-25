@@ -240,7 +240,9 @@ export default async function AlertsAndDiagnosticsScreen({
                           </span>
                         </div>
                         <pre className="text-xs text-theme-muted bg-theme-surface border border-theme-outline p-4 rounded overflow-auto font-mono">
-                          {job.executionLogs || "No logs available."}
+                          {job.executionLogs
+                            ? JSON.stringify(job.executionLogs, null, 2)
+                            : "No logs available."}
                         </pre>
                       </div>
                     ))}
