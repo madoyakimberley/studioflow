@@ -1,200 +1,193 @@
-// test-login-create.ts
+// test-project.ts
 import "dotenv/config";
-import { execSync, spawn } from "child_process";
-import { db, users, workspaces, projects, clients } from "@studioflow/db";
+import {
+  db,
+  users,
+  workspaces,
+  projects,
+  clients,
+  provisioningJobs,
+} from "@studioflow/db";
 import { eq } from "drizzle-orm";
-import { getTenantDb } from "./src/lib/tenant-db";
-import path from "path";
+import { getTenantDb } from "./src/lib/tenant-db"; // ⚠️ Adjust this path if needed
+import crypto from "crypto";
 
-// ⚠️ IMPORTANT: UPDATE THIS PATH TO POINT TO YOUR CLI FOLDER
-// For example: "../../packages/cli/index.js" or "../cli/index.js"
-const CLI_PATH = path.resolve(__dirname, "../cli/index.js");
-
-async function runSimulation() {
-  console.log("==================================================");
-  console.log("🚀 STARTING E2E CLI AND PROVISIONING TEST...");
+async function runCreateProjectFlow() {
+  console.log("\n==================================================");
+  console.log("🧨 STARTING EXTREME DEBUG MODE: CREATE PROJECT FLOW 🧨");
   console.log("==================================================\n");
 
   const testEmail = "kimmadoya09@gmail.com";
-  const cliToken = "sf_pat_f15801a3334945c0b4ffcbf8ef946bcc";
+
+  // This matches the exact state format from your index.tsx Wizard
+  const dummyPayload = {
+    name: "extreme-debug-project",
+    clientName: "Debug Client",
+    clientEmail: "debug@example.com",
+    brief: "A test project to catch the bug.",
+    gitProvider: "github",
+    folderStructure: "monorepo",
+    deploymentTarget: "vercel",
+    nodePackageManager: "pnpm",
+    services: [
+      {
+        id: "srv-123",
+        name: "web",
+        type: "frontend",
+        runtime: "typescript",
+        framework: "nextjs",
+        dependencies: [],
+      },
+    ],
+  };
 
   try {
     // ---------------------------------------------------------
-    // STEP 1: Test CLI Login Setup
+    // STEP 1: Auth & Workspace verification
     // ---------------------------------------------------------
-    console.log(`[STEP 1] Testing StudioFlow CLI Authentication...`);
-    try {
-      console.log(`   -> Running: node ${CLI_PATH} login ${cliToken}`);
-      execSync(`node "${CLI_PATH}" login ${cliToken}`, { stdio: "inherit" });
-      console.log("✅ CLI Authenticated Successfully.\n");
-    } catch (cliErr: any) {
-      console.log(
-        "⚠️ Fallback: Trying global npx command if local script is restricted...",
-      );
-      try {
-        execSync(`npx studioflow login ${cliToken}`, { stdio: "inherit" });
-        console.log("✅ CLI Authenticated Successfully via npx.\n");
-      } catch (err: any) {
-        console.log(
-          "⚠️ Note: Make sure the 'login' command is exported properly in your setup.\n",
-        );
-      }
-    }
-
-    // ---------------------------------------------------------
-    // STEP 2: Fetch User & Workspace Info
-    // ---------------------------------------------------------
-    console.log(`[STEP 2] Fetching user & workspace data for: ${testEmail}`);
+    console.log("🟢 [1] Fetching user by email:", testEmail);
     const user = await db.query.users.findFirst({
       where: eq(users.email, testEmail),
     });
-
-    if (!user) throw new Error(`User with email ${testEmail} not found!`);
+    if (!user) throw new Error("User not found!");
     console.log("   ✅ User Found:", { id: user.id, username: user.username });
 
+    console.log("\n🟢 [2] Fetching workspace for user:", user.id);
     const workspace = await db.query.workspaces.findFirst({
       where: eq(workspaces.ownerId, user.id),
     });
+    if (!workspace) throw new Error("Workspace not found!");
+    console.log("   ✅ Workspace Found:", {
+      id: workspace.id,
+      name: workspace.name,
+    });
 
-    if (!workspace) throw new Error("No workspace found for this user.");
-
-    console.log("\n🔍 DEBUG WORKSPACE OBJECT:", workspace);
+    const workspaceId = workspace.id;
 
     // ---------------------------------------------------------
-    // STEP 3: Connect to Tenant DB and Insert Project/Job
+    // STEP 3: Tenant DB Connection
     // ---------------------------------------------------------
-    console.log(
-      `\n[STEP 3] Injecting Automated Test Project & Queueing Job...`,
-    );
+    console.log("\n🟢 [3] Initializing Tenant Database Connection...");
+    console.log(`   -> Calling getTenantDb(workspaceId: ${workspaceId})`);
+    const tenantDb = await getTenantDb(workspaceId);
+    console.log("   ✅ Tenant DB client instantiated successfully!");
 
-    console.log(`   -> Fetching Tenant DB for Workspace ID: ${workspace.id}`);
-    const tenantDb = await getTenantDb(workspace.id);
+    // ---------------------------------------------------------
+    // STEP 4: Client Creation (Tenant DB)
+    // ---------------------------------------------------------
+    console.log("\n🟢 [4] Checking for existing Client in Tenant DB...");
+    console.log(`   -> Searching for email: ${dummyPayload.clientEmail}`);
+    let client = await tenantDb.query.clients.findFirst({
+      where: eq(clients.email, dummyPayload.clientEmail),
+    });
 
-    let client = await tenantDb.query.clients.findFirst();
-    if (!client) {
-      await tenantDb.insert(clients).values({
-        workspaceId: workspace.id,
-        name: "Automated Test Client",
-        slug: "auto-test-client",
-        email: "test@example.com",
-      } as any);
-      client = await tenantDb.query.clients.findFirst();
+    if (client) {
+      console.log("   ✅ Existing Client found:", client);
+    } else {
+      console.log("   ⚠️ Client not found. Attempting to insert new client...");
+      const clientData = {
+        workspaceId: workspaceId,
+        name: dummyPayload.clientName,
+        slug: `debug-client-${Date.now()}`,
+        email: dummyPayload.clientEmail,
+      };
+      console.log(
+        "   -> [INSERT PAYLOAD - CLIENT]:\n",
+        JSON.stringify(clientData, null, 2),
+      );
+
+      await tenantDb.insert(clients).values(clientData as any);
+      console.log("   ✅ Client inserted!");
+
+      client = await tenantDb.query.clients.findFirst({
+        where: eq(clients.email, dummyPayload.clientEmail),
+      });
+      console.log("   ✅ Newly created client fetched:", client);
     }
 
-    const projectSlug = `test-project-${Date.now()}`;
-    await tenantDb.insert(projects).values({
-      workspaceId: workspace.id,
-      clientId: client!.id,
-      name: "Automated Test Project",
+    if (!client)
+      throw new Error(
+        "CRITICAL: Client object is null AFTER insertion attempt!",
+      );
+
+    // ---------------------------------------------------------
+    // STEP 5: Project Creation (Tenant DB)
+    // ---------------------------------------------------------
+    console.log("\n🟢 [5] Creating Project in Tenant DB...");
+    const projectSlug = `debug-project-${Date.now()}`;
+    const projectData = {
+      workspaceId: workspaceId,
+      clientId: client.id,
+      name: dummyPayload.name,
       slug: projectSlug,
       status: "planning",
-      clientEmail: "test@example.com",
+      clientEmail: dummyPayload.clientEmail,
       universalManifest: {
-        projectName: "Automated Test Project",
-        deploymentTarget: "vercel",
-        services: [
-          {
-            name: "backend",
-            runtime: "node",
-            database: "postgresql",
-            orm: "drizzle",
-          },
-        ],
+        projectName: dummyPayload.name,
+        deploymentTarget: dummyPayload.deploymentTarget,
+        services: dummyPayload.services,
       } as any,
-    } as any);
-
-    console.log(`   ✅ Project '${projectSlug}' created.`);
-
-    console.log(`   -> Queueing job for background worker...`);
-    try {
-      // 🔥 FIX: Create the table on the fly just in case it's missing so the test passes
-      await tenantDb.execute(`
-        CREATE TABLE IF NOT EXISTS provisioning_jobs (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            project_id INT NOT NULL,
-            workspace_id INT NOT NULL,
-            idempotency_key VARCHAR(255) NOT NULL,
-            status VARCHAR(50) DEFAULT 'pending',
-            manifest JSON,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-
-      await tenantDb.execute(`
-            INSERT INTO provisioning_jobs (project_id, workspace_id, idempotency_key, status, manifest)
-            VALUES (1, ${workspace.id}, 'job-${Date.now()}', 'pending', '{}')
-        `);
-      console.log(`   ✅ Job injected into queue successfully.`);
-    } catch (e: any) {
-      console.log(
-        `   ⚠️ Skipping job insert (schema might not be applied yet): ${e.message}`,
-      );
-    }
-
-    // ---------------------------------------------------------
-    // STEP 4: Start CLI and Trigger the Background Worker
-    // ---------------------------------------------------------
+    };
     console.log(
-      `\n[STEP 4] Simulating CLI Interactive Mode -> Triggering Worker...`,
+      "   -> [INSERT PAYLOAD - PROJECT]:\n",
+      JSON.stringify(projectData, null, 2),
     );
 
-    // 🔥 FIX: Point spawn to the explicit CLI path
-    const cliProcess = spawn("node", [CLI_PATH], { env: { ...process.env } });
+    await tenantDb.insert(projects).values(projectData as any);
+    console.log("   ✅ Project inserted into Tenant DB!");
 
-    cliProcess.stdout.on("data", (data) => {
-      const output = data.toString();
-      process.stdout.write(`[CLI] ${output}`);
-
-      if (output.includes("What would you like to do?")) {
-        console.log(
-          "\n🤖 [Auto-Typer] Sending keystroke '1' to start the daemon...",
-        );
-        cliProcess.stdin.write("1\n");
-      }
-
-      if (
-        output.includes("Waiting for new jobs") ||
-        output.includes("Table Migration:") ||
-        output.includes("Phase 1") ||
-        output.includes("background service active")
-      ) {
-        console.log(
-          "\n✅ Daemon is running and streaming execution logic successfully!",
-        );
-        setTimeout(() => {
-          console.log(
-            "\n🛑 Terminating background worker after successful telemetry run.",
-          );
-          cliProcess.kill();
-        }, 5000);
-      }
+    const newProject = await tenantDb.query.projects.findFirst({
+      where: eq(projects.slug, projectSlug),
     });
+    console.log("   ✅ Newly created project fetched from DB:", newProject);
 
-    cliProcess.stderr.on("data", (data) => {
-      console.error(`\n[CLI ERR] ${data.toString()}`);
-    });
+    if (!newProject)
+      throw new Error(
+        "CRITICAL: Project object is null AFTER insertion attempt!",
+      );
 
-    cliProcess.on("close", (code) => {
-      console.log(`\n==================================================`);
-      if (code === 0 || code === null) {
-        console.log(`🎉 SUCCESS! Pipeline exited cleanly with exit code: 0`);
-      } else {
-        console.log(
-          `⚠️ Pipeline exited with code: ${code}. Check CLI logs above.`,
-        );
-      }
-      console.log(`==================================================\n`);
-      process.exit(code === null ? 0 : code);
-    });
+    // ---------------------------------------------------------
+    // STEP 6: Job Queuing (Central DB)
+    // ---------------------------------------------------------
+    console.log("\n🟢 [6] Creating Provisioning Job in Central DB...");
+    const uniqueIdempotencyKey = `job_${Date.now()}_${crypto.randomUUID()}`;
+    const jobData = {
+      projectId: newProject.id,
+      workspaceId: workspaceId,
+      idempotencyKey: uniqueIdempotencyKey,
+      status: "pending",
+      manifest: {
+        projectName: dummyPayload.name,
+        slug: projectSlug,
+        gitProvider: dummyPayload.gitProvider,
+        folderStructure: dummyPayload.folderStructure,
+        deploymentTarget: dummyPayload.deploymentTarget,
+        nodePackageManager: dummyPayload.nodePackageManager,
+        services: dummyPayload.services,
+      } as any,
+    };
+    console.log(
+      "   -> [INSERT PAYLOAD - PROVISIONING JOB]:\n",
+      JSON.stringify(jobData, null, 2),
+    );
+
+    await db.insert(provisioningJobs).values(jobData as any);
+    console.log("   ✅ Provisioning Job inserted into Central DB!");
+
+    console.log("\n==================================================");
+    console.log("🎉 SUCCESS! ENTIRE CREATION FLOW COMPLETED FLAWLESSLY!");
+    console.log("==================================================\n");
+    process.exit(0);
   } catch (err: any) {
     console.error("\n==================================================");
-    console.error("❌ ERROR DETECTED IN E2E PIPELINE");
+    console.error("❌ CRITICAL BUG DETECTED IN PIPELINE ❌");
     console.error("==================================================");
-    console.error(err.message);
-    if (err.sqlMessage) console.error("SQL Error:", err.sqlMessage);
+    console.error("🔥 General Error Message:", err.message);
+    if (err.sqlMessage) console.error("🔥 SQL Error Message:", err.sqlMessage);
+    if (err.sql) console.error("🔥 SQL Query That Failed:\n", err.sql);
     console.error("==================================================\n");
     process.exit(1);
   }
 }
 
-runSimulation();
+runCreateProjectFlow();

@@ -35,7 +35,7 @@ export default function ProjectWizard({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const [formData, setFormData] = useState({
-    workspaceId: workspaceId || 1, // Satisfies table constraints cleanly if prop omitted
+    workspaceId: workspaceId || undefined,
     name: "",
     clientName: "",
     clientEmail: "",
