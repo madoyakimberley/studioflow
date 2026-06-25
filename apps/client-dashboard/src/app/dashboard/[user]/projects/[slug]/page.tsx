@@ -205,7 +205,9 @@ export default async function ProjectDetailsWorkspaceConsole({
                         </span>
                       </div>
                       <pre className="text-xs text-[var(--color-theme-muted)] whitespace-pre-wrap font-['JetBrains_Mono',_monospace] bg-[var(--color-theme-surface)]/30 p-4 rounded-xl border border-[var(--color-theme-outline)]/10">
-                        {job.executionLogs || "No detailed output recorded."}
+                        {job.executionLogs
+                          ? JSON.stringify(job.executionLogs, null, 2)
+                          : "No logs available."}
                       </pre>
                     </div>
                   ))
