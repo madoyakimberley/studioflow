@@ -190,6 +190,7 @@ export default function ProjectWizard({
           buildCommand: s.buildCommand,
           startCommand: s.startCommand,
           dependencies: s.dependencies,
+          framework: s.framework,
         })),
       };
 
