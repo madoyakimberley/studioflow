@@ -65,6 +65,7 @@ async function ensureCentralTables() {
 }
 
 async function ensureTenantSchema(client: any) {
+  // 1. Setup Projects Table
   await client.execute(`
     CREATE TABLE IF NOT EXISTS projects (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -87,13 +88,44 @@ async function ensureTenantSchema(client: any) {
       mvp_edit_count INT DEFAULT 0,
       client_email VARCHAR(255) NOT NULL,
       portal_verification_code VARCHAR(6),
-      portal_code_expires_at TIMESTAMP,
-      portal_last_code_sent_at TIMESTAMP,
+      portal_code_expires_at TIMESTAMP NULL,
+      portal_last_code_sent_at TIMESTAMP NULL,
       portal_emails_sent_count INT DEFAULT 0,
       portal_link_sent_count INT DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // 2. Setup Clients Table (🔥 THE FIX FOR THE CRASH)
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS clients (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      workspace_id INT NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      slug VARCHAR(255) NOT NULL UNIQUE,
+      portal_slug VARCHAR(255),
+      email VARCHAR(255) NOT NULL,
+      company VARCHAR(255),
+      onboarding_completed BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // 3. Setup Checklist Items Table (🔥 THE FIX FOR THE CRASH)
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS checklist_items (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      project_id INT NOT NULL,
+      title VARCHAR(255) NOT NULL,
+      type VARCHAR(50),
+      status VARCHAR(50) DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  console.log(
+    "✅ All required tenant tables (projects, clients, checklist_items) verified/created.",
+  );
 }
 
 export async function getTenantDb(workspaceId: number) {
