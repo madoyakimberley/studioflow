@@ -119,26 +119,13 @@ export async function establishSecureSessionAction(token: string) {
         name: userRecord.name,
       };
     } else {
-      const response = await fetch(`${API_BASE_URL}/api/v1/verify-auth`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
-      });
-
-      if (!response.ok) {
-        return { success: false, error: "Network core handshake rejected." };
-      }
-
-      const payload = await response.json();
-      if (!payload.success || !payload.user) {
-        return { success: false, error: "Invalid session token signatures." };
-      }
-
-      userPayload = {
-        id: payload.user.id,
-        username: payload.user.username,
-        email: payload.user.email,
-        name: payload.user.name,
+      // If the token is not dev_, it's likely an OAuth token from NextAuth.
+      // In development, we'll try to find a user with that token as a session token?
+      // For now, return a clear error.
+      return {
+        success: false,
+        error:
+          "Invalid token format. Please use the dev_ token from registration.",
       };
     }
 
