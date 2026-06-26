@@ -16,7 +16,6 @@ import Redis from "ioredis";
 import crypto from "crypto";
 import { getTenantDb } from "@/lib/tenant-db";
 
-// 💡 NEW IMPORTS FOR NEXTAUTH BRIDGE
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
@@ -44,10 +43,10 @@ try {
 
 const rawApiUrl =
   process.env.API_BASE_URL || "https://studioflow-api-ieck.onrender.com";
-// 🚨 PRODUCTION FIX: Strip out accidental wrapping quotes, trailing spaces, and double slashes
 const API_BASE_URL = rawApiUrl.replace(/['"]/g, "").trim().replace(/\/+$/, "");
+
 // ==========================================
-// 🚨 DRIZZLE ORM CRASH BYPASS HELPER (FIXED)
+// DRIZZLE ORM CRASH BYPASS HELPER
 // ==========================================
 async function safeInsert(insertPromise: Promise<any>) {
   try {
@@ -56,7 +55,6 @@ async function safeInsert(insertPromise: Promise<any>) {
     if (err?.message?.toLowerCase().includes("resultset")) {
       return;
     }
-    // STOP SWALLOWING ERRORS - Log to terminal and throw to the UI
     console.error("🚨 [DATABASE WRITE FAULT]:", {
       message: err?.message,
       stack: err?.stack,
@@ -95,7 +93,7 @@ export interface UniversalManifestPayload {
 }
 
 // ==========================================
-// 🛡️ AUTH GATE ACTION (PRODUCTION HARDENED)
+// AUTH GATE ACTION
 // ==========================================
 export async function establishSecureSessionAction(token: string) {
   try {
@@ -105,14 +103,13 @@ export async function establishSecureSessionAction(token: string) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "User-Agent": "StudioFlow-Client-Dashboard/1.0", // Prevents bot gate blocking
+        "User-Agent": "StudioFlow-Client-Dashboard/1.0",
       },
       body: JSON.stringify({ token: cleanToken }),
       cache: "no-store",
     });
 
     if (!response.ok) {
-      // 🚨 PRODUCTION DIAGNOSTIC: Capture raw text response if the host rejects it
       const errorDetails = await response
         .text()
         .catch(() => "No payload context available");
@@ -155,7 +152,7 @@ export async function establishSecureSessionAction(token: string) {
 }
 
 // ==========================================
-// HELPER: SECURE AUTHENTICATION & WORKSPACE RESOLUTION (PRODUCTION HARDENED)
+// SECURE AUTHENTICATION & WORKSPACE RESOLUTION
 // ==========================================
 export async function getVerifiedUserAndWorkspace() {
   try {
@@ -166,9 +163,7 @@ export async function getVerifiedUserAndWorkspace() {
     try {
       nextAuthSession = await getServerSession(authOptions);
     } catch (authError) {
-      console.warn(
-        "⚠️ NextAuth unavailable or misconfigured. Falling back to remote token.",
-      );
+      console.warn("⚠️ NextAuth unavailable or misconfigured.");
     }
 
     if (nextAuthSession?.user) {
@@ -177,6 +172,28 @@ export async function getVerifiedUserAndWorkspace() {
         (nextAuthSession.user as any).username ||
         nextAuthSession.user.email?.split("@")[0] ||
         nextAuthSession.user.name?.toLowerCase().replace(/\s+/g, "-");
+
+      // 🚨 FIX: Ensure NextAuth users actually exist in the local database!
+      const existingDbUser = await db.query.users.findFirst({
+        where: eq(users.id, resolvedUserId as string),
+      });
+
+      if (!existingDbUser) {
+        console.log(
+          `[AUTH] Provisioning new OAuth user in database: ${resolvedUserId}`,
+        );
+        await safeInsert(
+          db.insert(users).values({
+            id: resolvedUserId,
+            username:
+              resolvedUserSlug ||
+              `user_${crypto.randomBytes(4).toString("hex")}`,
+            email:
+              nextAuthSession.user.email || `${resolvedUserId}@oauth.local`,
+            name: nextAuthSession.user.name || "OAuth User",
+          } as any),
+        );
+      }
     } else {
       const cookieStore = await cookies();
       const sessionToken = cookieStore.get("sf_auth_token")?.value;
@@ -298,7 +315,6 @@ export async function queueProjectProvisioning(
       `🚀 Starting project provisioning for workspace ${actualWorkspaceId}`,
     );
 
-    // ---- Validation checks ----
     if (
       !payload.name?.trim() ||
       !payload.clientName?.trim() ||
@@ -328,7 +344,6 @@ export async function queueProjectProvisioning(
       };
     }
 
-    // ---- Get tenant DB client ----
     let tenantDb;
     try {
       tenantDb = await getTenantDb(actualWorkspaceId);
@@ -343,7 +358,6 @@ export async function queueProjectProvisioning(
       };
     }
 
-    // ---- Client lookup / creation in Tenant DB ----
     let targetClient;
     try {
       targetClient = await tenantDb.query.clients.findFirst({
@@ -353,7 +367,6 @@ export async function queueProjectProvisioning(
             eq(clients.workspaceId, actualWorkspaceId),
           ),
       });
-      console.log(`🔍 Client lookup: ${targetClient ? "found" : "not found"}`);
     } catch (err: any) {
       console.error(`❌ Client lookup failed:`, err);
       return { success: false, error: `Client lookup failed: ${err.message}` };
@@ -388,7 +401,6 @@ export async function queueProjectProvisioning(
               eq(clients.workspaceId, actualWorkspaceId),
             ),
         });
-        console.log(`✅ Created new client`);
       } catch (err: any) {
         console.error(`❌ Client creation failed:`, err);
         return {
@@ -405,7 +417,6 @@ export async function queueProjectProvisioning(
       };
     }
 
-    // ---- Project creation in Tenant DB ----
     const baseProjectSlug = payload.name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
@@ -443,7 +454,6 @@ export async function queueProjectProvisioning(
         } as any),
       );
 
-      // Retrieve project ID
       let retries = 3;
       while (!createdProject && retries > 0) {
         createdProject = await tenantDb.query.projects.findFirst({
@@ -459,9 +469,6 @@ export async function queueProjectProvisioning(
         throw new Error("Project creation failed – ID not found.");
       }
       projectId = createdProject.id;
-      console.log(
-        `✅ Project created in Tenant DB with slug: ${projectSlug}, id: ${projectId}`,
-      );
     } catch (err: any) {
       console.error(`❌ Project creation failed in Tenant DB:`, err);
       return {
@@ -470,7 +477,6 @@ export async function queueProjectProvisioning(
       };
     }
 
-    // ---- Checklist items in Tenant DB ----
     try {
       await safeInsert(
         tenantDb.insert(checklistItems).values([
@@ -548,7 +554,6 @@ export async function queueProjectProvisioning(
           },
         ]),
       );
-      console.log(`✅ Checklist items created in Tenant DB`);
     } catch (err: any) {
       console.error(`❌ Checklist insertion failed:`, err);
       return {
@@ -557,7 +562,6 @@ export async function queueProjectProvisioning(
       };
     }
 
-    // ---- Provisioning job (Central DB) ----
     let uniqueIdempotencyKey;
     try {
       uniqueIdempotencyKey = `job_${crypto.randomBytes(16).toString("hex")}`;
@@ -579,15 +583,11 @@ export async function queueProjectProvisioning(
           } as any,
         } as any),
       );
-      console.log(
-        `✅ Provisioning job created in Central DB with ID: ${uniqueIdempotencyKey}`,
-      );
     } catch (err: any) {
       console.error(`❌ Job insertion failed in Central DB:`, err);
       return { success: false, error: `Job insertion failed: ${err.message}` };
     }
 
-    // ---- Redis publish ----
     if (redis && redis.status === "ready") {
       try {
         await redis.publish(
