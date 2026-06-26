@@ -91,26 +91,27 @@ export interface UniversalManifestPayload {
 
 export async function establishSecureSessionAction(token: string) {
   try {
-    const url = `${API_BASE_URL}/api/v1/verify-auth`;
-    console.log(`🔍 [AUTH] Calling: ${url}`);
+    console.log(
+      "📡 [AUTH REQUEST]: Sending token to remote verification service...",
+    );
 
-    const response = await fetch(url, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/verify-auth`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token }),
     });
 
-    console.log(`🔍 [AUTH] Response status: ${response.status}`);
-
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ [AUTH] Error response: ${errorText}`);
-      throw new Error(
-        `Authentication service returned ${response.status}: ${errorText}`,
-      );
+      console.error(`❌ [AUTH HTTP ERROR]: Status ${response.status}`);
+      throw new Error("Authentication service is temporarily unavailable.");
     }
 
     const authPayload = await response.json();
+    // 🚨 TELEMETRY: Let's see exactly what the remote API is telling us
+    console.log(
+      "🔍 [AUTH API RESPONSE EXAMINED]:",
+      JSON.stringify(authPayload, null, 2),
+    );
 
     if (!authPayload.success || !authPayload.user) {
       throw new Error("Invalid or expired session. Please log in again.");
@@ -142,6 +143,9 @@ export async function establishSecureSessionAction(token: string) {
   }
 }
 
+// ==========================================
+// HELPER: SECURE AUTHENTICATION & WORKSPACE RESOLUTION (WITH TELEMETRY)
+// ==========================================
 export async function getVerifiedUserAndWorkspace() {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get("sf_auth_token")?.value;
@@ -168,7 +172,13 @@ export async function getVerifiedUserAndWorkspace() {
     }
 
     const authPayload = await response.json();
+
     if (!authPayload.success || !authPayload.user) {
+      // 🚨 TELEMETRY: Log failures inside the session helper as well
+      console.warn(
+        "⚠️ [WORKSPACE AUTH VERIFY FAILED]: Remote rejected token.",
+        authPayload,
+      );
       return {
         success: false,
         error: "Invalid or expired session. Please log in again.",
@@ -189,7 +199,6 @@ export async function getVerifiedUserAndWorkspace() {
       where: eq(workspaces.ownerId, resolvedUserId),
     });
 
-    // Auto-provision a workspace if one doesn't exist
     if (!userWorkspace) {
       const newWsSlug = `${resolvedUserSlug}-matrix`;
 
