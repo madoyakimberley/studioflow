@@ -61,24 +61,25 @@ function EnvironmentSetupForm() {
   });
 
   useEffect(() => {
-    async function fetchWorkspace() {
-      const result = await getCurrentWorkspaceId();
-      if (result.success && result.workspaceId) {
-        setWorkspaceId(result.workspaceId);
-      } else {
-        const urlWorkspaceId = searchParams.get("workspaceId");
-        if (urlWorkspaceId) {
-          setWorkspaceId(Number(urlWorkspaceId));
+    async function resolveWorkspaceContext() {
+      try {
+        const result = await getCurrentWorkspaceId();
+        if (result.success && result.workspaceId) {
+          setWorkspaceId(result.workspaceId);
         } else {
           toast.error(
-            "Could not determine your workspace. Please log in again.",
+            "Security authorization missing. Workspace could not be mapped.",
           );
         }
+      } catch (err) {
+        console.error("Workspace verification error:", err);
+        toast.error("Network interface degraded. Workspace mapping failed.");
+      } finally {
+        setLoadingWorkspace(false);
       }
-      setLoadingWorkspace(false);
     }
-    fetchWorkspace();
-  }, [searchParams]);
+    resolveWorkspaceContext();
+  }, []);
 
   const handleUpdate = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -360,7 +361,6 @@ function EnvironmentSetupForm() {
     );
   }
 
-  // Rest of the form (steps) – keep as before
   return (
     <div className="min-h-screen bg-theme-bg font-sans text-theme-text flex overflow-hidden selection:bg-theme-primary/30">
       <div className="hidden lg:flex w-[40%] xl:w-[35%] bg-theme-surface border-r border-theme-outline/10 flex-col justify-between z-10 text-theme-text relative h-screen">
@@ -593,36 +593,18 @@ function EnvironmentSetupForm() {
                             )}
                           </div>
                           <div>
-                            <h4 className="text-[13px] font-bold text-theme-text">
-                              {orm}
+                            <h4 className="text-[13px] font-bold text-theme-text capitalize">
+                              {orm.replace("_", " ")}
                             </h4>
-                            <p className="text-[11px] text-theme-muted mt-0.5">
-                              {orm === "drizzle" &&
-                                "TypeScript-first, zero-overhead SQL mapping."}
-                              {orm === "prisma" &&
-                                "Type-safe Node.js client with auto-migrations."}
-                              {orm === "mongoose" &&
-                                "Elegant MongoDB object modeling."}
-                              {orm === "sqlalchemy" &&
-                                "Enterprise-standard Python SQL toolkit."}
-                              {orm === "django_orm" &&
-                                "Batteries-included Django persistence."}
-                              {orm === "eloquent" &&
-                                "Expressive ActiveRecord implementation."}
-                              {orm === "hibernate" &&
-                                "High-performance Java ORM."}
-                              {orm === "entity_framework" &&
-                                "Lightweight .NET ORM framework."}
-                            </p>
                           </div>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="space-y-4 pt-4">
                     <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text">
-                      Database Connection URL
+                      Connection URL Matrix
                     </label>
                     <input
                       type="password"
@@ -633,62 +615,7 @@ function EnvironmentSetupForm() {
                         handleUpdate("databaseUrl", e.target.value)
                       }
                       className="w-full bg-transparent border-b border-theme-outline/30 pb-4 text-sm text-theme-text font-mono focus:outline-none focus:border-theme-primary transition"
-                      placeholder="postgres://user:pass@host:5432/db"
-                    />
-                  </div>
-
-                  <div className="space-y-4 pt-4 border-t border-theme-outline/20">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text flex items-center gap-2">
-                        <Cpu className="w-4 h-4" /> Redis Cluster URL
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setShowRedisInfo(!showRedisInfo)}
-                        className="text-[10px] text-theme-primary font-bold uppercase hover:underline"
-                      >
-                        {showRedisInfo ? "Hide Context" : "Why do I need this?"}
-                      </button>
-                    </div>
-                    <AnimatePresence>
-                      {showRedisInfo && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: "auto" }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="bg-theme-surface/50 border border-theme-outline/20 rounded-xl p-4 text-[12px] text-theme-muted leading-relaxed space-y-2">
-                            <p>
-                              Redis is{" "}
-                              <strong className="text-theme-text">
-                                optional but highly recommended
-                              </strong>
-                              . It enables real-time websocket coordination,
-                              message queues, and caching layers.
-                            </p>
-                            <p>
-                              You can create a free instance on{" "}
-                              <a
-                                href="https://upstash.com"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-theme-primary underline font-bold"
-                              >
-                                Upstash
-                              </a>{" "}
-                              and paste the connection string here.
-                            </p>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                    <input
-                      type="text"
-                      value={formData.redisUrl}
-                      onChange={(e) => handleUpdate("redisUrl", e.target.value)}
-                      className="w-full bg-transparent border-b border-theme-outline/30 pb-4 text-sm text-theme-muted font-mono focus:outline-none focus:border-theme-primary transition"
-                      placeholder="redis://127.0.0.1:6379"
+                      placeholder="postgresql://user:password@aws-host.com:5432/main"
                     />
                   </div>
                 </motion.section>
@@ -701,103 +628,89 @@ function EnvironmentSetupForm() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
                   transition={{ duration: 0.3 }}
-                  className="space-y-12"
+                  className="space-y-10"
                 >
                   <div className="space-y-4">
                     <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text flex items-center gap-2">
-                      <FolderSync className="w-4 h-4" /> Version Control (GitHub
-                      PAT)
+                      <Cloud className="w-4 h-4" /> Cloud Deployment Matrix
                     </label>
-                    <p className="text-[12px] text-theme-muted leading-relaxed mb-4">
-                      Required for the CLI to automatically provision
-                      repositories and push scaffold architectures. The token
-                      requires `repo` and `workflow` scopes.
-                    </p>
-                    <input
-                      type="password"
-                      autoComplete="new-password"
-                      required
-                      value={formData.githubToken}
-                      onChange={(e) =>
-                        handleUpdate("githubToken", e.target.value)
-                      }
-                      className="w-full bg-transparent border-b border-theme-outline/30 pb-4 text-sm text-theme-text font-mono focus:outline-none focus:border-theme-primary transition"
-                      placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxx"
-                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      {[
+                        { id: "render", name: "Render" },
+                        { id: "vercel", name: "Vercel" },
+                        { id: "railway", name: "Railway" },
+                        { id: "none", name: "Bypass / Manual" },
+                      ].map((provider) => (
+                        <div
+                          key={provider.id}
+                          onClick={() =>
+                            handleUpdate("deploymentProvider", provider.id)
+                          }
+                          className={`p-4 rounded-xl border-2 cursor-pointer text-center transition-all ${
+                            formData.deploymentProvider === provider.id
+                              ? "border-theme-primary bg-theme-primary/10 text-theme-primary"
+                              : "border-theme-outline/20 hover:border-theme-outline/50 bg-theme-surface/30 text-theme-muted"
+                          }`}
+                        >
+                          <span className="text-[13px] font-bold">
+                            {provider.name}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
-                  <div className="space-y-6 pt-6 border-t border-theme-outline/20">
-                    <div className="flex items-center gap-3 mb-2">
-                      <Mail className="w-5 h-5 text-theme-text" />
-                      <h3 className="text-sm font-bold text-theme-text uppercase tracking-widest">
-                        SMTP Gateway
-                      </h3>
+                  <div className="space-y-6 pt-4">
+                    <div className="space-y-4">
+                      <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text flex items-center gap-2">
+                        <Key className="w-4 h-4" /> GitHub Personal Access Token
+                      </label>
+                      <input
+                        type="password"
+                        autoComplete="new-password"
+                        required
+                        value={formData.githubToken}
+                        onChange={(e) =>
+                          handleUpdate("githubToken", e.target.value)
+                        }
+                        className="w-full bg-transparent border-b border-theme-outline/30 pb-4 text-sm text-theme-text font-mono focus:outline-none focus:border-theme-primary transition"
+                        placeholder="ghp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+                      />
                     </div>
-                    <p className="text-[12px] text-theme-muted leading-relaxed mb-4">
-                      Required to dispatch magic links, alerts, and client
-                      communications. You can configure this post-deployment if
-                      you prefer.
-                    </p>
 
-                    <div className="grid grid-cols-2 gap-6">
-                      <div className="space-y-3">
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-theme-muted">
-                          SMTP Host
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.smtpHost}
-                          onChange={(e) =>
-                            handleUpdate("smtpHost", e.target.value)
-                          }
-                          className="w-full bg-transparent border-b border-theme-outline/30 pb-3 text-sm text-theme-text font-mono focus:outline-none focus:border-theme-primary transition"
-                          placeholder="smtp.resend.com"
-                        />
-                      </div>
-                      <div className="space-y-3">
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-theme-muted">
-                          Port
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.smtpPort}
-                          onChange={(e) =>
-                            handleUpdate("smtpPort", e.target.value)
-                          }
-                          className="w-full bg-transparent border-b border-theme-outline/30 pb-3 text-sm text-theme-text font-mono focus:outline-none focus:border-theme-primary transition"
-                          placeholder="587"
-                        />
-                      </div>
-                      <div className="space-y-3">
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-theme-muted">
-                          SMTP User
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.smtpUser}
-                          onChange={(e) =>
-                            handleUpdate("smtpUser", e.target.value)
-                          }
-                          className="w-full bg-transparent border-b border-theme-outline/30 pb-3 text-sm text-theme-text font-mono focus:outline-none focus:border-theme-primary transition"
-                          placeholder="Username Token"
-                        />
-                      </div>
-                      <div className="space-y-3">
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-theme-muted">
-                          SMTP Password
-                        </label>
-                        <input
-                          type="password"
-                          autoComplete="new-password"
-                          value={formData.smtpPass}
-                          onChange={(e) =>
-                            handleUpdate("smtpPass", e.target.value)
-                          }
-                          className="w-full bg-transparent border-b border-theme-outline/30 pb-3 text-sm text-theme-text font-mono focus:outline-none focus:border-theme-primary transition"
-                          placeholder="••••••••••••••••"
-                        />
-                      </div>
-                    </div>
+                    {formData.deploymentProvider !== "none" && (
+                      <>
+                        <div className="space-y-4 pt-4">
+                          <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text">
+                            Cloud Host API Key
+                          </label>
+                          <input
+                            type="password"
+                            autoComplete="new-password"
+                            value={formData.deploymentApiKey}
+                            onChange={(e) =>
+                              handleUpdate("deploymentApiKey", e.target.value)
+                            }
+                            className="w-full bg-transparent border-b border-theme-outline/30 pb-4 text-sm text-theme-text font-mono focus:outline-none focus:border-theme-primary transition"
+                            placeholder={`e.g. rnd_xxxxx or vercel_xxxxx`}
+                          />
+                        </div>
+                        <div className="space-y-4 pt-4">
+                          <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text">
+                            Cloud Host Owner ID
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.deploymentOwnerId}
+                            onChange={(e) =>
+                              handleUpdate("deploymentOwnerId", e.target.value)
+                            }
+                            className="w-full bg-transparent border-b border-theme-outline/30 pb-4 text-sm text-theme-text font-mono focus:outline-none focus:border-theme-primary transition"
+                            placeholder="usr_xxxxx or team_xxxxx"
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
                 </motion.section>
               )}
@@ -809,116 +722,130 @@ function EnvironmentSetupForm() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
                   transition={{ duration: 0.3 }}
-                  className="space-y-8"
+                  className="space-y-10"
                 >
-                  <div className="space-y-5">
-                    <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text flex items-center gap-2">
-                      <Cloud className="w-4 h-4" /> Deployment Provider
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {[
-                        { id: "none", label: "Local Only", icon: Monitor },
-                        { id: "render", label: "Render API", icon: Cloud },
-                        { id: "railway", label: "Railway", icon: Cpu },
-                        { id: "vercel", label: "Vercel", icon: Server },
-                      ].map((provider) => (
-                        <div
-                          key={provider.id}
-                          onClick={() =>
-                            handleUpdate("deploymentProvider", provider.id)
-                          }
-                          className={`cursor-pointer rounded-2xl border p-5 transition-all duration-300 flex flex-col gap-4 ${
-                            formData.deploymentProvider === provider.id
-                              ? "border-theme-primary bg-theme-primary/5"
-                              : "border-theme-outline/20 bg-theme-surface/20 hover:border-theme-outline/50"
-                          }`}
-                        >
-                          <div className="flex justify-between items-start">
-                            <div
-                              className={`p-2.5 rounded-xl ${formData.deploymentProvider === provider.id ? "bg-theme-primary/20" : "bg-theme-surface/50"}`}
-                            >
-                              <provider.icon
-                                className={`w-5 h-5 ${formData.deploymentProvider === provider.id ? "text-theme-primary" : "text-theme-muted"}`}
-                              />
-                            </div>
-                            {formData.deploymentProvider === provider.id && (
-                              <CheckCircle className="w-5 h-5 text-theme-primary" />
-                            )}
-                          </div>
-                          <div>
-                            <h4 className="text-[14px] font-bold text-theme-text">
-                              {provider.label}
-                            </h4>
-                            <p className="text-[12px] text-theme-muted mt-1 leading-snug">
-                              {provider.id === "none" &&
-                                "Infrastructure sandboxed to private nodes."}
-                              {provider.id === "render" &&
-                                "Automatic build v2 workers global edge network."}
-                              {provider.id === "railway" &&
-                                "Ephemerals scaling with high availability."}
-                              {provider.id === "vercel" &&
-                                "Optimized serverless functions & global CDN."}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text flex items-center gap-2">
+                        <Monitor className="w-4 h-4" /> Redis Pipeline Cache URL
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowRedisInfo(!showRedisInfo)}
+                        className="text-theme-muted hover:text-theme-primary transition-colors"
+                      >
+                        <Info className="w-4 h-4" />
+                      </button>
                     </div>
+
+                    <AnimatePresence>
+                      {showRedisInfo && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="bg-theme-surface/50 border border-theme-outline/20 rounded-xl p-4 text-[12px] text-theme-muted leading-relaxed"
+                        >
+                          Redis is used for high-velocity logging, job tracking,
+                          and websocket pub/sub. If omitted, the engine defaults
+                          to database polling—which operates safely but with
+                          increased latency.
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      value={formData.redisUrl}
+                      onChange={(e) => handleUpdate("redisUrl", e.target.value)}
+                      className="w-full bg-transparent border-b border-theme-outline/30 pb-4 text-sm text-theme-text font-mono focus:outline-none focus:border-theme-primary transition"
+                      placeholder="redis://:password@host:port"
+                    />
                   </div>
 
-                  {formData.deploymentProvider !== "none" && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      className="space-y-6 pt-4"
-                    >
+                  <div className="pt-6 border-t border-theme-outline/10 space-y-8">
+                    <h3 className="text-sm font-serif text-theme-text flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-theme-primary" /> SMTP Email
+                      Relay
+                    </h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="space-y-4">
-                        <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text flex items-center gap-2">
-                          <Key className="w-4 h-4" /> Provider API Key
+                        <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text">
+                          SMTP Host
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.smtpHost}
+                          onChange={(e) =>
+                            handleUpdate("smtpHost", e.target.value)
+                          }
+                          className="w-full bg-transparent border-b border-theme-outline/30 pb-4 text-sm text-theme-text font-mono focus:outline-none focus:border-theme-primary transition"
+                          placeholder="smtp.mailgun.org"
+                        />
+                      </div>
+                      <div className="space-y-4">
+                        <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text">
+                          SMTP Port
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.smtpPort}
+                          onChange={(e) =>
+                            handleUpdate("smtpPort", e.target.value)
+                          }
+                          className="w-full bg-transparent border-b border-theme-outline/30 pb-4 text-sm text-theme-text font-mono focus:outline-none focus:border-theme-primary transition"
+                          placeholder="587"
+                        />
+                      </div>
+                      <div className="space-y-4">
+                        <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text">
+                          SMTP Username
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.smtpUser}
+                          onChange={(e) =>
+                            handleUpdate("smtpUser", e.target.value)
+                          }
+                          className="w-full bg-transparent border-b border-theme-outline/30 pb-4 text-sm text-theme-text font-mono focus:outline-none focus:border-theme-primary transition"
+                          placeholder="postmaster@yourdomain.com"
+                        />
+                      </div>
+                      <div className="space-y-4">
+                        <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text">
+                          SMTP Password
                         </label>
                         <input
                           type="password"
                           autoComplete="new-password"
-                          value={formData.deploymentApiKey}
+                          value={formData.smtpPass}
                           onChange={(e) =>
-                            handleUpdate("deploymentApiKey", e.target.value)
+                            handleUpdate("smtpPass", e.target.value)
                           }
-                          className="w-full bg-transparent border-b border-theme-outline/30 pb-3 text-sm text-theme-text font-mono focus:outline-none focus:border-theme-primary transition"
-                          placeholder="Token / Secret"
+                          className="w-full bg-transparent border-b border-theme-outline/30 pb-4 text-sm text-theme-text font-mono focus:outline-none focus:border-theme-primary transition"
+                          placeholder="••••••••••••••••"
                         />
                       </div>
-                      <div className="space-y-4">
-                        <label className="block text-[11px] font-bold uppercase tracking-widest text-theme-text flex items-center gap-2">
-                          <User className="w-4 h-4" /> Target Account Group ID
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.deploymentOwnerId}
-                          onChange={(e) =>
-                            handleUpdate("deploymentOwnerId", e.target.value)
-                          }
-                          className="w-full bg-transparent border-b border-theme-outline/30 pb-3 text-sm text-theme-text font-mono focus:outline-none focus:border-theme-primary transition"
-                          placeholder="usr_xxxxxxxxxxxxxxx"
-                        />
-                      </div>
-                    </motion.div>
-                  )}
+                    </div>
+                  </div>
                 </motion.section>
               )}
             </AnimatePresence>
           </div>
         </div>
 
-        <div className="w-full bg-theme-bg/95 backdrop-blur-md border-t border-theme-outline/10 p-6 sm:px-12 lg:px-20 z-20 shrink-0">
-          <div className="max-w-2xl mx-auto flex justify-between items-center">
+        <div className="bg-theme-bg/95 backdrop-blur-md border-t border-theme-outline/10 p-6 sm:px-12 lg:px-20 z-20 shrink-0">
+          <div className="max-w-2xl mx-auto flex items-center justify-between">
             <button
               type="button"
               onClick={prevStep}
-              className={`text-[12px] font-bold uppercase tracking-widest flex items-center gap-2 ${
+              className={`text-theme-muted hover:text-theme-text font-bold text-sm px-4 py-2 transition-opacity flex items-center gap-2 ${
                 currentStep === 1
-                  ? "text-theme-outline/30 cursor-not-allowed"
-                  : "text-theme-muted hover:text-theme-text"
+                  ? "opacity-0 pointer-events-none"
+                  : "opacity-100"
               }`}
-              disabled={currentStep === 1}
             >
               <ArrowLeft className="w-4 h-4" /> Back
             </button>
