@@ -67,7 +67,7 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
   },
-  // 👇 THIS IS REQUIRED FOR PRODUCTION JWT DECRYPTION
+
   secret: process.env.NEXTAUTH_SECRET,
 };
 
