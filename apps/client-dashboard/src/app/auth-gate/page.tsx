@@ -10,7 +10,10 @@ import {
   Terminal,
   ShieldCheck,
 } from "lucide-react";
-import { establishSecureSessionAction } from "../action";
+import {
+  establishSecureSessionAction,
+  getVerifiedUserAndWorkspace,
+} from "../action";
 
 const SIMULATED_PIPELINE_STEPS = [
   "Initializing container runtime parameters...",
@@ -48,17 +51,35 @@ function IngressSecurityProtocolScanner() {
       const targetUser = searchParams.get("user") || "admin";
       const needsOnboarding = searchParams.get("onboard") === "true";
 
-      if (!activeSessionToken) {
-        router.push("/");
-        return;
-      }
-
       try {
         // ==========================================
         // 🛡️ DELEGATE TO SECURE SERVER ACTION
         // ==========================================
-        const handshakeResult =
-          await establishSecureSessionAction(activeSessionToken);
+        let handshakeResult: any = { success: false };
+
+        if (activeSessionToken) {
+          // Flow A: Email/Password login (Token is in the URL)
+          handshakeResult =
+            await establishSecureSessionAction(activeSessionToken);
+        } else {
+          // Flow B: Google OAuth login (No URL token, check NextAuth cookies natively)
+          const nextAuthCheck = await getVerifiedUserAndWorkspace();
+
+          if (nextAuthCheck.success && nextAuthCheck.data) {
+            handshakeResult = {
+              success: true,
+              user: {
+                username: nextAuthCheck.data.userSlug,
+                email: nextAuthCheck.data.userId, // Placed here to bypass super-admin type checks safely
+              },
+            };
+          } else {
+            handshakeResult = {
+              success: false,
+              error: nextAuthCheck.error || "No NextAuth session found.",
+            };
+          }
+        }
 
         if (handshakeResult.success && handshakeResult.user) {
           await new Promise((r) => setTimeout(r, 4000));
@@ -74,7 +95,6 @@ function IngressSecurityProtocolScanner() {
             .map((email) => email.trim())
             .filter(Boolean);
 
-          // ✅ FIXED: Added optional chaining (?.) for strict TypeScript safety
           const userEmailFromPayload = handshakeResult.user?.email || "";
           const isSuperAdmin = superAdminEmails.includes(userEmailFromPayload);
 
@@ -95,6 +115,12 @@ function IngressSecurityProtocolScanner() {
           setErrorMessage(
             handshakeResult.error || "Unauthorized Session Token Parameters.",
           );
+
+          // Delayed fallback so the user can actually read the error animation
+          // before being kicked back to the home page.
+          setTimeout(() => {
+            router.push("/");
+          }, 3500);
         }
       } catch (err: any) {
         setProtocolState("failed");
