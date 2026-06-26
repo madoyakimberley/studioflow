@@ -162,7 +162,14 @@ export async function getVerifiedUserAndWorkspace() {
     let resolvedUserId: string | null = null;
     let resolvedUserSlug: string | null = null;
 
-    const nextAuthSession = await getServerSession(authOptions);
+    let nextAuthSession = null;
+    try {
+      nextAuthSession = await getServerSession(authOptions);
+    } catch (authError) {
+      console.warn(
+        "⚠️ NextAuth unavailable or misconfigured. Falling back to remote token.",
+      );
+    }
 
     if (nextAuthSession?.user) {
       resolvedUserId = (nextAuthSession.user as any).id;
