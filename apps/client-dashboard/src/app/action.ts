@@ -94,14 +94,20 @@ export interface UniversalManifestPayload {
 }
 
 // ==========================================
-// 🛡️ AUTH GATE ACTION (FIXED PAYLOAD MAPPING)
+// 🛡️ AUTH GATE ACTION (PRODUCTION HARDENED)
 // ==========================================
 export async function establishSecureSessionAction(token: string) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/verify-auth`, {
+    // 1. Sanitize the URL to prevent double-slash 404 errors
+    const safeBaseUrl = API_BASE_URL.replace(/\/+$/, "");
+    // 2. Sanitize the token to prevent whitespace rejection
+    const cleanToken = token.trim();
+
+    const response = await fetch(`${safeBaseUrl}/api/v1/verify-auth`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ token: cleanToken }),
+      cache: "no-store", // Bypass Next.js aggressive caching
     });
 
     if (!response.ok) {
@@ -110,13 +116,10 @@ export async function establishSecureSessionAction(token: string) {
 
     const authPayload = await response.json();
 
-    // 🚨 FIX: We only check for success now, because the API doesn't return a .user object!
     if (!authPayload.success) {
       throw new Error("Invalid or expired session. Please log in again.");
     }
 
-    // 🚨 FIX: We reconstruct the user profile from the token itself
-    const cleanToken = token.trim();
     const isEmail = cleanToken.includes("@");
     const inferredUsername = isEmail ? cleanToken.split("@")[0] : cleanToken;
 
@@ -147,14 +150,13 @@ export async function establishSecureSessionAction(token: string) {
 }
 
 // ==========================================
-// HELPER: SECURE AUTHENTICATION & WORKSPACE RESOLUTION (FIXED)
+// HELPER: SECURE AUTHENTICATION & WORKSPACE RESOLUTION (PRODUCTION HARDENED)
 // ==========================================
 export async function getVerifiedUserAndWorkspace() {
   try {
     let resolvedUserId: string | null = null;
     let resolvedUserSlug: string | null = null;
 
-    // 1️⃣ TRY NEXTAUTH SESSION FIRST (Google / GitHub)
     const nextAuthSession = await getServerSession(authOptions);
 
     if (nextAuthSession?.user) {
@@ -164,7 +166,6 @@ export async function getVerifiedUserAndWorkspace() {
         nextAuthSession.user.email?.split("@")[0] ||
         nextAuthSession.user.name?.toLowerCase().replace(/\s+/g, "-");
     } else {
-      // 2️⃣ FALLBACK: CHECK FOR INDEPENDENT REMOTE API TOKEN
       const cookieStore = await cookies();
       const sessionToken = cookieStore.get("sf_auth_token")?.value;
 
@@ -175,10 +176,15 @@ export async function getVerifiedUserAndWorkspace() {
         };
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/v1/verify-auth`, {
+      // Sanitize URL and Token
+      const safeBaseUrl = API_BASE_URL.replace(/\/+$/, "");
+      const cleanSessionToken = sessionToken.trim();
+
+      const response = await fetch(`${safeBaseUrl}/api/v1/verify-auth`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: sessionToken }),
+        body: JSON.stringify({ token: cleanSessionToken }),
+        cache: "no-store",
       });
 
       if (!response.ok) {
@@ -190,7 +196,6 @@ export async function getVerifiedUserAndWorkspace() {
 
       const authPayload = await response.json();
 
-      // 🚨 FIX: Removed the check for authPayload.user
       if (!authPayload.success) {
         return {
           success: false,
@@ -198,10 +203,11 @@ export async function getVerifiedUserAndWorkspace() {
         };
       }
 
-      // 🚨 FIX: Infer the user details directly from the session token
-      const isEmail = sessionToken.includes("@");
-      resolvedUserId = sessionToken;
-      resolvedUserSlug = isEmail ? sessionToken.split("@")[0] : sessionToken;
+      const isEmail = cleanSessionToken.includes("@");
+      resolvedUserId = cleanSessionToken;
+      resolvedUserSlug = isEmail
+        ? cleanSessionToken.split("@")[0]
+        : cleanSessionToken;
     }
 
     if (!resolvedUserId || !resolvedUserSlug) {
@@ -211,7 +217,6 @@ export async function getVerifiedUserAndWorkspace() {
       };
     }
 
-    // 3️⃣ RESOLVE OR PROVISION WORKSPACE
     let userWorkspace = await db.query.workspaces.findFirst({
       where: eq(workspaces.ownerId, resolvedUserId),
     });
