@@ -91,10 +91,7 @@ export interface UniversalManifestPayload {
 
 export async function establishSecureSessionAction(token: string) {
   try {
-    console.log(
-      "📡 [AUTH REQUEST]: Sending token to remote verification service...",
-    );
-
+    // 🌍 Force interaction with the remote auth api exclusively
     const response = await fetch(`${API_BASE_URL}/api/v1/verify-auth`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -102,16 +99,10 @@ export async function establishSecureSessionAction(token: string) {
     });
 
     if (!response.ok) {
-      console.error(`❌ [AUTH HTTP ERROR]: Status ${response.status}`);
       throw new Error("Authentication service is temporarily unavailable.");
     }
 
     const authPayload = await response.json();
-    // 🚨 TELEMETRY: Let's see exactly what the remote API is telling us
-    console.log(
-      "🔍 [AUTH API RESPONSE EXAMINED]:",
-      JSON.stringify(authPayload, null, 2),
-    );
 
     if (!authPayload.success || !authPayload.user) {
       throw new Error("Invalid or expired session. Please log in again.");
@@ -143,9 +134,6 @@ export async function establishSecureSessionAction(token: string) {
   }
 }
 
-// ==========================================
-// HELPER: SECURE AUTHENTICATION & WORKSPACE RESOLUTION (WITH TELEMETRY)
-// ==========================================
 export async function getVerifiedUserAndWorkspace() {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get("sf_auth_token")?.value;
@@ -172,13 +160,7 @@ export async function getVerifiedUserAndWorkspace() {
     }
 
     const authPayload = await response.json();
-
     if (!authPayload.success || !authPayload.user) {
-      // 🚨 TELEMETRY: Log failures inside the session helper as well
-      console.warn(
-        "⚠️ [WORKSPACE AUTH VERIFY FAILED]: Remote rejected token.",
-        authPayload,
-      );
       return {
         success: false,
         error: "Invalid or expired session. Please log in again.",
