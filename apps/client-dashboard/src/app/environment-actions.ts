@@ -4,6 +4,7 @@ import { db, workspaceEnvironments, workspaces, users } from "@studioflow/db";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
+import { getVerifiedUserAndWorkspace } from "./action";
 
 export interface EnvironmentPayload {
   workspaceId: number;
@@ -127,8 +128,6 @@ export async function saveWorkspaceEnvironment(payload: EnvironmentPayload) {
 // ✅ NEW: Get workspace ID of authenticated user
 export async function getCurrentWorkspaceId() {
   try {
-    // Dynamically import to avoid circular dependency
-    const { getVerifiedUserAndWorkspace } = await import("./action");
     const auth = await getVerifiedUserAndWorkspace();
     if (!auth.success || !auth.data) {
       return { success: false, workspaceId: null };
