@@ -42,9 +42,10 @@ try {
   );
 }
 
-const API_BASE_URL =
+const rawApiUrl =
   process.env.API_BASE_URL || "https://studioflow-api-ieck.onrender.com";
-
+// 🚨 PRODUCTION FIX: Strip out accidental wrapping quotes, trailing spaces, and double slashes
+const API_BASE_URL = rawApiUrl.replace(/['"]/g, "").trim().replace(/\/+$/, "");
 // ==========================================
 // 🚨 DRIZZLE ORM CRASH BYPASS HELPER (FIXED)
 // ==========================================
@@ -98,20 +99,24 @@ export interface UniversalManifestPayload {
 // ==========================================
 export async function establishSecureSessionAction(token: string) {
   try {
-    // 1. Sanitize the URL to prevent double-slash 404 errors
-    const safeBaseUrl = API_BASE_URL.replace(/\/+$/, "");
-    // 2. Sanitize the token to prevent whitespace rejection
     const cleanToken = token.trim();
 
-    const response = await fetch(`${safeBaseUrl}/api/v1/verify-auth`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/verify-auth`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "StudioFlow-Client-Dashboard/1.0", // Prevents bot gate blocking
+      },
       body: JSON.stringify({ token: cleanToken }),
-      cache: "no-store", // Bypass Next.js aggressive caching
+      cache: "no-store",
     });
 
     if (!response.ok) {
-      throw new Error("Authentication service is temporarily unavailable.");
+      // 🚨 PRODUCTION DIAGNOSTIC: Capture raw text response if the host rejects it
+      const errorDetails = await response
+        .text()
+        .catch(() => "No payload context available");
+      throw new Error(`API Gate Refusal (${response.status}): ${errorDetails}`);
     }
 
     const authPayload = await response.json();
@@ -176,21 +181,25 @@ export async function getVerifiedUserAndWorkspace() {
         };
       }
 
-      // Sanitize URL and Token
-      const safeBaseUrl = API_BASE_URL.replace(/\/+$/, "");
       const cleanSessionToken = sessionToken.trim();
 
-      const response = await fetch(`${safeBaseUrl}/api/v1/verify-auth`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/verify-auth`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "StudioFlow-Client-Dashboard/1.0",
+        },
         body: JSON.stringify({ token: cleanSessionToken }),
         cache: "no-store",
       });
 
       if (!response.ok) {
+        const errorDetails = await response
+          .text()
+          .catch(() => "No payload context available");
         return {
           success: false,
-          error: "Authentication service is temporarily unavailable.",
+          error: `API Gate Refusal (${response.status}): ${errorDetails}`,
         };
       }
 
@@ -252,11 +261,13 @@ export async function getVerifiedUserAndWorkspace() {
         workspaceId: userWorkspace.id,
       },
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("[CRITICAL AUTHENTICATION FAILURE]: ", error);
     return {
       success: false,
-      error: "A server error occurred while verifying your session.",
+      error:
+        error.message ||
+        "A server error occurred while verifying your session.",
     };
   }
 }
