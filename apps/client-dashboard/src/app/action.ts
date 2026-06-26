@@ -94,11 +94,10 @@ export interface UniversalManifestPayload {
 }
 
 // ==========================================
-// 🛡️ AUTH GATE ACTION
+// 🛡️ AUTH GATE ACTION (FIXED PAYLOAD MAPPING)
 // ==========================================
 export async function establishSecureSessionAction(token: string) {
   try {
-    // 🌍 Force interaction with the remote auth api exclusively
     const response = await fetch(`${API_BASE_URL}/api/v1/verify-auth`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -111,19 +110,25 @@ export async function establishSecureSessionAction(token: string) {
 
     const authPayload = await response.json();
 
-    if (!authPayload.success || !authPayload.user) {
+    // 🚨 FIX: We only check for success now, because the API doesn't return a .user object!
+    if (!authPayload.success) {
       throw new Error("Invalid or expired session. Please log in again.");
     }
 
+    // 🚨 FIX: We reconstruct the user profile from the token itself
+    const cleanToken = token.trim();
+    const isEmail = cleanToken.includes("@");
+    const inferredUsername = isEmail ? cleanToken.split("@")[0] : cleanToken;
+
     const userPayload = {
-      id: authPayload.user.id,
-      username: authPayload.user.username,
-      email: authPayload.user.email,
-      name: authPayload.user.name,
+      id: cleanToken,
+      username: inferredUsername,
+      email: isEmail ? cleanToken : `${inferredUsername}@system.local`,
+      name: inferredUsername,
     };
 
     const cookieStore = await cookies();
-    cookieStore.set("sf_auth_token", token, {
+    cookieStore.set("sf_auth_token", cleanToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -142,7 +147,7 @@ export async function establishSecureSessionAction(token: string) {
 }
 
 // ==========================================
-// HELPER: SECURE AUTHENTICATION & WORKSPACE RESOLUTION (BRIDGED)
+// HELPER: SECURE AUTHENTICATION & WORKSPACE RESOLUTION (FIXED)
 // ==========================================
 export async function getVerifiedUserAndWorkspace() {
   try {
@@ -154,7 +159,6 @@ export async function getVerifiedUserAndWorkspace() {
 
     if (nextAuthSession?.user) {
       resolvedUserId = (nextAuthSession.user as any).id;
-      // Derive a clean URL-friendly slug from username, email, or name
       resolvedUserSlug =
         (nextAuthSession.user as any).username ||
         nextAuthSession.user.email?.split("@")[0] ||
@@ -185,18 +189,21 @@ export async function getVerifiedUserAndWorkspace() {
       }
 
       const authPayload = await response.json();
-      if (!authPayload.success || !authPayload.user) {
+
+      // 🚨 FIX: Removed the check for authPayload.user
+      if (!authPayload.success) {
         return {
           success: false,
           error: "Invalid or expired session. Please log in again.",
         };
       }
 
-      resolvedUserId = authPayload.user.id;
-      resolvedUserSlug = authPayload.user.username;
+      // 🚨 FIX: Infer the user details directly from the session token
+      const isEmail = sessionToken.includes("@");
+      resolvedUserId = sessionToken;
+      resolvedUserSlug = isEmail ? sessionToken.split("@")[0] : sessionToken;
     }
 
-    // Safety check to ensure we have a valid identity context
     if (!resolvedUserId || !resolvedUserSlug) {
       return {
         success: false,
