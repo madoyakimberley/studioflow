@@ -89,45 +89,30 @@ export interface UniversalManifestPayload {
   services: UniversalServiceConfig[];
 }
 
-// ==========================================
-// 🛡️ AUTH GATE ACTION
-// ==========================================
 export async function establishSecureSessionAction(token: string) {
   try {
-    let userPayload = null;
+    const response = await fetch(`${API_BASE_URL}/api/v1/verify-auth`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
 
-    if (token.startsWith("dev_")) {
-      const parts = token.split("_");
-      const workspaceId = Number(parts[1]);
-
-      const workspace = await db.query.workspaces.findFirst({
-        where: eq(workspaces.id, workspaceId),
-      });
-
-      if (!workspace) throw new Error("Workspace node isolated or missing.");
-
-      const userRecord = await db.query.users.findFirst({
-        where: eq(users.id, workspace.ownerId),
-      });
-
-      if (!userRecord) throw new Error("Attached user identity lost.");
-
-      userPayload = {
-        id: userRecord.id,
-        username: userRecord.username,
-        email: userRecord.email,
-        name: userRecord.name,
-      };
-    } else {
-      // If the token is not dev_, it's likely an OAuth token from NextAuth.
-      // In development, we'll try to find a user with that token as a session token?
-      // For now, return a clear error.
-      return {
-        success: false,
-        error:
-          "Invalid token format. Please use the dev_ token from registration.",
-      };
+    if (!response.ok) {
+      throw new Error("Authentication service is temporarily unavailable.");
     }
+
+    const authPayload = await response.json();
+
+    if (!authPayload.success || !authPayload.user) {
+      throw new Error("Invalid or expired session. Please log in again.");
+    }
+
+    const userPayload = {
+      id: authPayload.user.id,
+      username: authPayload.user.username,
+      email: authPayload.user.email,
+      name: authPayload.user.name,
+    };
 
     const cookieStore = await cookies();
     cookieStore.set("sf_auth_token", token, {
@@ -148,9 +133,6 @@ export async function establishSecureSessionAction(token: string) {
   }
 }
 
-// ==========================================
-// HELPER: SECURE AUTHENTICATION & WORKSPACE RESOLUTION
-// ==========================================
 export async function getVerifiedUserAndWorkspace() {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get("sf_auth_token")?.value;
@@ -163,57 +145,29 @@ export async function getVerifiedUserAndWorkspace() {
   }
 
   try {
-    let resolvedUserId: string | null = null;
-    let resolvedUserSlug: string | null = null;
+    const response = await fetch(`${API_BASE_URL}/api/v1/verify-auth`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: sessionToken }),
+    });
 
-    if (sessionToken.startsWith("dev_")) {
-      const parts = sessionToken.split("_");
-      const tempWorkspaceId = Number(parts[1]);
-
-      const workspace = await db.query.workspaces.findFirst({
-        where: eq(workspaces.id, tempWorkspaceId),
-      });
-
-      if (!workspace)
-        return { success: false, error: "Your workspace could not be found." };
-
-      const userRecord = await db.query.users.findFirst({
-        where: eq(users.id, workspace.ownerId),
-      });
-
-      if (!userRecord)
-        return {
-          success: false,
-          error: "Your user account could not be found.",
-        };
-
-      resolvedUserId = userRecord.id;
-      resolvedUserSlug = userRecord.username;
-    } else {
-      const response = await fetch(`${API_BASE_URL}/api/v1/verify-auth`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: sessionToken }),
-      });
-
-      if (!response.ok) {
-        return {
-          success: false,
-          error: "Authentication service is temporarily unavailable.",
-        };
-      }
-
-      const authPayload = await response.json();
-      if (!authPayload.success || !authPayload.user) {
-        return {
-          success: false,
-          error: "Invalid or expired session. Please log in again.",
-        };
-      }
-
-      resolvedUserId = authPayload.user.id;
-      resolvedUserSlug = authPayload.user.username;
+    if (!response.ok) {
+      return {
+        success: false,
+        error: "Authentication service is temporarily unavailable.",
+      };
     }
+
+    const authPayload = await response.json();
+    if (!authPayload.success || !authPayload.user) {
+      return {
+        success: false,
+        error: "Invalid or expired session. Please log in again.",
+      };
+    }
+
+    const resolvedUserId = authPayload.user.id;
+    const resolvedUserSlug = authPayload.user.username;
 
     if (!resolvedUserId || !resolvedUserSlug) {
       return {
@@ -226,6 +180,7 @@ export async function getVerifiedUserAndWorkspace() {
       where: eq(workspaces.ownerId, resolvedUserId),
     });
 
+    // Auto-provision a workspace if one doesn't exist
     if (!userWorkspace) {
       const newWsSlug = `${resolvedUserSlug}-matrix`;
 
