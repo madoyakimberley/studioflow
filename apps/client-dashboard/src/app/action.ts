@@ -16,6 +16,10 @@ import Redis from "ioredis";
 import crypto from "crypto";
 import { getTenantDb } from "@/lib/tenant-db";
 
+// 💡 NEW IMPORTS FOR NEXTAUTH BRIDGE
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+
 // ==========================================
 // REDIS CONNECTION POOL
 // ==========================================
@@ -89,6 +93,9 @@ export interface UniversalManifestPayload {
   services: UniversalServiceConfig[];
 }
 
+// ==========================================
+// 🛡️ AUTH GATE ACTION
+// ==========================================
 export async function establishSecureSessionAction(token: string) {
   try {
     // 🌍 Force interaction with the remote auth api exclusively
@@ -134,42 +141,62 @@ export async function establishSecureSessionAction(token: string) {
   }
 }
 
+// ==========================================
+// HELPER: SECURE AUTHENTICATION & WORKSPACE RESOLUTION (BRIDGED)
+// ==========================================
 export async function getVerifiedUserAndWorkspace() {
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("sf_auth_token")?.value;
-
-  if (!sessionToken) {
-    return {
-      success: false,
-      error: "Missing active session. Please log in again.",
-    };
-  }
-
   try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/verify-auth`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: sessionToken }),
-    });
+    let resolvedUserId: string | null = null;
+    let resolvedUserSlug: string | null = null;
 
-    if (!response.ok) {
-      return {
-        success: false,
-        error: "Authentication service is temporarily unavailable.",
-      };
+    // 1️⃣ TRY NEXTAUTH SESSION FIRST (Google / GitHub)
+    const nextAuthSession = await getServerSession(authOptions);
+
+    if (nextAuthSession?.user) {
+      resolvedUserId = (nextAuthSession.user as any).id;
+      // Derive a clean URL-friendly slug from username, email, or name
+      resolvedUserSlug =
+        (nextAuthSession.user as any).username ||
+        nextAuthSession.user.email?.split("@")[0] ||
+        nextAuthSession.user.name?.toLowerCase().replace(/\s+/g, "-");
+    } else {
+      // 2️⃣ FALLBACK: CHECK FOR INDEPENDENT REMOTE API TOKEN
+      const cookieStore = await cookies();
+      const sessionToken = cookieStore.get("sf_auth_token")?.value;
+
+      if (!sessionToken) {
+        return {
+          success: false,
+          error: "Missing active session. Please log in again.",
+        };
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/verify-auth`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: sessionToken }),
+      });
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: "Authentication service is temporarily unavailable.",
+        };
+      }
+
+      const authPayload = await response.json();
+      if (!authPayload.success || !authPayload.user) {
+        return {
+          success: false,
+          error: "Invalid or expired session. Please log in again.",
+        };
+      }
+
+      resolvedUserId = authPayload.user.id;
+      resolvedUserSlug = authPayload.user.username;
     }
 
-    const authPayload = await response.json();
-    if (!authPayload.success || !authPayload.user) {
-      return {
-        success: false,
-        error: "Invalid or expired session. Please log in again.",
-      };
-    }
-
-    const resolvedUserId = authPayload.user.id;
-    const resolvedUserSlug = authPayload.user.username;
-
+    // Safety check to ensure we have a valid identity context
     if (!resolvedUserId || !resolvedUserSlug) {
       return {
         success: false,
@@ -177,6 +204,7 @@ export async function getVerifiedUserAndWorkspace() {
       };
     }
 
+    // 3️⃣ RESOLVE OR PROVISION WORKSPACE
     let userWorkspace = await db.query.workspaces.findFirst({
       where: eq(workspaces.ownerId, resolvedUserId),
     });
