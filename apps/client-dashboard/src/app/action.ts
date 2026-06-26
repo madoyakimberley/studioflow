@@ -155,14 +155,25 @@ export async function establishSecureSessionAction(token: string) {
 // SECURE AUTHENTICATION & WORKSPACE RESOLUTION
 // ==========================================
 export async function getVerifiedUserAndWorkspace() {
+  const diagnosticTimeline: string[] = [];
   try {
     let resolvedUserId: string | null = null;
     let resolvedUserSlug: string | null = null;
 
+    diagnosticTimeline.push(
+      "1. Starting getVerifiedUserAndWorkspace hook execution.",
+    );
+
     let nextAuthSession = null;
     try {
       nextAuthSession = await getServerSession(authOptions);
-    } catch (authError) {
+      diagnosticTimeline.push(
+        `2. NextAuth verification step complete. Session payload present: ${!!nextAuthSession}`,
+      );
+    } catch (authError: any) {
+      diagnosticTimeline.push(
+        `2. NextAuth retrieval subsystem crashed: ${authError.message}`,
+      );
       console.warn("⚠️ NextAuth unavailable or misconfigured.");
     }
 
@@ -173,39 +184,67 @@ export async function getVerifiedUserAndWorkspace() {
         nextAuthSession.user.email?.split("@")[0] ||
         nextAuthSession.user.name?.toLowerCase().replace(/\s+/g, "-");
 
+      diagnosticTimeline.push(
+        `3. Branch matched [NextAuth active]. Resolved ID: ${resolvedUserId}, Resolved Slug: ${resolvedUserSlug}`,
+      );
+
       const existingDbUser = await db.query.users.findFirst({
         where: eq(users.id, resolvedUserId as string),
       });
 
+      diagnosticTimeline.push(
+        `4. Central users table look-up performed. Row exists in DB: ${!!existingDbUser}`,
+      );
+
       if (!existingDbUser) {
-        console.log(
-          `[AUTH] Provisioning new OAuth user in database: ${resolvedUserId}`,
+        diagnosticTimeline.push(
+          "5. User row absent from central catalog. Invoking safeInsert row builder...",
         );
-        await safeInsert(
-          db.insert(users).values({
-            id: resolvedUserId,
-            username:
-              resolvedUserSlug ||
-              `user_${crypto.randomBytes(4).toString("hex")}`,
-            email:
-              nextAuthSession.user.email || `${resolvedUserId}@oauth.local`,
-            name: nextAuthSession.user.name || "OAuth User",
-            passwordHash: crypto.randomBytes(32).toString("hex"),
-          } as any),
-        );
+        try {
+          await safeInsert(
+            db.insert(users).values({
+              id: resolvedUserId,
+              username:
+                resolvedUserSlug ||
+                `user_${crypto.randomBytes(4).toString("hex")}`,
+              email:
+                nextAuthSession.user.email || `${resolvedUserId}@oauth.local`,
+              name: nextAuthSession.user.name || "OAuth User",
+              passwordHash: crypto.randomBytes(32).toString("hex"),
+            } as any),
+          );
+          diagnosticTimeline.push(
+            "6. User row provisioned successfully into central catalog database.",
+          );
+        } catch (insertErr: any) {
+          diagnosticTimeline.push(
+            `6. ❌ Central table insertion CRASHED: ${insertErr.message}`,
+          );
+          throw insertErr;
+        }
       }
     } else {
+      diagnosticTimeline.push(
+        "3. Branch matched [Fallback Session Cookie Mode].",
+      );
       const cookieStore = await cookies();
       const sessionToken = cookieStore.get("sf_auth_token")?.value;
 
       if (!sessionToken) {
+        diagnosticTimeline.push(
+          "4. ❌ Terminating execution branch: sf_auth_token cookie missing.",
+        );
         return {
           success: false,
           error: "Missing active session. Please log in again.",
+          timeline: diagnosticTimeline,
         };
       }
 
       const cleanSessionToken = sessionToken.trim();
+      diagnosticTimeline.push(
+        `4. sf_auth_token cookie extracted. Sending verify-auth API call to: ${API_BASE_URL}/api/v1/verify-auth`,
+      );
 
       const response = await fetch(`${API_BASE_URL}/api/v1/verify-auth`, {
         method: "POST",
@@ -221,18 +260,26 @@ export async function getVerifiedUserAndWorkspace() {
         const errorDetails = await response
           .text()
           .catch(() => "No payload context available");
+        diagnosticTimeline.push(
+          `5. ❌ Core API verification endpoint rejected request with code ${response.status}: ${errorDetails}`,
+        );
         return {
           success: false,
           error: `API Gate Refusal (${response.status}): ${errorDetails}`,
+          timeline: diagnosticTimeline,
         };
       }
 
       const authPayload = await response.json();
+      diagnosticTimeline.push(
+        `5. API handshake returned response status. payload.success evaluation: ${authPayload.success}`,
+      );
 
       if (!authPayload.success) {
         return {
           success: false,
           error: "Invalid or expired session. Please log in again.",
+          timeline: diagnosticTimeline,
         };
       }
 
@@ -244,39 +291,74 @@ export async function getVerifiedUserAndWorkspace() {
     }
 
     if (!resolvedUserId || !resolvedUserSlug) {
+      diagnosticTimeline.push(
+        "❌ Identification data incomplete. Halting workspace tracking.",
+      );
       return {
         success: false,
         error: "Failed to resolve your account details.",
+        timeline: diagnosticTimeline,
       };
     }
 
+    diagnosticTimeline.push(
+      `7. Commencing workspace query for target ownerId: "${resolvedUserId}"`,
+    );
     let userWorkspace = await db.query.workspaces.findFirst({
       where: eq(workspaces.ownerId, resolvedUserId),
     });
 
+    diagnosticTimeline.push(
+      `8. Central workspace row look-up completed. Row found in DB: ${!!userWorkspace}`,
+    );
+
     if (!userWorkspace) {
       const newWsSlug = `${resolvedUserSlug}-matrix`;
-
-      await safeInsert(
-        db.insert(workspaces).values({
-          ownerId: resolvedUserId,
-          name: `${resolvedUserSlug}'s Matrix`,
-          slug: newWsSlug,
-        } as any),
+      diagnosticTimeline.push(
+        `9. Workspace absent. Initiating fallback generation for row slug: "${newWsSlug}"`,
       );
 
-      userWorkspace = await db.query.workspaces.findFirst({
-        where: eq(workspaces.slug, newWsSlug),
-      });
+      try {
+        await safeInsert(
+          db.insert(workspaces).values({
+            ownerId: resolvedUserId,
+            name: `${resolvedUserSlug}'s Matrix`,
+            slug: newWsSlug,
+          } as any),
+        );
+        diagnosticTimeline.push(
+          "10. Insertion tracking complete. Querying central table to fetch newly assigned schema row...",
+        );
+
+        userWorkspace = await db.query.workspaces.findFirst({
+          where: eq(workspaces.slug, newWsSlug),
+        });
+
+        diagnosticTimeline.push(
+          `11. Re-query completed. Row retrieval verified: ${!!userWorkspace}`,
+        );
+      } catch (wsErr: any) {
+        diagnosticTimeline.push(
+          `9. ❌ Central workspace provisioning CRASHED: ${wsErr.message}`,
+        );
+        throw wsErr;
+      }
 
       if (!userWorkspace) {
+        diagnosticTimeline.push(
+          "12. ❌ Fatal identity mapping mismatch: Workspace row still evaluated to undefined after successful execution pipeline insertion.",
+        );
         return {
           success: false,
           error: "Could not initialize your workspace environment.",
+          timeline: diagnosticTimeline,
         };
       }
     }
 
+    diagnosticTimeline.push(
+      `13. Workspace verified cleanly. Output bundle ID context mapping: ${userWorkspace.id}`,
+    );
     return {
       success: true,
       data: {
@@ -284,6 +366,7 @@ export async function getVerifiedUserAndWorkspace() {
         userSlug: resolvedUserSlug,
         workspaceId: userWorkspace.id,
       },
+      timeline: diagnosticTimeline,
     };
   } catch (error: any) {
     console.error("[CRITICAL AUTHENTICATION FAILURE]: ", error);
@@ -292,6 +375,7 @@ export async function getVerifiedUserAndWorkspace() {
       error:
         error.message ||
         "A server error occurred while verifying your session.",
+      timeline: diagnosticTimeline,
     };
   }
 }
