@@ -173,7 +173,6 @@ export async function getVerifiedUserAndWorkspace() {
         nextAuthSession.user.email?.split("@")[0] ||
         nextAuthSession.user.name?.toLowerCase().replace(/\s+/g, "-");
 
-      // 🚨 FIX: Ensure NextAuth users actually exist in the local database!
       const existingDbUser = await db.query.users.findFirst({
         where: eq(users.id, resolvedUserId as string),
       });
@@ -191,6 +190,7 @@ export async function getVerifiedUserAndWorkspace() {
             email:
               nextAuthSession.user.email || `${resolvedUserId}@oauth.local`,
             name: nextAuthSession.user.name || "OAuth User",
+            passwordHash: crypto.randomBytes(32).toString("hex"),
           } as any),
         );
       }
@@ -311,10 +311,6 @@ export async function queueProjectProvisioning(
     const { userSlug: resolvedUserSlug, workspaceId: actualWorkspaceId } =
       authResult.data;
 
-    console.log(
-      `🚀 Starting project provisioning for workspace ${actualWorkspaceId}`,
-    );
-
     if (
       !payload.name?.trim() ||
       !payload.clientName?.trim() ||
@@ -347,9 +343,6 @@ export async function queueProjectProvisioning(
     let tenantDb;
     try {
       tenantDb = await getTenantDb(actualWorkspaceId);
-      console.log(
-        `✅ Tenant DB client obtained for workspace ${actualWorkspaceId}`,
-      );
     } catch (err: any) {
       console.error(`❌ Failed to get tenant DB:`, err);
       return {
