@@ -19,10 +19,18 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: "/",
   },
-  // 💡 FIX: Prevents the reverse-proxy from dropping the CSRF state cookie in production
   cookies: {
     state: {
       name: `next-auth.state`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+    pkceCodeVerifier: {
+      name: `next-auth.pkce.code_verifier`,
       options: {
         httpOnly: true,
         sameSite: "lax",
