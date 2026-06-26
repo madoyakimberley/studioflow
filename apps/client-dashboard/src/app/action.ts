@@ -91,14 +91,23 @@ export interface UniversalManifestPayload {
 
 export async function establishSecureSessionAction(token: string) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/verify-auth`, {
+    const url = `${API_BASE_URL}/api/v1/verify-auth`;
+    console.log(`🔍 [AUTH] Calling: ${url}`);
+
+    const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token }),
     });
 
+    console.log(`🔍 [AUTH] Response status: ${response.status}`);
+
     if (!response.ok) {
-      throw new Error("Authentication service is temporarily unavailable.");
+      const errorText = await response.text();
+      console.error(`❌ [AUTH] Error response: ${errorText}`);
+      throw new Error(
+        `Authentication service returned ${response.status}: ${errorText}`,
+      );
     }
 
     const authPayload = await response.json();
