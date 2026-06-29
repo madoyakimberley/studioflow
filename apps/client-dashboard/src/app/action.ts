@@ -91,7 +91,61 @@ export interface UniversalManifestPayload {
   blueprintYaml?: string;
   services: UniversalServiceConfig[];
 }
+export async function establishSecureSessionAction(token: string) {
+  try {
+    const cleanToken = token.trim();
 
+    const response = await fetch(`${API_BASE_URL}/api/v1/verify-auth`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "StudioFlow-Client-Dashboard/1.0",
+      },
+      body: JSON.stringify({ token: cleanToken }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const errorDetails = await response
+        .text()
+        .catch(() => "No payload context available");
+      throw new Error(`API Gate Refusal (${response.status}): ${errorDetails}`);
+    }
+
+    const authPayload = await response.json();
+
+    if (!authPayload.success) {
+      throw new Error("Invalid or expired session. Please log in again.");
+    }
+
+    const isEmail = cleanToken.includes("@");
+    const inferredUsername = isEmail ? cleanToken.split("@")[0] : cleanToken;
+
+    const userPayload = {
+      id: cleanToken,
+      username: inferredUsername,
+      email: isEmail ? cleanToken : `${inferredUsername}@system.local`,
+      name: inferredUsername,
+    };
+
+    const cookieStore = await cookies();
+    cookieStore.set("sf_auth_token", cleanToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 86400,
+    });
+
+    return { success: true, user: userPayload };
+  } catch (error: any) {
+    console.error("[SESSION ESTABLISHMENT ERROR]:", error);
+    return {
+      success: false,
+      error: error.message || "Failed to establish session.",
+    };
+  }
+}
 // ==========================================
 // SECURE AUTHENTICATION & WORKSPACE RESOLUTION
 // ==========================================

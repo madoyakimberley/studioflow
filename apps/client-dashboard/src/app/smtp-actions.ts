@@ -105,7 +105,7 @@ export async function testSmtpDispatch(workspaceId: number) {
 }
 
 // ==========================================
-// 3. FETCH PROJECT TELEMETRY LOGS (Tenant-Aware)
+// 3A. FETCH PROJECT TELEMETRY LOGS (Tenant-Aware) - New Version
 // ==========================================
 export async function getProjectTelemetryLogs(projectId: number) {
   try {
@@ -137,7 +137,27 @@ export async function getProjectTelemetryLogs(projectId: number) {
 }
 
 // ==========================================
-// 4. INGEST LIVE TELEMETRY OUTAGE (Tenant-Aware)
+// 3B. FETCH HISTORICAL SYSTEM TELEMETRY LOGS (Kept for backward compatibility)
+// ==========================================
+export async function getLiveTelemetryLogs(workspaceId: number) {
+  try {
+    await enforceWorkspaceOwnership(workspaceId);
+
+    const telemetryEntries = await db
+      .select()
+      .from(siteMonitoring)
+      .orderBy(desc(siteMonitoring.checkedAt))
+      .limit(10);
+
+    return { success: true, logs: telemetryEntries };
+  } catch (error: any) {
+    console.error("❌ [LIVE TELEMETRY FETCH ERROR]:", error);
+    return { success: false, error: error.message, logs: [] };
+  }
+}
+
+// ==========================================
+// 4A. INGEST LIVE TELEMETRY OUTAGE (Tenant-Aware)
 // ==========================================
 export async function ingestTelemetryOutage(
   projectId: number,
@@ -157,7 +177,6 @@ export async function ingestTelemetryOutage(
 
     const tenantDb = await getTenantDb(project.workspaceId);
 
-    // Insert into tenant database
     await tenantDb.insert(siteMonitoring).values({
       projectId: project.id,
       isUp: false,
@@ -166,7 +185,6 @@ export async function ingestTelemetryOutage(
       checkedAt: new Date(),
     });
 
-    // Send alert email
     await sendSystemAlertEmail({
       workspaceId: project.workspaceId,
       projectName: project.name,
@@ -178,6 +196,46 @@ export async function ingestTelemetryOutage(
     return { success: true };
   } catch (error: any) {
     console.error("❌ [TELEMETRY INGESTION FAULT]:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+// ==========================================
+// 4B. LEGACY INGEST TELEMETRY OUTAGE (Kept for compatibility)
+// ==========================================
+export async function ingestTelemetryOutageLegacy(
+  projectId: number,
+  statusCode: number,
+  errorTrace: string,
+) {
+  try {
+    const project = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .then((res) => res[0]);
+
+    if (!project) throw new Error("Target project node not found in registry.");
+
+    await db.insert(siteMonitoring).values({
+      projectId: project.id,
+      isUp: false,
+      statusCode,
+      errorTrace,
+      checkedAt: new Date(),
+    });
+
+    await sendSystemAlertEmail({
+      workspaceId: project.workspaceId,
+      projectName: project.name,
+      statusCode,
+      errorTrace,
+    });
+
+    revalidatePath(`/dashboard`);
+    return { success: true };
+  } catch (error: any) {
+    console.error("Ingestion failed:", error);
     return { success: false, error: error.message };
   }
 }
