@@ -1,4 +1,5 @@
-import React from "react";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
@@ -25,12 +26,31 @@ const API_BASE_URL =
 // 1. SECURE SESSION VALIDATOR
 // ==========================================
 async function getSessionUser() {
+  // 1. Check NextAuth Session First (Crucial for OAuth Logins)
+  try {
+    const nextAuthSession = await getServerSession(authOptions);
+    if (nextAuthSession?.user) {
+      return {
+        id: (nextAuthSession.user as any).id,
+        username:
+          (nextAuthSession.user as any).username ||
+          nextAuthSession.user.name ||
+          nextAuthSession.user.email?.split("@")[0],
+        email: nextAuthSession.user.email,
+      };
+    }
+  } catch (error) {
+    console.warn("⚠️ NextAuth session check skipped or failed:", error);
+  }
+
+  // 2. Fallback to manual sf_auth_token logic
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get("sf_auth_token")?.value;
 
   if (!sessionToken) return null;
 
   try {
+    // Handling local developer bypass tokens (e.g., dev_WORKSPACEID_ENTROPY)
     if (sessionToken.startsWith("dev_")) {
       const parts = sessionToken.split("_");
       const workspaceId = Number(parts[1]);
@@ -52,7 +72,10 @@ async function getSessionUser() {
         username: userRecord.username,
         email: userRecord.email,
       };
-    } else {
+    }
+
+    // Handling standard production session tokens via central auth API
+    else {
       const response = await fetch(`${API_BASE_URL}/api/v1/verify-auth`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -71,11 +94,10 @@ async function getSessionUser() {
       };
     }
   } catch (error) {
-    console.error("[SESSION VERIFICATION ERROR]:", error);
+    console.error("❌ [SESSION VERIFICATION ERROR]:", error);
     return null;
   }
 }
-
 export default async function SystemsOverviewDashboard({
   params,
 }: {
