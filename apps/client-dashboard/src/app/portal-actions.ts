@@ -1,4 +1,5 @@
 "use server";
+
 import { sql } from "drizzle-orm";
 import {
   db,
@@ -19,9 +20,10 @@ import {
 } from "@/lib/mailer";
 import { cookies } from "next/headers";
 import crypto from "crypto";
+import { getTenantDb } from "@/lib/tenant-db";
 
 // ==========================================
-// --- CHECKLIST & MVP SCOPE RULES ENGINE ---
+// CHECKLIST & MVP SCOPE RULES ENGINE
 // ==========================================
 
 export async function addOrEditChecklistItemAction(
@@ -34,7 +36,7 @@ export async function addOrEditChecklistItemAction(
       where: eq(projects.id, projectId),
     });
 
-    if (!project || !project.createdAt) {
+    if (!project || !project.createdAt || !project.workspaceId) {
       return {
         success: false,
         message: "Target cluster registry context lost.",
@@ -49,8 +51,10 @@ export async function addOrEditChecklistItemAction(
     const isLocked = hoursSinceCreation > 48;
     const finalType = isLocked ? "Added Feature" : "MVP";
 
+    const tenantDb = await getTenantDb(project.workspaceId);
+
     if (itemId) {
-      const item = await db.query.checklistItems.findFirst({
+      const item = await tenantDb.query.checklistItems.findFirst({
         where: eq(checklistItems.id, itemId),
       });
 
@@ -67,12 +71,12 @@ export async function addOrEditChecklistItemAction(
           .where(eq(projects.id, projectId));
       }
 
-      await db
+      await tenantDb
         .update(checklistItems)
-        .set({ title })
+        .set({ title, type: finalType })
         .where(eq(checklistItems.id, itemId));
     } else {
-      await db.insert(checklistItems).values({
+      await tenantDb.insert(checklistItems).values({
         projectId,
         title,
         status: "pending",
@@ -80,8 +84,7 @@ export async function addOrEditChecklistItemAction(
       });
     }
 
-    revalidatePath(`/portal/${project.slug}`);
-
+    revalidatePath(`/portal/${project.slug || projectId}`);
     return { success: true, isAddedFeature: finalType === "Added Feature" };
   } catch (e) {
     console.error("❌ [CHECKLIST VALIDATION FAILURE]:", e);
@@ -89,6 +92,42 @@ export async function addOrEditChecklistItemAction(
       success: false,
       message: "Checklist validation pipeline error encountered.",
     };
+  }
+}
+
+export async function toggleChecklistItemAction(
+  projectId: number,
+  itemId: number,
+  currentStatus: string,
+) {
+  try {
+    const project = await db
+      .select({ workspaceId: projects.workspaceId })
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1)
+      .then((res) => res[0]);
+
+    if (!project || !project.workspaceId) {
+      return {
+        success: false,
+        message: "Target project registry context lost.",
+      };
+    }
+
+    const tenantDb = await getTenantDb(project.workspaceId);
+    const nextStatus = currentStatus === "completed" ? "pending" : "completed";
+
+    await tenantDb
+      .update(checklistItems)
+      .set({ status: nextStatus })
+      .where(eq(checklistItems.id, itemId));
+
+    revalidatePath(`/portal/${projectId}`);
+    return { success: true };
+  } catch (error: any) {
+    console.error("❌ [CHECKLIST TOGGLE ERROR]:", error);
+    return { success: false, message: error.message };
   }
 }
 
@@ -154,7 +193,7 @@ export async function requestRevisionAction(itemId: number) {
 }
 
 // ==========================================
-// --- SECURITY GATEWAY VALIDATION ACTIONS ---
+// SECURITY GATEWAY VALIDATION ACTIONS
 // ==========================================
 
 export async function sendPortalVerificationCodeAction(projectId: number) {
@@ -177,7 +216,7 @@ export async function sendPortalVerificationCodeAction(projectId: number) {
       if (secondsPassed < 60) {
         return {
           success: false,
-          message: `Rate limit hit. Please wait ${60 - secondsPassed} seconds before re-triggering transit.`,
+          message: `Rate limit hit. Please wait ${60 - secondsPassed} seconds before re-triggering.`,
         };
       }
     }
@@ -202,8 +241,7 @@ export async function sendPortalVerificationCodeAction(projectId: number) {
 
     return {
       success: true,
-      message:
-        "Verification pin dispatched successfully to client endpoint tracking channels.",
+      message: "Verification pin dispatched successfully.",
     };
   } catch (e: any) {
     console.error("❌ [SECURITY COMPROMISE VECTOR FAULT]:", e);
@@ -272,7 +310,7 @@ export async function verifyPortalAccessCodeAction(
 }
 
 // ==========================================
-// --- PORTAL DATA & COMMUNICATION ACTIONS ---
+// PORTAL DATA & COMMUNICATION ACTIONS
 // ==========================================
 
 export async function verifyPortalAccess(token: string) {
@@ -290,8 +328,7 @@ export async function verifyPortalAccess(token: string) {
     if (!result || result.length === 0) {
       return {
         success: false,
-        error:
-          "Access token invalid or unauthorized inside the current registry.",
+        error: "Access token invalid or unauthorized.",
       };
     }
 
@@ -333,36 +370,30 @@ export async function sendPortalMessage(
       if (messageCount >= 30) {
         return {
           success: false,
-          error:
-            "Transmission limit reached. 30 packets sent in the last 24-hour cycle. Please compile further data into a specific Request ticket.",
-          message:
-            "Transmission limit reached. 30 packets sent in the last 24-hour cycle. Please compile further data into a specific Request ticket.",
+          error: "Transmission limit reached (30 messages/24h).",
         };
       }
 
       const remaining = 30 - (messageCount + 1);
       if (remaining <= 5 && remaining > 0) {
-        warningMessage = `Message sent. Warning: You only have ${remaining} message(s) remaining in this 24-hour cycle.`;
+        warningMessage = `Message sent. ${remaining} message(s) remaining in this cycle.`;
       } else if (remaining === 0) {
-        warningMessage = `Message sent. Warning: This was your final message for this 24-hour cycle.`;
+        warningMessage = `Message sent. This was your final message for this 24-hour cycle.`;
       }
     }
 
-    await db
-      .insert(portalMessages)
-      .values({
-        projectId,
-        content,
-        sender,
-        isRead: sender === "admin" ? true : false,
-      })
-      .$returningId();
+    await db.insert(portalMessages).values({
+      projectId,
+      content,
+      sender,
+      isRead: sender === "admin",
+    });
 
     revalidatePath("/dashboard", "layout");
 
     return { success: true, message: warningMessage };
   } catch (error: any) {
-    return { success: false, error: error.message, message: error.message };
+    return { success: false, error: error.message };
   }
 }
 
@@ -371,8 +402,9 @@ export async function submitClientRequest(
   title: string,
   description: string,
 ) {
-  if (!title || !description)
+  if (!title || !description) {
     return { success: false, error: "Incomplete telemetry packet fields." };
+  }
 
   await db.insert(clientRequests).values({
     projectId,
@@ -385,8 +417,81 @@ export async function submitClientRequest(
   return { success: true };
 }
 
+export async function getPortalDashboardData(projectId: number) {
+  try {
+    const projectInfo = await db
+      .select({
+        id: projects.id,
+        name: projects.name,
+        slug: projects.slug,
+        workspaceId: projects.workspaceId,
+        status: projects.status,
+        progressPercentage: projects.progressPercentage,
+        liveUrl: projects.liveUrl,
+        githubRepo: projects.githubRepo,
+      })
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1);
+
+    const targetProject = projectInfo[0];
+    if (!targetProject || !targetProject.workspaceId) {
+      return { success: false, message: "Target project mapping lost." };
+    }
+
+    const tenantDb = await getTenantDb(targetProject.workspaceId);
+
+    const checklist = await tenantDb
+      .select()
+      .from(checklistItems)
+      .where(eq(checklistItems.projectId, projectId))
+      .orderBy(desc(checklistItems.createdAt));
+
+    const requests = await tenantDb
+      .select()
+      .from(clientRequests)
+      .where(eq(clientRequests.projectId, projectId))
+      .orderBy(desc(clientRequests.createdAt));
+
+    const deploymentJob = await db
+      .select()
+      .from(provisioningJobs)
+      .where(eq(provisioningJobs.projectId, projectId))
+      .orderBy(desc(provisioningJobs.createdAt))
+      .limit(1);
+
+    const presence = await tenantDb
+      .select()
+      .from(chatPresence)
+      .where(eq(chatPresence.projectId, projectId))
+      .limit(1);
+
+    const monitoring = await tenantDb
+      .select()
+      .from(siteMonitoring)
+      .where(eq(siteMonitoring.projectId, projectId))
+      .orderBy(desc(siteMonitoring.checkedAt))
+      .limit(1);
+
+    return {
+      success: true,
+      data: {
+        project: targetProject,
+        checklist,
+        requests,
+        activeJob: deploymentJob[0] || null,
+        presence: presence[0] || null,
+        nodeStatus: monitoring[0] || null,
+      },
+    };
+  } catch (error: any) {
+    console.error("❌ [PORTAL DASHBOARD QUERY ERROR]:", error);
+    return { success: false, message: error.message };
+  }
+}
+
 // ==========================================
-// ---    REAL-TIME CHAT ACTIONS          ---
+// REAL-TIME CHAT ACTIONS
 // ==========================================
 
 export async function fetchLiveChatUpdates(
@@ -453,7 +558,7 @@ export async function setTypingStatus(
 }
 
 // ==========================================
-// ---    PORTAL WELCOME EMAIL ACTION     ---
+// PORTAL WELCOME & SECURE LINK ACTIONS
 // ==========================================
 
 export async function sendClientPortalWelcomeAction(projectSlug: string) {
@@ -482,18 +587,10 @@ export async function sendClientPortalWelcomeAction(projectSlug: string) {
       })
       .where(eq(projects.slug, projectSlug));
 
-    // Force APP_URL over Render environment variables
     const rawBaseUrl =
       process.env.NEXT_PUBLIC_APP_URL || "https://studioflow.dev";
-
     const baseUrl = rawBaseUrl.replace(/\/$/, "");
-
     const portalLink = `${baseUrl}/portal/${projectSlug}?code=${securePin}`;
-
-    // Log the outgoing email details, including the exact portal link
-    console.log(
-      `📧 [EMAIL DISPATCH]: Sending Portal Welcome Email to ${project.clientEmail} | Project: [${project.name}] | Link: ${portalLink}`,
-    );
 
     await sendPortalWelcomeEmail({
       clientEmail: project.clientEmail,
@@ -504,8 +601,7 @@ export async function sendClientPortalWelcomeAction(projectSlug: string) {
 
     return {
       success: true,
-      message:
-        "Portal onboarding documentation successfully dispatched to verified recipient node.",
+      message: "Portal onboarding documentation successfully dispatched.",
     };
   } catch (e: any) {
     console.error("❌ [WELCOME EMAIL DISPATCH FAILURE]:", e);
@@ -516,16 +612,11 @@ export async function sendClientPortalWelcomeAction(projectSlug: string) {
   }
 }
 
-// ==========================================
-// --- ZERO-TRUST PORTAL ACCESS ENGINE ---
-// ==========================================
-
 export async function dispatchSecurePortalLink(
   projectId: number,
   clientEmail: string,
   portalSlug: string,
 ) {
-  console.log("🚨 FUNCTION TRIGGERED: dispatchSecurePortalLink");
   try {
     const project = await db.query.projects.findFirst({
       where: eq(projects.id, projectId),
@@ -541,8 +632,7 @@ export async function dispatchSecurePortalLink(
     if (project.portalLinkSentCount && project.portalLinkSentCount >= 5) {
       return {
         success: false,
-        message:
-          "Maximum portal link requests reached for this deployment lifecycle.",
+        message: "Maximum portal link requests reached.",
       };
     }
 
@@ -559,44 +649,35 @@ export async function dispatchSecurePortalLink(
       })
       .where(eq(projects.id, projectId));
 
-    // Force APP_URL over Render environment variables
     const rawAppUrl =
       process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    console.log("🔍 ENV CHECK:", process.env.NEXT_PUBLIC_APP_URL);
     const cleanAppUrl = rawAppUrl.replace(/\/$/, "");
     const securePortalUrl = `${cleanAppUrl}/portal/${portalSlug}?code=${secureOtp}`;
 
     await sendPortalWelcomeEmail({
-      clientEmail: clientEmail,
+      clientEmail,
       projectName: project.name,
       portalLink: securePortalUrl,
       securePin: secureOtp,
     });
 
-    console.log(
-      `✅ [ZERO-TRUST ACCESS]: OTP dispatched to ${clientEmail} for Project: ${project.name}`,
-    );
-
-    // FIX: Purge the cache so the dashboard UI and counter instantly updates
     revalidatePath("/dashboard", "layout");
 
     return {
       success: true,
-      message:
-        "Secure portal link and OTP dispatched to client endpoint tracking channels.",
+      message: "Secure portal link and OTP dispatched.",
     };
   } catch (error: any) {
     console.error("❌ Failed to dispatch secure portal link:", error);
     return {
       success: false,
-      message:
-        "Failed to transmit secure routing link. Check mailer telemetry logs.",
+      message: "Failed to transmit secure routing link.",
     };
   }
 }
 
 // ==========================================
-// --- LIVE METRICS FETCH ENGINE          ---
+// LIVE PROJECT STATUS
 // ==========================================
 
 export async function getLiveProjectStatus(projectId: number) {
@@ -648,8 +729,8 @@ export async function getLiveProjectStatus(projectId: number) {
       success: true,
       data: {
         project: projectInfo[0] || null,
-        checklist: checklist,
-        requests: requests,
+        checklist,
+        requests,
         activeJob: deploymentJob[0] || null,
         presence: presence[0] || null,
         nodeStatus: monitoring[0] || null,
