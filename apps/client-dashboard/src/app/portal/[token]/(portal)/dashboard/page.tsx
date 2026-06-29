@@ -27,6 +27,7 @@ import {
   PlusSquare,
 } from "lucide-react";
 import Link from "next/link";
+import { getTenantDb } from "@/lib/tenant-db";
 
 export default async function DashboardPage({
   params,
@@ -41,7 +42,7 @@ export default async function DashboardPage({
   }
 
   const project = authResult.project;
-
+  const tenantDb = await getTenantDb(project.workspaceId);
   // --- Inline Server Action to handle the form submission ---
   const handleAddFeature = async (formData: FormData) => {
     "use server";
@@ -57,7 +58,7 @@ export default async function DashboardPage({
     .from(checklistItems)
     .where(eq(checklistItems.projectId, project.id));
 
-  const recentJobs = await db
+  const recentJobs = await tenantDb
     .select()
     .from(provisioningJobs)
     .where(eq(provisioningJobs.projectId, project.id))
@@ -421,38 +422,69 @@ export default async function DashboardPage({
               </p>
             ) : (
               <div className="space-y-6 relative before:absolute before:inset-0 before:ml-[11px] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-[var(--bg-surface)] before:to-transparent">
-                {recentJobs.map((job) => (
-                  <div
-                    key={job.id}
-                    className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active"
-                  >
-                    <div className="flex items-center justify-center w-6 h-6 rounded-full border border-[var(--bg-surface)] bg-[var(--bg-surface)] text-[var(--text-muted)] shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
-                      <div
-                        className={`w-2 h-2 rounded-full ${job.status === "completed" || job.status === "success" ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : job.status === "failed" ? "bg-rose-400" : "bg-[var(--color-theme-primary)] animate-pulse"}`}
-                      />
-                    </div>
-                    <div className="w-[calc(100%-2.5rem)] md:w-[calc(50%-1.5rem)] p-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-outline)] shadow-sm">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-mono text-[9px] text-[var(--text-muted)]">
-                          {job.createdAt
-                            ? new Date(job.createdAt).toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })
-                            : "Recently"}
-                        </span>
-                        <span
-                          className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${job.status === "completed" || job.status === "success" ? "bg-emerald-400/10 text-emerald-400" : job.status === "failed" ? "bg-rose-400/10 text-rose-400" : "bg-[var(--color-theme-primary)]/10 text-[var(--color-theme-primary)]"}`}
+                {recentJobs.map(
+                  (job: {
+                    id: React.Key | null | undefined;
+                    status:
+                      | string
+                      | number
+                      | bigint
+                      | boolean
+                      | React.ReactElement<
+                          unknown,
+                          string | React.JSXElementConstructor<any>
                         >
-                          {job.status}
-                        </span>
+                      | Iterable<React.ReactNode>
+                      | Promise<
+                          | string
+                          | number
+                          | bigint
+                          | boolean
+                          | React.ReactPortal
+                          | React.ReactElement<
+                              unknown,
+                              string | React.JSXElementConstructor<any>
+                            >
+                          | Iterable<React.ReactNode>
+                          | null
+                          | undefined
+                        >
+                      | null
+                      | undefined;
+                    createdAt: string | number | Date;
+                  }) => (
+                    <div
+                      key={job.id}
+                      className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active"
+                    >
+                      <div className="flex items-center justify-center w-6 h-6 rounded-full border border-[var(--bg-surface)] bg-[var(--bg-surface)] text-[var(--text-muted)] shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
+                        <div
+                          className={`w-2 h-2 rounded-full ${job.status === "completed" || job.status === "success" ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : job.status === "failed" ? "bg-rose-400" : "bg-[var(--color-theme-primary)] animate-pulse"}`}
+                        />
                       </div>
-                      <h4 className="text-xs font-medium text-theme-text truncate">
-                        System Build Deployment
-                      </h4>
+                      <div className="w-[calc(100%-2.5rem)] md:w-[calc(50%-1.5rem)] p-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-outline)] shadow-sm">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-mono text-[9px] text-[var(--text-muted)]">
+                            {job.createdAt
+                              ? new Date(job.createdAt).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : "Recently"}
+                          </span>
+                          <span
+                            className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${job.status === "completed" || job.status === "success" ? "bg-emerald-400/10 text-emerald-400" : job.status === "failed" ? "bg-rose-400/10 text-rose-400" : "bg-[var(--color-theme-primary)]/10 text-[var(--color-theme-primary)]"}`}
+                          >
+                            {job.status}
+                          </span>
+                        </div>
+                        <h4 className="text-xs font-medium text-theme-text truncate">
+                          System Build Deployment
+                        </h4>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ),
+                )}
               </div>
             )}
           </div>

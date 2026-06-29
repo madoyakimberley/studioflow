@@ -15,7 +15,6 @@ import { cookies } from "next/headers";
 import Redis from "ioredis";
 import crypto from "crypto";
 import { getTenantDb } from "@/lib/tenant-db";
-
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
@@ -91,6 +90,10 @@ export interface UniversalManifestPayload {
   blueprintYaml?: string;
   services: UniversalServiceConfig[];
 }
+
+// ==========================================
+// ESTABLISH SECURE SESSION ACTION
+// ==========================================
 export async function establishSecureSessionAction(token: string) {
   try {
     const cleanToken = token.trim();
@@ -146,6 +149,7 @@ export async function establishSecureSessionAction(token: string) {
     };
   }
 }
+
 // ==========================================
 // SECURE AUTHENTICATION & WORKSPACE RESOLUTION
 // ==========================================
@@ -160,7 +164,6 @@ export async function getVerifiedUserAndWorkspace() {
       "1. Starting getVerifiedUserAndWorkspace execution.",
     );
 
-    // Try NextAuth first
     let nextAuthSession = null;
     try {
       nextAuthSession = await getServerSession(authOptions);
@@ -184,7 +187,6 @@ export async function getVerifiedUserAndWorkspace() {
         `3. NextAuth branch - User resolved: ${resolvedUserId}`,
       );
 
-      // Ensure user exists in central DB
       const existingDbUser = await db.query.users.findFirst({
         where: eq(users.id, resolvedUserId as string),
       });
@@ -204,7 +206,6 @@ export async function getVerifiedUserAndWorkspace() {
         );
       }
     } else {
-      // Fallback: Cookie-based session
       diagnosticTimeline.push("3. Falling back to cookie session.");
       const cookieStore = await cookies();
       const sessionToken = cookieStore.get("sf_auth_token")?.value;
@@ -219,7 +220,6 @@ export async function getVerifiedUserAndWorkspace() {
 
       const cleanToken = sessionToken.trim();
 
-      // Dev mode support
       if (cleanToken.startsWith("dev_")) {
         const parts = cleanToken.split("_");
         const workspaceId = Number(parts[1]);
@@ -239,7 +239,6 @@ export async function getVerifiedUserAndWorkspace() {
           .toLowerCase()
           .replace(/[^a-z0-9]/g, "");
       } else {
-        // External API verification
         const response = await fetch(`${API_BASE_URL}/api/v1/verify-auth`, {
           method: "POST",
           headers: {
@@ -273,7 +272,6 @@ export async function getVerifiedUserAndWorkspace() {
       return { success: false, error: "Failed to resolve user identity." };
     }
 
-    // Resolve workspace
     let userWorkspace = await db.query.workspaces.findFirst({
       where: eq(workspaces.ownerId, resolvedUserId),
     });
@@ -322,16 +320,43 @@ export async function queueProjectProvisioning(
   payload: UniversalManifestPayload,
 ) {
   try {
-    const authResult = await getVerifiedUserAndWorkspace();
-    if (!authResult.success || !authResult.data) {
-      return { success: false, error: authResult.error };
+    let resolvedUserSlug = "admin";
+    let actualWorkspaceId = payload.workspaceId;
+
+    if (!actualWorkspaceId) {
+      const session = await getServerSession(authOptions);
+      // Cast to any to resolve NextAuth's missing 'id' property type error
+      const userId = (session?.user as any)?.id;
+
+      if (userId) {
+        // 1. Fetch the user to get their slug (username)
+        const userRec = await db.query.users.findFirst({
+          where: eq(users.id, userId),
+        });
+
+        // 2. Fetch the workspace where this user is the owner
+        const userWorkspace = await db.query.workspaces.findFirst({
+          where: eq(workspaces.ownerId, userId),
+        });
+
+        // 3. If both exist, securely bind them!
+        if (userRec && userWorkspace) {
+          resolvedUserSlug = userRec.username;
+          actualWorkspaceId = userWorkspace.id;
+        }
+      }
     }
 
-    const { userSlug: resolvedUserSlug, workspaceId: authWorkspaceId } =
-      authResult.data;
-    const actualWorkspaceId = payload.workspaceId || authWorkspaceId;
+    if (!actualWorkspaceId) {
+      const authResult = await getVerifiedUserAndWorkspace();
+      if (!authResult.success || !authResult.data) {
+        return { success: false, error: authResult.error };
+      }
+      const { userSlug, workspaceId } = authResult.data;
+      resolvedUserSlug = userSlug;
+      actualWorkspaceId = workspaceId;
+    }
 
-    // Basic validation
     if (
       !payload.name?.trim() ||
       !payload.clientName?.trim() ||
@@ -348,11 +373,11 @@ export async function queueProjectProvisioning(
       return { success: false, error: "Failed to connect to tenant database." };
     }
 
-    // === CLIENT HANDLING ===
+    // === CLIENT HANDLING === (Moved to Tenant DB)
     let targetClient = await tenantDb.query.clients.findFirst({
       where: (clients: any, { eq, and }: any) =>
         and(
-          eq(clients.email, payload.clientEmail),
+          eq(clients.email, payload.clientEmail.trim().toLowerCase()),
           eq(clients.workspaceId, actualWorkspaceId),
         ),
     });
@@ -373,15 +398,16 @@ export async function queueProjectProvisioning(
           name: payload.clientName,
           slug: clientSlug,
           portalSlug,
-          email: payload.clientEmail,
+          email: payload.clientEmail.trim().toLowerCase(),
           company: payload.clientName,
+          createdAt: new Date(),
         } as any),
       );
 
       targetClient = await tenantDb.query.clients.findFirst({
         where: (clients: any, { eq, and }: any) =>
           and(
-            eq(clients.email, payload.clientEmail),
+            eq(clients.email, payload.clientEmail.trim().toLowerCase()),
             eq(clients.workspaceId, actualWorkspaceId),
           ),
       });
@@ -427,7 +453,6 @@ export async function queueProjectProvisioning(
       } as any),
     );
 
-    // Retrieve created project
     let retries = 3;
     while (!createdProject && retries > 0) {
       createdProject = await tenantDb.query.projects.findFirst({
@@ -448,6 +473,24 @@ export async function queueProjectProvisioning(
     // === CHECKLIST ===
     await safeInsert(
       tenantDb.insert(checklistItems).values([
+        {
+          projectId,
+          title: "Initialize Secure Git Repository",
+          type: "MVP",
+          isCompleted: false,
+        },
+        {
+          projectId,
+          title: `Configure ${payload.folderStructure} Monorepo Structure`,
+          type: "MVP",
+          isCompleted: false,
+        },
+        {
+          projectId,
+          title: `Provision ${payload.deploymentTarget} Deployment Pipeline`,
+          type: "MVP",
+          isCompleted: false,
+        },
         {
           projectId,
           title: "Environment Setup (Staging Server Link)",
@@ -523,11 +566,11 @@ export async function queueProjectProvisioning(
       ]),
     );
 
-    // === PROVISIONING JOB ===
+    // === PROVISIONING JOB === (Moved to Tenant DB)
     const uniqueIdempotencyKey = `job_${crypto.randomBytes(16).toString("hex")}`;
 
     await safeInsert(
-      db.insert(provisioningJobs).values({
+      tenantDb.insert(provisioningJobs).values({
         projectId,
         workspaceId: actualWorkspaceId,
         idempotencyKey: uniqueIdempotencyKey,
@@ -545,7 +588,6 @@ export async function queueProjectProvisioning(
       } as any),
     );
 
-    // Redis notification
     if (redis && redis.status === "ready") {
       try {
         await redis.publish(
