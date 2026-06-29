@@ -119,7 +119,8 @@ export const projects = mysqlTable(
   {
     id: int("id").autoincrement().primaryKey(),
     workspaceId: int("workspace_id").notNull(),
-    clientId: int("client_id").notNull(),
+    clientId: int("client_id"), // kept for relational integrity
+    clientName: varchar("client_name", { length: 255 }).notNull(), // as per your change
     name: varchar("name", { length: 255 }).notNull(),
     slug: varchar("slug", { length: 255 }).notNull().unique(),
 

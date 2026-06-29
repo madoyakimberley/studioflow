@@ -323,9 +323,6 @@ export async function queueProjectProvisioning(
     let resolvedUserSlug = "admin";
     let actualWorkspaceId = payload.workspaceId;
 
-    // ==========================================
-    // 1. AUTH MATRIX RESOLUTION
-    // ==========================================
     if (!actualWorkspaceId) {
       const session = await getServerSession(authOptions);
       const userId = (session?.user as any)?.id;
@@ -367,26 +364,19 @@ export async function queueProjectProvisioning(
       };
     }
 
-    // Connect to Tenant Isolation DB
     const tenantDb = await getTenantDb(actualWorkspaceId);
     if (!tenantDb) {
       return { success: false, error: "Failed to connect to tenant database." };
     }
 
-    // ==========================================
-    // 2. TENANT DB: CLIENT PROVISIONING
-    // ==========================================
-    let targetClient = await tenantDb.query.clients
-      .findFirst({
-        where: (clients: any, { eq, and }: any) =>
-          and(
-            eq(clients.email, payload.clientEmail.trim().toLowerCase()),
-            eq(clients.workspaceId, actualWorkspaceId),
-          ),
-      })
-      .catch((err: any) => {
-        throw new Error(`Tenant client lookup crash: ${err.message}`);
-      });
+    // === CLIENT HANDLING === (Tenant DB)
+    let targetClient = await tenantDb.query.clients.findFirst({
+      where: (clients: any, { eq, and }: any) =>
+        and(
+          eq(clients.email, payload.clientEmail.trim().toLowerCase()),
+          eq(clients.workspaceId, actualWorkspaceId),
+        ),
+    });
 
     if (!targetClient) {
       const baseSlug = payload.clientName
@@ -398,10 +388,8 @@ export async function queueProjectProvisioning(
       const clientSlug = `${baseSlug}-${uniqueSuffix}`;
       const portalSlug = `${clientSlug}-portal-${crypto.randomBytes(4).toString("hex")}`;
 
-      // Bypass generic safeInsert to let internal DB validation errors bubble up safely
-      await tenantDb
-        .insert(clients)
-        .values({
+      await safeInsert(
+        tenantDb.insert(clients).values({
           workspaceId: actualWorkspaceId,
           name: payload.clientName,
           slug: clientSlug,
@@ -409,12 +397,8 @@ export async function queueProjectProvisioning(
           email: payload.clientEmail.trim().toLowerCase(),
           company: payload.clientName,
           createdAt: new Date(),
-        } as any)
-        .catch((err: any) => {
-          throw new Error(
-            `Tenant client insertion constraint violation: ${err.message}`,
-          );
-        });
+        } as any),
+      );
 
       targetClient = await tenantDb.query.clients.findFirst({
         where: (clients: any, { eq, and }: any) =>
@@ -426,15 +410,10 @@ export async function queueProjectProvisioning(
     }
 
     if (!targetClient) {
-      return {
-        success: false,
-        error: "Failed to create or find client context.",
-      };
+      return { success: false, error: "Failed to create or find client." };
     }
 
-    // ==========================================
-    // 3. GENERATE ALL STRATEGIC SLUGS
-    // ==========================================
+    // === PROJECT CREATION ===
     const baseProjectSlug = payload.name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
@@ -446,44 +425,32 @@ export async function queueProjectProvisioning(
     const webService = payload.services?.find((s) => s.type === "web");
     const extractedFrontend = webService?.framework || "Next.js";
 
-    // ==========================================
-    // 4. CENTRAL DB: WRITE MASTER REGISTRY POINTER
-    // ==========================================
-    // Essential for global asset handling and global routing lookup engines!
-    const centralInsertResult = await db
-      .insert(projects)
-      .values({
-        workspaceId: actualWorkspaceId,
-        name: payload.name,
-        slug: projectSlug,
-        clientEmail: payload.clientEmail,
-        brief: payload.brief || "No brief provided.",
-        status: "pending",
-        progressPercentage: 0,
-        frontendFramework: extractedFrontend,
-        backendFramework: "Node.js",
-      } as any)
-      .catch((err: any) => {
-        throw new Error(`Central Registry insert failure: ${err.message}`);
-      });
+    // Fix 1: Write first to central registry db to synchronize workspace routing
+    const centralInsert = await db.insert(projects).values({
+      workspaceId: actualWorkspaceId,
+      name: payload.name,
+      slug: projectSlug,
+      clientEmail: payload.clientEmail,
+      brief: payload.brief || "No brief provided.",
+      status: "pending",
+      progressPercentage: 0,
+      frontendFramework: extractedFrontend,
+      backendFramework: "Node.js",
+    } as any);
 
-    // Extract the auto-generated ID from the primary MySQL cluster pool response
-    const projectId = (centralInsertResult[0] as any).insertId;
+    // Extract the generated primary key from the engine pool response
+    const projectId = (centralInsert[0] as any).insertId;
 
     if (!projectId) {
       throw new Error(
-        "Central engine failed to return a deterministic insert ID.",
+        "Central registry engine failed to return a valid primary key sequence.",
       );
     }
 
-    // ==========================================
-    // 5. TENANT DB: SYNC COMPLEMENTARY RECORD
-    // ==========================================
-    // We pass down the exact Central projectId to satisfy internal foreign keys!
-    await tenantDb
-      .insert(projects)
-      .values({
-        id: projectId,
+    // Fix 2: Sync identical record down into your isolated Tenant DB keeping tracking states matching
+    await safeInsert(
+      tenantDb.insert(projects).values({
+        id: projectId, // Maintain ID alignment across distributed layers
         workspaceId: actualWorkspaceId,
         clientId: targetClient.id,
         name: payload.name,
@@ -502,17 +469,13 @@ export async function queueProjectProvisioning(
         },
         frontendFramework: extractedFrontend,
         backendFramework: "Node.js",
-      } as any)
-      .catch((err: any) => {
-        throw new Error(`Tenant DB dual-write sync failed: ${err.message}`);
-      });
+      } as any),
+    );
 
-    // ==========================================
-    // 6. TENANT DB: BULK INGEST CHECKLIST MATRIX
-    // ==========================================
-    await tenantDb
-      .insert(checklistItems)
-      .values([
+    // === CHECKLIST ===
+    // Fix 3: Uniformly mapped shapes utilizing 'isCompleted' for all records
+    await safeInsert(
+      tenantDb.insert(checklistItems).values([
         {
           projectId,
           title: "Initialize Secure Git Repository",
@@ -535,89 +498,82 @@ export async function queueProjectProvisioning(
           projectId,
           title: "Environment Setup (Staging Server Link)",
           type: "MVP",
-          status: "pending",
+          isCompleted: false,
         },
         {
           projectId,
           title: "Database Migration (Schema Logs)",
           type: "MVP",
-          status: "pending",
+          isCompleted: false,
         },
         {
           projectId,
           title: "Domain & SSL Configuration",
           type: "MVP",
-          status: "pending",
+          isCompleted: false,
         },
         {
           projectId,
           title: "Build Automation (CI/CD Logs)",
           type: "MVP",
-          status: "pending",
+          isCompleted: false,
         },
         {
           projectId,
           title: "Component Testing",
           type: "MVP",
-          status: "pending",
+          isCompleted: false,
         },
         {
           projectId,
           title: "User Acceptance Testing (UAT)",
           type: "MVP",
-          status: "pending",
+          isCompleted: false,
         },
         {
           projectId,
           title: "Cross-Browser Check",
           type: "MVP",
-          status: "pending",
+          isCompleted: false,
         },
         {
           projectId,
           title: "API Verification",
           type: "MVP",
-          status: "pending",
+          isCompleted: false,
         },
         {
           projectId,
           title: "Authentication Security",
           type: "MVP",
-          status: "pending",
+          isCompleted: false,
         },
         {
           projectId,
           title: "Dependency Audit",
           type: "MVP",
-          status: "pending",
+          isCompleted: false,
         },
         {
           projectId,
           title: "Environment Variables",
           type: "MVP",
-          status: "pending",
+          isCompleted: false,
         },
         {
           projectId,
           title: "Security Checks (SQLi / XSS)",
           type: "MVP",
-          status: "pending",
+          isCompleted: false,
         },
-      ] as any)
-      .catch((err: any) => {
-        throw new Error(
-          `Tenant Checklist creation batch failure: ${err.message}`,
-        );
-      });
+      ] as any),
+    );
 
-    // ==========================================
-    // 7. TENANT DB: DISPATCH PIPELINE ACTION JOB
-    // ==========================================
+    // === PROVISIONING JOB ===
     const uniqueIdempotencyKey = `job_${crypto.randomBytes(16).toString("hex")}`;
 
-    await tenantDb
-      .insert(provisioningJobs)
-      .values({
+    await safeInsert(
+      tenantDb.insert(provisioningJobs).values({
         projectId,
         workspaceId: actualWorkspaceId,
         idempotencyKey: uniqueIdempotencyKey,
@@ -632,16 +588,9 @@ export async function queueProjectProvisioning(
           services: payload.services || [],
           blueprintYaml: payload.blueprintYaml || "",
         } as any,
-      } as any)
-      .catch((err: any) => {
-        throw new Error(
-          `Tenant Orchestration Job submission failed: ${err.message}`,
-        );
-      });
+      } as any),
+    );
 
-    // ==========================================
-    // 8. REDIS ASYNC EVENTS DISPATCHER
-    // ==========================================
     if (redis && redis.status === "ready") {
       try {
         await redis.publish(
@@ -654,7 +603,7 @@ export async function queueProjectProvisioning(
           }),
         );
       } catch (e) {
-        console.warn("⚠️ Redis publish degradation activated.");
+        console.warn("⚠️ Redis publish failed");
       }
     }
 
@@ -662,7 +611,6 @@ export async function queueProjectProvisioning(
     return { success: true, slug: projectSlug };
   } catch (error: any) {
     console.error("[CRITICAL ENGINE FAULT]:", error);
-    // Directly bubbles the deep underlying error text back to your Toast notification wrapper!
     return {
       success: false,
       error:

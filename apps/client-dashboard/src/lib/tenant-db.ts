@@ -65,12 +65,13 @@ async function ensureCentralTables() {
 }
 
 async function ensureTenantSchema(client: any) {
-  // 1. Setup Projects Table
+  // 1. Setup Projects Table (Added client_name field)
   await client.execute(`
     CREATE TABLE IF NOT EXISTS projects (
       id INT AUTO_INCREMENT PRIMARY KEY,
       workspace_id INT NOT NULL,
       client_id INT NOT NULL,
+      client_name VARCHAR(255) NOT NULL, -- ✅ ADDED: Frontend now has a target column!
       name VARCHAR(255) NOT NULL,
       slug VARCHAR(255) NOT NULL UNIQUE,
       frontend_framework VARCHAR(50) DEFAULT 'dynamic',
@@ -96,7 +97,7 @@ async function ensureTenantSchema(client: any) {
     )
   `);
 
-  // 2. Setup Clients Table (🔥 THE FIX FOR THE CRASH)
+  // 2. Setup Clients Table
   await client.execute(`
     CREATE TABLE IF NOT EXISTS clients (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -111,7 +112,7 @@ async function ensureTenantSchema(client: any) {
     )
   `);
 
-  // 3. Setup Checklist Items Table (🔥 THE FIX FOR THE CRASH)
+  // 3. Setup Checklist Items Table (Added AUTOMATIC CASCADE ON DELETE)
   await client.execute(`
     CREATE TABLE IF NOT EXISTS checklist_items (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -119,7 +120,9 @@ async function ensureTenantSchema(client: any) {
       title VARCHAR(255) NOT NULL,
       type VARCHAR(50),
       status VARCHAR(50) DEFAULT 'pending',
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      -- ✅ AUTOMATIC CLEANUP: Deleting a project automatically deletes its items
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
     )
   `);
 
