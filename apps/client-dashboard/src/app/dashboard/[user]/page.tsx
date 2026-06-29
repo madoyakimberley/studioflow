@@ -1,5 +1,3 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
@@ -17,87 +15,14 @@ import SidebarConsole from "../../../components/SidebarConsole";
 import SendPortalLinkButton from "../../../components/SendPortalLinkButton";
 import { getTenantDb } from "@/lib/tenant-db";
 
+// 👇 Use the single source of truth for authentication
+import { getVerifiedUserAndWorkspace } from "../../action";
+
 export const dynamic = "force-dynamic";
 
 const API_BASE_URL =
   process.env.API_BASE_URL || "https://studioflow-api-ieck.onrender.com";
 
-// ==========================================
-// 1. SECURE SESSION VALIDATOR
-// ==========================================
-async function getSessionUser() {
-  // 1. Check NextAuth Session First (Crucial for OAuth Logins)
-  try {
-    const nextAuthSession = await getServerSession(authOptions);
-    if (nextAuthSession?.user) {
-      return {
-        id: (nextAuthSession.user as any).id,
-        username:
-          (nextAuthSession.user as any).username ||
-          nextAuthSession.user.name ||
-          nextAuthSession.user.email?.split("@")[0],
-        email: nextAuthSession.user.email,
-      };
-    }
-  } catch (error) {
-    console.warn("⚠️ NextAuth session check skipped or failed:", error);
-  }
-
-  // 2. Fallback to manual sf_auth_token logic
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get("sf_auth_token")?.value;
-
-  if (!sessionToken) return null;
-
-  try {
-    // Handling local developer bypass tokens (e.g., dev_WORKSPACEID_ENTROPY)
-    if (sessionToken.startsWith("dev_")) {
-      const parts = sessionToken.split("_");
-      const workspaceId = Number(parts[1]);
-
-      const workspace = await db.query.workspaces.findFirst({
-        where: eq(workspaces.id, workspaceId),
-      });
-
-      if (!workspace) return null;
-
-      const userRecord = await db.query.users.findFirst({
-        where: eq(users.id, workspace.ownerId),
-      });
-
-      if (!userRecord) return null;
-
-      return {
-        id: userRecord.id,
-        username: userRecord.username,
-        email: userRecord.email,
-      };
-    }
-
-    // Handling standard production session tokens via central auth API
-    else {
-      const response = await fetch(`${API_BASE_URL}/api/v1/verify-auth`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: sessionToken }),
-      });
-
-      if (!response.ok) return null;
-
-      const payload = await response.json();
-      if (!payload.success || !payload.user) return null;
-
-      return {
-        id: payload.user.id,
-        username: payload.user.username,
-        email: payload.user.email,
-      };
-    }
-  } catch (error) {
-    console.error("❌ [SESSION VERIFICATION ERROR]:", error);
-    return null;
-  }
-}
 export default async function SystemsOverviewDashboard({
   params,
 }: {
@@ -106,16 +31,43 @@ export default async function SystemsOverviewDashboard({
   const { user } = await params;
 
   // ==========================================
-  // TOP-LEVEL REDIRECT ZONE
+  // 1. MASTER AUTHENTICATION ZONE
   // ==========================================
-  const sessionUser = await getSessionUser();
+  const auth = await getVerifiedUserAndWorkspace();
 
-  if (!sessionUser) {
+  if (!auth.success || !auth.data) {
+    console.error("Auth Gate Failed: No valid session.");
     redirect("/");
   }
 
+  // Fetch the full user record using the trusted userId (needed for the email check)
+  const userRecord = await db.query.users.findFirst({
+    where: eq(users.id, auth.data.userId),
+  });
+
+  if (!userRecord) {
+    redirect("/");
+  }
+
+  // Construct the sessionUser object so the rest of your page works normally!
+  const sessionUser = {
+    id: auth.data.userId,
+    username: auth.data.userSlug,
+    email: userRecord.email,
+    workspaceId: auth.data.workspaceId,
+  };
+
   // ==========================================
-  // SUPERADMIN RESOLUTION
+  // 2. SLUG NORMALIZATION (THE REDIRECT FIX)
+  // ==========================================
+  // Strip spaces, special characters, and force lowercase to ensure a perfect match
+  const urlParamUser = user.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const loggedInUser = sessionUser.username
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+  // ==========================================
+  // 3. SUPERADMIN RESOLUTION
   // ==========================================
   const adminEmailsString = process.env.NEXT_PUBLIC_ADMIN_EMAILS || "";
   const superAdminEmails = adminEmailsString
@@ -125,8 +77,12 @@ export default async function SystemsOverviewDashboard({
 
   const isSuperAdmin = superAdminEmails.includes(sessionUser.email);
 
-  if (!isSuperAdmin && sessionUser.username !== user) {
-    redirect(`/dashboard/${sessionUser.username}`);
+  // If not super admin AND the safe URL doesn't match the safe Username, bounce them to THEIR dashboard
+  if (!isSuperAdmin && urlParamUser !== loggedInUser) {
+    console.warn(
+      `Mismatch! Redirecting to correct slug: /dashboard/${loggedInUser}`,
+    );
+    redirect(`/dashboard/${loggedInUser}`);
   }
 
   // ==========================================
