@@ -323,23 +323,22 @@ export async function queueProjectProvisioning(
     let resolvedUserSlug = "admin";
     let actualWorkspaceId = payload.workspaceId;
 
+    // ==========================================
+    // 1. AUTH MATRIX RESOLUTION
+    // ==========================================
     if (!actualWorkspaceId) {
       const session = await getServerSession(authOptions);
-      // Cast to any to resolve NextAuth's missing 'id' property type error
       const userId = (session?.user as any)?.id;
 
       if (userId) {
-        // 1. Fetch the user to get their slug (username)
         const userRec = await db.query.users.findFirst({
           where: eq(users.id, userId),
         });
 
-        // 2. Fetch the workspace where this user is the owner
         const userWorkspace = await db.query.workspaces.findFirst({
           where: eq(workspaces.ownerId, userId),
         });
 
-        // 3. If both exist, securely bind them!
         if (userRec && userWorkspace) {
           resolvedUserSlug = userRec.username;
           actualWorkspaceId = userWorkspace.id;
@@ -368,19 +367,26 @@ export async function queueProjectProvisioning(
       };
     }
 
+    // Connect to Tenant Isolation DB
     const tenantDb = await getTenantDb(actualWorkspaceId);
     if (!tenantDb) {
       return { success: false, error: "Failed to connect to tenant database." };
     }
 
-    // === CLIENT HANDLING === (Moved to Tenant DB)
-    let targetClient = await tenantDb.query.clients.findFirst({
-      where: (clients: any, { eq, and }: any) =>
-        and(
-          eq(clients.email, payload.clientEmail.trim().toLowerCase()),
-          eq(clients.workspaceId, actualWorkspaceId),
-        ),
-    });
+    // ==========================================
+    // 2. TENANT DB: CLIENT PROVISIONING
+    // ==========================================
+    let targetClient = await tenantDb.query.clients
+      .findFirst({
+        where: (clients: any, { eq, and }: any) =>
+          and(
+            eq(clients.email, payload.clientEmail.trim().toLowerCase()),
+            eq(clients.workspaceId, actualWorkspaceId),
+          ),
+      })
+      .catch((err: any) => {
+        throw new Error(`Tenant client lookup crash: ${err.message}`);
+      });
 
     if (!targetClient) {
       const baseSlug = payload.clientName
@@ -392,8 +398,10 @@ export async function queueProjectProvisioning(
       const clientSlug = `${baseSlug}-${uniqueSuffix}`;
       const portalSlug = `${clientSlug}-portal-${crypto.randomBytes(4).toString("hex")}`;
 
-      await safeInsert(
-        tenantDb.insert(clients).values({
+      // Bypass generic safeInsert to let internal DB validation errors bubble up safely
+      await tenantDb
+        .insert(clients)
+        .values({
           workspaceId: actualWorkspaceId,
           name: payload.clientName,
           slug: clientSlug,
@@ -401,8 +409,12 @@ export async function queueProjectProvisioning(
           email: payload.clientEmail.trim().toLowerCase(),
           company: payload.clientName,
           createdAt: new Date(),
-        } as any),
-      );
+        } as any)
+        .catch((err: any) => {
+          throw new Error(
+            `Tenant client insertion constraint violation: ${err.message}`,
+          );
+        });
 
       targetClient = await tenantDb.query.clients.findFirst({
         where: (clients: any, { eq, and }: any) =>
@@ -414,10 +426,15 @@ export async function queueProjectProvisioning(
     }
 
     if (!targetClient) {
-      return { success: false, error: "Failed to create or find client." };
+      return {
+        success: false,
+        error: "Failed to create or find client context.",
+      };
     }
 
-    // === PROJECT CREATION ===
+    // ==========================================
+    // 3. GENERATE ALL STRATEGIC SLUGS
+    // ==========================================
     const baseProjectSlug = payload.name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
@@ -429,9 +446,44 @@ export async function queueProjectProvisioning(
     const webService = payload.services?.find((s) => s.type === "web");
     const extractedFrontend = webService?.framework || "Next.js";
 
-    let createdProject;
-    await safeInsert(
-      tenantDb.insert(projects).values({
+    // ==========================================
+    // 4. CENTRAL DB: WRITE MASTER REGISTRY POINTER
+    // ==========================================
+    // Essential for global asset handling and global routing lookup engines!
+    const centralInsertResult = await db
+      .insert(projects)
+      .values({
+        workspaceId: actualWorkspaceId,
+        name: payload.name,
+        slug: projectSlug,
+        clientEmail: payload.clientEmail,
+        brief: payload.brief || "No brief provided.",
+        status: "pending",
+        progressPercentage: 0,
+        frontendFramework: extractedFrontend,
+        backendFramework: "Node.js",
+      } as any)
+      .catch((err: any) => {
+        throw new Error(`Central Registry insert failure: ${err.message}`);
+      });
+
+    // Extract the auto-generated ID from the primary MySQL cluster pool response
+    const projectId = (centralInsertResult[0] as any).insertId;
+
+    if (!projectId) {
+      throw new Error(
+        "Central engine failed to return a deterministic insert ID.",
+      );
+    }
+
+    // ==========================================
+    // 5. TENANT DB: SYNC COMPLEMENTARY RECORD
+    // ==========================================
+    // We pass down the exact Central projectId to satisfy internal foreign keys!
+    await tenantDb
+      .insert(projects)
+      .values({
+        id: projectId,
         workspaceId: actualWorkspaceId,
         clientId: targetClient.id,
         name: payload.name,
@@ -450,29 +502,17 @@ export async function queueProjectProvisioning(
         },
         frontendFramework: extractedFrontend,
         backendFramework: "Node.js",
-      } as any),
-    );
-
-    let retries = 3;
-    while (!createdProject && retries > 0) {
-      createdProject = await tenantDb.query.projects.findFirst({
-        where: (p: any, { eq }: any) => eq(p.slug, projectSlug),
+      } as any)
+      .catch((err: any) => {
+        throw new Error(`Tenant DB dual-write sync failed: ${err.message}`);
       });
-      if (!createdProject) {
-        await new Promise((r) => setTimeout(r, 400));
-        retries--;
-      }
-    }
 
-    if (!createdProject?.id) {
-      throw new Error("Project creation failed - ID not found.");
-    }
-
-    const projectId = createdProject.id;
-
-    // === CHECKLIST ===
-    await safeInsert(
-      tenantDb.insert(checklistItems).values([
+    // ==========================================
+    // 6. TENANT DB: BULK INGEST CHECKLIST MATRIX
+    // ==========================================
+    await tenantDb
+      .insert(checklistItems)
+      .values([
         {
           projectId,
           title: "Initialize Secure Git Repository",
@@ -563,14 +603,21 @@ export async function queueProjectProvisioning(
           type: "MVP",
           status: "pending",
         },
-      ]),
-    );
+      ] as any)
+      .catch((err: any) => {
+        throw new Error(
+          `Tenant Checklist creation batch failure: ${err.message}`,
+        );
+      });
 
-    // === PROVISIONING JOB === (Moved to Tenant DB)
+    // ==========================================
+    // 7. TENANT DB: DISPATCH PIPELINE ACTION JOB
+    // ==========================================
     const uniqueIdempotencyKey = `job_${crypto.randomBytes(16).toString("hex")}`;
 
-    await safeInsert(
-      tenantDb.insert(provisioningJobs).values({
+    await tenantDb
+      .insert(provisioningJobs)
+      .values({
         projectId,
         workspaceId: actualWorkspaceId,
         idempotencyKey: uniqueIdempotencyKey,
@@ -585,9 +632,16 @@ export async function queueProjectProvisioning(
           services: payload.services || [],
           blueprintYaml: payload.blueprintYaml || "",
         } as any,
-      } as any),
-    );
+      } as any)
+      .catch((err: any) => {
+        throw new Error(
+          `Tenant Orchestration Job submission failed: ${err.message}`,
+        );
+      });
 
+    // ==========================================
+    // 8. REDIS ASYNC EVENTS DISPATCHER
+    // ==========================================
     if (redis && redis.status === "ready") {
       try {
         await redis.publish(
@@ -600,15 +654,15 @@ export async function queueProjectProvisioning(
           }),
         );
       } catch (e) {
-        console.warn("⚠️ Redis publish failed");
+        console.warn("⚠️ Redis publish degradation activated.");
       }
     }
 
     revalidatePath(`/dashboard/${resolvedUserSlug}`);
-
     return { success: true, slug: projectSlug };
   } catch (error: any) {
     console.error("[CRITICAL ENGINE FAULT]:", error);
+    // Directly bubbles the deep underlying error text back to your Toast notification wrapper!
     return {
       success: false,
       error:
