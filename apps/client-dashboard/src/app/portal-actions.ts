@@ -23,7 +23,7 @@ import crypto from "crypto";
 import { getTenantDb } from "@/lib/tenant-db";
 
 // ==========================================
-// CHECKLIST & MVP SCOPE RULES ENGINE
+// --- CHECKLIST & MVP SCOPE RULES ENGINE ---
 // ==========================================
 
 export async function addOrEditChecklistItemAction(
@@ -43,6 +43,8 @@ export async function addOrEditChecklistItemAction(
       };
     }
 
+    const tenantDb = await getTenantDb(project.workspaceId);
+
     const now = new Date();
     const hoursSinceCreation =
       (now.getTime() - new Date(project.createdAt).getTime()) /
@@ -50,8 +52,6 @@ export async function addOrEditChecklistItemAction(
 
     const isLocked = hoursSinceCreation > 48;
     const finalType = isLocked ? "Added Feature" : "MVP";
-
-    const tenantDb = await getTenantDb(project.workspaceId);
 
     if (itemId) {
       const item = await tenantDb.query.checklistItems.findFirst({
@@ -127,6 +127,26 @@ export async function toggleChecklistItemAction(
     return { success: true };
   } catch (error: any) {
     console.error("❌ [CHECKLIST TOGGLE ERROR]:", error);
+    return { success: false, message: error.message };
+  }
+}
+
+export async function deleteChecklistItemAction(
+  projectId: number,
+  itemId: number,
+) {
+  try {
+    const project = await db.query.projects.findFirst({
+      where: eq(projects.id, projectId),
+    });
+    if (!project || !project.workspaceId) {
+      return { success: false, message: "Project not found." };
+    }
+    const tenantDb = await getTenantDb(project.workspaceId);
+    await tenantDb.delete(checklistItems).where(eq(checklistItems.id, itemId));
+    revalidatePath(`/portal/${project.slug}`);
+    return { success: true };
+  } catch (error: any) {
     return { success: false, message: error.message };
   }
 }
