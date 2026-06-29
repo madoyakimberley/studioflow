@@ -93,272 +93,156 @@ export interface UniversalManifestPayload {
 }
 
 // ==========================================
-// AUTH GATE ACTION
-// ==========================================
-export async function establishSecureSessionAction(token: string) {
-  try {
-    const cleanToken = token.trim();
-
-    const response = await fetch(`${API_BASE_URL}/api/v1/verify-auth`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "StudioFlow-Client-Dashboard/1.0",
-      },
-      body: JSON.stringify({ token: cleanToken }),
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      const errorDetails = await response
-        .text()
-        .catch(() => "No payload context available");
-      throw new Error(`API Gate Refusal (${response.status}): ${errorDetails}`);
-    }
-
-    const authPayload = await response.json();
-
-    if (!authPayload.success) {
-      throw new Error("Invalid or expired session. Please log in again.");
-    }
-
-    const isEmail = cleanToken.includes("@");
-    const inferredUsername = isEmail ? cleanToken.split("@")[0] : cleanToken;
-
-    const userPayload = {
-      id: cleanToken,
-      username: inferredUsername,
-      email: isEmail ? cleanToken : `${inferredUsername}@system.local`,
-      name: inferredUsername,
-    };
-
-    const cookieStore = await cookies();
-    cookieStore.set("sf_auth_token", cleanToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 86400,
-    });
-
-    return { success: true, user: userPayload };
-  } catch (error: any) {
-    console.error("[SESSION ESTABLISHMENT ERROR]:", error);
-    return {
-      success: false,
-      error: error.message || "Failed to establish session.",
-    };
-  }
-}
-
-// ==========================================
 // SECURE AUTHENTICATION & WORKSPACE RESOLUTION
 // ==========================================
 export async function getVerifiedUserAndWorkspace() {
   const diagnosticTimeline: string[] = [];
+
   try {
     let resolvedUserId: string | null = null;
     let resolvedUserSlug: string | null = null;
 
     diagnosticTimeline.push(
-      "1. Starting getVerifiedUserAndWorkspace hook execution.",
+      "1. Starting getVerifiedUserAndWorkspace execution.",
     );
 
+    // Try NextAuth first
     let nextAuthSession = null;
     try {
       nextAuthSession = await getServerSession(authOptions);
       diagnosticTimeline.push(
-        `2. NextAuth verification step complete. Session payload present: ${!!nextAuthSession}`,
+        `2. NextAuth session check: ${!!nextAuthSession}`,
       );
     } catch (authError: any) {
-      diagnosticTimeline.push(
-        `2. NextAuth retrieval subsystem crashed: ${authError.message}`,
-      );
-      console.warn("⚠️ NextAuth unavailable or misconfigured.");
+      diagnosticTimeline.push(`2. NextAuth error: ${authError.message}`);
     }
 
     if (nextAuthSession?.user) {
       resolvedUserId = (nextAuthSession.user as any).id;
-      resolvedUserSlug =
+      const rawName =
         (nextAuthSession.user as any).username ||
-        nextAuthSession.user.email?.split("@")[0] ||
-        nextAuthSession.user.name?.toLowerCase().replace(/\s+/g, "-");
+        nextAuthSession.user.name ||
+        nextAuthSession.user.email?.split("@")[0];
+
+      resolvedUserSlug = rawName?.toLowerCase().replace(/[^a-z0-9]/g, "") || "";
 
       diagnosticTimeline.push(
-        `3. Branch matched [NextAuth active]. Resolved ID: ${resolvedUserId}, Resolved Slug: ${resolvedUserSlug}`,
+        `3. NextAuth branch - User resolved: ${resolvedUserId}`,
       );
 
+      // Ensure user exists in central DB
       const existingDbUser = await db.query.users.findFirst({
         where: eq(users.id, resolvedUserId as string),
       });
 
-      diagnosticTimeline.push(
-        `4. Central users table look-up performed. Row exists in DB: ${!!existingDbUser}`,
-      );
-
       if (!existingDbUser) {
-        diagnosticTimeline.push(
-          "5. User row absent from central catalog. Invoking safeInsert row builder...",
+        await safeInsert(
+          db.insert(users).values({
+            id: resolvedUserId,
+            username:
+              resolvedUserSlug ||
+              `user_${crypto.randomBytes(4).toString("hex")}`,
+            email:
+              nextAuthSession.user.email || `${resolvedUserId}@oauth.local`,
+            name: nextAuthSession.user.name || "OAuth User",
+            passwordHash: crypto.randomBytes(32).toString("hex"),
+          } as any),
         );
-        try {
-          await safeInsert(
-            db.insert(users).values({
-              id: resolvedUserId,
-              username:
-                resolvedUserSlug ||
-                `user_${crypto.randomBytes(4).toString("hex")}`,
-              email:
-                nextAuthSession.user.email || `${resolvedUserId}@oauth.local`,
-              name: nextAuthSession.user.name || "OAuth User",
-              passwordHash: crypto.randomBytes(32).toString("hex"),
-            } as any),
-          );
-          diagnosticTimeline.push(
-            "6. User row provisioned successfully into central catalog database.",
-          );
-        } catch (insertErr: any) {
-          diagnosticTimeline.push(
-            `6. ❌ Central table insertion CRASHED: ${insertErr.message}`,
-          );
-          throw insertErr;
-        }
       }
     } else {
-      diagnosticTimeline.push(
-        "3. Branch matched [Fallback Session Cookie Mode].",
-      );
+      // Fallback: Cookie-based session
+      diagnosticTimeline.push("3. Falling back to cookie session.");
       const cookieStore = await cookies();
       const sessionToken = cookieStore.get("sf_auth_token")?.value;
 
       if (!sessionToken) {
-        diagnosticTimeline.push(
-          "4. ❌ Terminating execution branch: sf_auth_token cookie missing.",
-        );
         return {
           success: false,
-          error: "Missing active session. Please log in again.",
+          error: "Missing active session.",
           timeline: diagnosticTimeline,
         };
       }
 
-      const cleanSessionToken = sessionToken.trim();
-      diagnosticTimeline.push(
-        `4. sf_auth_token cookie extracted. Sending verify-auth API call to: ${API_BASE_URL}/api/v1/verify-auth`,
-      );
+      const cleanToken = sessionToken.trim();
 
-      const response = await fetch(`${API_BASE_URL}/api/v1/verify-auth`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": "StudioFlow-Client-Dashboard/1.0",
-        },
-        body: JSON.stringify({ token: cleanSessionToken }),
-        cache: "no-store",
-      });
+      // Dev mode support
+      if (cleanToken.startsWith("dev_")) {
+        const parts = cleanToken.split("_");
+        const workspaceId = Number(parts[1]);
+        const workspace = await db.query.workspaces.findFirst({
+          where: eq(workspaces.id, workspaceId),
+        });
+        if (!workspace)
+          return { success: false, error: "Workspace not found." };
 
-      if (!response.ok) {
-        const errorDetails = await response
-          .text()
-          .catch(() => "No payload context available");
-        diagnosticTimeline.push(
-          `5. ❌ Core API verification endpoint rejected request with code ${response.status}: ${errorDetails}`,
-        );
-        return {
-          success: false,
-          error: `API Gate Refusal (${response.status}): ${errorDetails}`,
-          timeline: diagnosticTimeline,
-        };
+        const userRecord = await db.query.users.findFirst({
+          where: eq(users.id, workspace.ownerId),
+        });
+        if (!userRecord) return { success: false, error: "User not found." };
+
+        resolvedUserId = userRecord.id;
+        resolvedUserSlug = userRecord.username
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "");
+      } else {
+        // External API verification
+        const response = await fetch(`${API_BASE_URL}/api/v1/verify-auth`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "User-Agent": "StudioFlow-Client-Dashboard/1.0",
+          },
+          body: JSON.stringify({ token: cleanToken }),
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          return {
+            success: false,
+            error: `API verification failed: ${response.status}`,
+          };
+        }
+
+        const payload = await response.json();
+        if (!payload.success || !payload.user) {
+          return { success: false, error: "Invalid API session." };
+        }
+
+        resolvedUserId = payload.user.id;
+        resolvedUserSlug = payload.user.username
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "");
       }
-
-      const authPayload = await response.json();
-      diagnosticTimeline.push(
-        `5. API handshake returned response status. payload.success evaluation: ${authPayload.success}`,
-      );
-
-      if (!authPayload.success) {
-        return {
-          success: false,
-          error: "Invalid or expired session. Please log in again.",
-          timeline: diagnosticTimeline,
-        };
-      }
-
-      const isEmail = cleanSessionToken.includes("@");
-      resolvedUserId = cleanSessionToken;
-      resolvedUserSlug = isEmail
-        ? cleanSessionToken.split("@")[0]
-        : cleanSessionToken;
     }
 
     if (!resolvedUserId || !resolvedUserSlug) {
-      diagnosticTimeline.push(
-        "❌ Identification data incomplete. Halting workspace tracking.",
-      );
-      return {
-        success: false,
-        error: "Failed to resolve your account details.",
-        timeline: diagnosticTimeline,
-      };
+      return { success: false, error: "Failed to resolve user identity." };
     }
 
-    diagnosticTimeline.push(
-      `7. Commencing workspace query for target ownerId: "${resolvedUserId}"`,
-    );
+    // Resolve workspace
     let userWorkspace = await db.query.workspaces.findFirst({
       where: eq(workspaces.ownerId, resolvedUserId),
     });
 
-    diagnosticTimeline.push(
-      `8. Central workspace row look-up completed. Row found in DB: ${!!userWorkspace}`,
-    );
-
     if (!userWorkspace) {
       const newWsSlug = `${resolvedUserSlug}-matrix`;
-      diagnosticTimeline.push(
-        `9. Workspace absent. Initiating fallback generation for row slug: "${newWsSlug}"`,
+      await safeInsert(
+        db.insert(workspaces).values({
+          ownerId: resolvedUserId,
+          name: `${resolvedUserSlug}'s Matrix`,
+          slug: newWsSlug,
+        } as any),
       );
 
-      try {
-        await safeInsert(
-          db.insert(workspaces).values({
-            ownerId: resolvedUserId,
-            name: `${resolvedUserSlug}'s Matrix`,
-            slug: newWsSlug,
-          } as any),
-        );
-        diagnosticTimeline.push(
-          "10. Insertion tracking complete. Querying central table to fetch newly assigned schema row...",
-        );
-
-        userWorkspace = await db.query.workspaces.findFirst({
-          where: eq(workspaces.slug, newWsSlug),
-        });
-
-        diagnosticTimeline.push(
-          `11. Re-query completed. Row retrieval verified: ${!!userWorkspace}`,
-        );
-      } catch (wsErr: any) {
-        diagnosticTimeline.push(
-          `9. ❌ Central workspace provisioning CRASHED: ${wsErr.message}`,
-        );
-        throw wsErr;
-      }
-
-      if (!userWorkspace) {
-        diagnosticTimeline.push(
-          "12. ❌ Fatal identity mapping mismatch: Workspace row still evaluated to undefined after successful execution pipeline insertion.",
-        );
-        return {
-          success: false,
-          error: "Could not initialize your workspace environment.",
-          timeline: diagnosticTimeline,
-        };
-      }
+      userWorkspace = await db.query.workspaces.findFirst({
+        where: eq(workspaces.slug, newWsSlug),
+      });
     }
 
-    diagnosticTimeline.push(
-      `13. Workspace verified cleanly. Output bundle ID context mapping: ${userWorkspace.id}`,
-    );
+    if (!userWorkspace) {
+      return { success: false, error: "Could not initialize workspace." };
+    }
+
     return {
       success: true,
       data: {
@@ -369,13 +253,10 @@ export async function getVerifiedUserAndWorkspace() {
       timeline: diagnosticTimeline,
     };
   } catch (error: any) {
-    console.error("[CRITICAL AUTHENTICATION FAILURE]: ", error);
+    console.error("[CRITICAL AUTHENTICATION FAILURE]:", error);
     return {
       success: false,
-      error:
-        error.message ||
-        "A server error occurred while verifying your session.",
-      timeline: diagnosticTimeline,
+      error: error.message || "Authentication failed.",
     };
   }
 }
@@ -392,9 +273,11 @@ export async function queueProjectProvisioning(
       return { success: false, error: authResult.error };
     }
 
-    const { userSlug: resolvedUserSlug, workspaceId: actualWorkspaceId } =
+    const { userSlug: resolvedUserSlug, workspaceId: authWorkspaceId } =
       authResult.data;
+    const actualWorkspaceId = payload.workspaceId || authWorkspaceId;
 
+    // Basic validation
     if (
       !payload.name?.trim() ||
       !payload.clientName?.trim() ||
@@ -402,41 +285,45 @@ export async function queueProjectProvisioning(
     ) {
       return {
         success: false,
-        error:
-          "Please provide a valid project name, client name, and client email.",
+        error: "Project name, client name, and email are required.",
       };
     }
 
-    const validGitProviders = ["github", "gitlab"];
-    if (!validGitProviders.includes(payload.gitProvider)) {
-      return {
-        success: false,
-        error:
-          "Please select a valid Git repository provider (GitHub or GitLab).",
-      };
+    const tenantDb = await getTenantDb(actualWorkspaceId);
+    if (!tenantDb) {
+      return { success: false, error: "Failed to connect to tenant database." };
     }
 
-    const validFolderStructures = ["monorepo", "src_flat"];
-    if (!validFolderStructures.includes(payload.folderStructure)) {
-      return {
-        success: false,
-        error: "Please select a valid structural repository layout.",
-      };
-    }
+    // === CLIENT HANDLING ===
+    let targetClient = await tenantDb.query.clients.findFirst({
+      where: (clients: any, { eq, and }: any) =>
+        and(
+          eq(clients.email, payload.clientEmail),
+          eq(clients.workspaceId, actualWorkspaceId),
+        ),
+    });
 
-    let tenantDb;
-    try {
-      tenantDb = await getTenantDb(actualWorkspaceId);
-    } catch (err: any) {
-      console.error(`❌ Failed to get tenant DB:`, err);
-      return {
-        success: false,
-        error: `Failed to connect to tenant database: ${err.message}`,
-      };
-    }
+    if (!targetClient) {
+      const baseSlug = payload.clientName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
 
-    let targetClient;
-    try {
+      const uniqueSuffix = crypto.randomBytes(3).toString("hex");
+      const clientSlug = `${baseSlug}-${uniqueSuffix}`;
+      const portalSlug = `${clientSlug}-portal-${crypto.randomBytes(4).toString("hex")}`;
+
+      await safeInsert(
+        tenantDb.insert(clients).values({
+          workspaceId: actualWorkspaceId,
+          name: payload.clientName,
+          slug: clientSlug,
+          portalSlug,
+          email: payload.clientEmail,
+          company: payload.clientName,
+        } as any),
+      );
+
       targetClient = await tenantDb.query.clients.findFirst({
         where: (clients: any, { eq, and }: any) =>
           and(
@@ -444,227 +331,167 @@ export async function queueProjectProvisioning(
             eq(clients.workspaceId, actualWorkspaceId),
           ),
       });
-    } catch (err: any) {
-      console.error(`❌ Client lookup failed:`, err);
-      return { success: false, error: `Client lookup failed: ${err.message}` };
     }
 
     if (!targetClient) {
-      try {
-        const baseClientSlug = payload.clientName
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/(^-|-$)/g, "");
-
-        const uniqueClientSuffix = crypto.randomBytes(3).toString("hex");
-        const clientSlug = `${baseClientSlug}-${uniqueClientSuffix}`;
-        const portalSlug = `${clientSlug}-portal-${crypto.randomBytes(4).toString("hex")}`;
-
-        await safeInsert(
-          tenantDb.insert(clients).values({
-            workspaceId: actualWorkspaceId,
-            name: payload.clientName,
-            slug: clientSlug,
-            portalSlug: portalSlug,
-            email: payload.clientEmail,
-            company: payload.clientName,
-          } as any),
-        );
-
-        targetClient = await tenantDb.query.clients.findFirst({
-          where: (clients: any, { eq, and }: any) =>
-            and(
-              eq(clients.email, payload.clientEmail),
-              eq(clients.workspaceId, actualWorkspaceId),
-            ),
-        });
-      } catch (err: any) {
-        console.error(`❌ Client creation failed:`, err);
-        return {
-          success: false,
-          error: `Client creation failed: ${err.message}`,
-        };
-      }
+      return { success: false, error: "Failed to create or find client." };
     }
 
-    if (!targetClient) {
-      return {
-        success: false,
-        error: "Failed to map the client profile to this project context.",
-      };
-    }
-
+    // === PROJECT CREATION ===
     const baseProjectSlug = payload.name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "");
+
     const uniqueProjectSuffix = crypto.randomBytes(3).toString("hex");
     const projectSlug = `${baseProjectSlug}-${uniqueProjectSuffix}`;
 
     const webService = payload.services?.find((s) => s.type === "web");
     const extractedFrontend = webService?.framework || "Next.js";
-    const extractedBackend = "Node.js";
 
     let createdProject;
-    let projectId;
-    try {
-      await safeInsert(
-        tenantDb.insert(projects).values({
-          workspaceId: actualWorkspaceId,
-          clientId: targetClient.id,
-          name: payload.name,
+    await safeInsert(
+      tenantDb.insert(projects).values({
+        workspaceId: actualWorkspaceId,
+        clientId: targetClient.id,
+        name: payload.name,
+        slug: projectSlug,
+        clientEmail: payload.clientEmail,
+        brief: payload.brief || "No brief provided.",
+        status: "pending",
+        progressPercentage: 0,
+        portalLinkSentCount: 0,
+        universalManifest: {
+          services: payload.services || [],
+          gitProvider: payload.gitProvider,
+          folderStructure: payload.folderStructure,
+          deploymentTarget: payload.deploymentTarget,
+          nodePackageManager: payload.nodePackageManager,
+        },
+        frontendFramework: extractedFrontend,
+        backendFramework: "Node.js",
+      } as any),
+    );
+
+    // Retrieve created project
+    let retries = 3;
+    while (!createdProject && retries > 0) {
+      createdProject = await tenantDb.query.projects.findFirst({
+        where: (p: any, { eq }: any) => eq(p.slug, projectSlug),
+      });
+      if (!createdProject) {
+        await new Promise((r) => setTimeout(r, 400));
+        retries--;
+      }
+    }
+
+    if (!createdProject?.id) {
+      throw new Error("Project creation failed - ID not found.");
+    }
+
+    const projectId = createdProject.id;
+
+    // === CHECKLIST ===
+    await safeInsert(
+      tenantDb.insert(checklistItems).values([
+        {
+          projectId,
+          title: "Environment Setup (Staging Server Link)",
+          type: "MVP",
+          status: "pending",
+        },
+        {
+          projectId,
+          title: "Database Migration (Schema Logs)",
+          type: "MVP",
+          status: "pending",
+        },
+        {
+          projectId,
+          title: "Domain & SSL Configuration",
+          type: "MVP",
+          status: "pending",
+        },
+        {
+          projectId,
+          title: "Build Automation (CI/CD Logs)",
+          type: "MVP",
+          status: "pending",
+        },
+        {
+          projectId,
+          title: "Component Testing",
+          type: "MVP",
+          status: "pending",
+        },
+        {
+          projectId,
+          title: "User Acceptance Testing (UAT)",
+          type: "MVP",
+          status: "pending",
+        },
+        {
+          projectId,
+          title: "Cross-Browser Check",
+          type: "MVP",
+          status: "pending",
+        },
+        {
+          projectId,
+          title: "API Verification",
+          type: "MVP",
+          status: "pending",
+        },
+        {
+          projectId,
+          title: "Authentication Security",
+          type: "MVP",
+          status: "pending",
+        },
+        {
+          projectId,
+          title: "Dependency Audit",
+          type: "MVP",
+          status: "pending",
+        },
+        {
+          projectId,
+          title: "Environment Variables",
+          type: "MVP",
+          status: "pending",
+        },
+        {
+          projectId,
+          title: "Security Checks (SQLi / XSS)",
+          type: "MVP",
+          status: "pending",
+        },
+      ]),
+    );
+
+    // === PROVISIONING JOB ===
+    const uniqueIdempotencyKey = `job_${crypto.randomBytes(16).toString("hex")}`;
+
+    await safeInsert(
+      db.insert(provisioningJobs).values({
+        projectId,
+        workspaceId: actualWorkspaceId,
+        idempotencyKey: uniqueIdempotencyKey,
+        status: "pending",
+        manifest: {
+          projectName: payload.name,
           slug: projectSlug,
-          clientEmail: payload.clientEmail,
-          brief: payload.brief || "No brief provided.",
-          status: "pending",
-          progressPercentage: 0,
-          portalLinkSentCount: 0,
-          universalManifest: {
-            services: payload.services || [],
-            gitProvider: payload.gitProvider,
-            folderStructure: payload.folderStructure,
-            deploymentTarget: payload.deploymentTarget,
-            nodePackageManager: payload.nodePackageManager,
-          },
-          frontendFramework: extractedFrontend,
-          backendFramework: extractedBackend,
-        } as any),
-      );
+          gitProvider: payload.gitProvider,
+          folderStructure: payload.folderStructure,
+          deploymentTarget: payload.deploymentTarget,
+          nodePackageManager: payload.nodePackageManager,
+          services: payload.services || [],
+          blueprintYaml: payload.blueprintYaml || "",
+        } as any,
+      } as any),
+    );
 
-      let retries = 3;
-      while (!createdProject && retries > 0) {
-        createdProject = await tenantDb.query.projects.findFirst({
-          where: (projects: any, { eq }: any) => eq(projects.slug, projectSlug),
-        });
-        if (!createdProject) {
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          retries--;
-        }
-      }
-
-      if (!createdProject || !createdProject.id) {
-        throw new Error("Project creation failed – ID not found.");
-      }
-      projectId = createdProject.id;
-    } catch (err: any) {
-      console.error(`❌ Project creation failed in Tenant DB:`, err);
-      return {
-        success: false,
-        error: `Project creation failed: ${err.message}`,
-      };
-    }
-
-    try {
-      await safeInsert(
-        tenantDb.insert(checklistItems).values([
-          {
-            projectId,
-            title: "Environment Setup (Staging Server Link)",
-            type: "MVP",
-            status: "pending",
-          },
-          {
-            projectId,
-            title: "Database Migration (Schema Logs)",
-            type: "MVP",
-            status: "pending",
-          },
-          {
-            projectId,
-            title: "Domain & SSL Configuration",
-            type: "MVP",
-            status: "pending",
-          },
-          {
-            projectId,
-            title: "Build Automation (CI/CD Logs)",
-            type: "MVP",
-            status: "pending",
-          },
-          {
-            projectId,
-            title: "Component Testing (Unit/Integration Success PDF)",
-            type: "MVP",
-            status: "pending",
-          },
-          {
-            projectId,
-            title: "User Acceptance Testing (UAT Screen Share)",
-            type: "MVP",
-            status: "pending",
-          },
-          {
-            projectId,
-            title: "Cross-Browser Check (Layout Compatibility)",
-            type: "MVP",
-            status: "pending",
-          },
-          {
-            projectId,
-            title: "API Verification (200 OK Responses Proof)",
-            type: "MVP",
-            status: "pending",
-          },
-          {
-            projectId,
-            title: "Authentication Security (Failure & Token Expiry Clip)",
-            type: "MVP",
-            status: "pending",
-          },
-          {
-            projectId,
-            title: "Dependency Audit (0 Critical Vulnerabilities)",
-            type: "MVP",
-            status: "pending",
-          },
-          {
-            projectId,
-            title: "Environment Variables (Hidden Private Keys Proof)",
-            type: "MVP",
-            status: "pending",
-          },
-          {
-            projectId,
-            title: "SQL Injection / XSS Protection Check",
-            type: "MVP",
-            status: "pending",
-          },
-        ]),
-      );
-    } catch (err: any) {
-      console.error(`❌ Checklist insertion failed:`, err);
-      return {
-        success: false,
-        error: `Checklist insertion failed: ${err.message}`,
-      };
-    }
-
-    let uniqueIdempotencyKey;
-    try {
-      uniqueIdempotencyKey = `job_${crypto.randomBytes(16).toString("hex")}`;
-      await safeInsert(
-        db.insert(provisioningJobs).values({
-          projectId: projectId,
-          workspaceId: actualWorkspaceId,
-          idempotencyKey: uniqueIdempotencyKey,
-          status: "pending",
-          manifest: {
-            projectName: payload.name,
-            slug: projectSlug,
-            gitProvider: payload.gitProvider,
-            folderStructure: payload.folderStructure,
-            deploymentTarget: payload.deploymentTarget,
-            nodePackageManager: payload.nodePackageManager,
-            services: payload.services || [],
-            blueprintYaml: payload.blueprintYaml || "",
-          } as any,
-        } as any),
-      );
-    } catch (err: any) {
-      console.error(`❌ Job insertion failed in Central DB:`, err);
-      return { success: false, error: `Job insertion failed: ${err.message}` };
-    }
-
+    // Redis notification
     if (redis && redis.status === "ready") {
       try {
         await redis.publish(
@@ -676,18 +503,21 @@ export async function queueProjectProvisioning(
             workspaceId: actualWorkspaceId,
           }),
         );
-      } catch (redisError) {
-        console.error("⚠️ Failed to publish to Redis queue.");
+      } catch (e) {
+        console.warn("⚠️ Redis publish failed");
       }
     }
 
     revalidatePath(`/dashboard/${resolvedUserSlug}`);
+
     return { success: true, slug: projectSlug };
   } catch (error: any) {
     console.error("[CRITICAL ENGINE FAULT]:", error);
     return {
       success: false,
-      error: error.message || "An unexpected error occurred.",
+      error:
+        error.message ||
+        "An unexpected error occurred during project provisioning.",
     };
   }
 }

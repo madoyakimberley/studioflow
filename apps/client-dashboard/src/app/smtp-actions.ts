@@ -12,8 +12,11 @@ import { revalidatePath } from "next/cache";
 import { encryptSecret, decryptSecret } from "@/lib/crypto";
 import { enforceWorkspaceOwnership } from "@/lib/auth-barriers";
 import { sendSystemAlertEmail } from "../lib/mailer";
+import { getTenantDb } from "@/lib/tenant-db";
 
-// 1. SAVE DYNAMIC CONFIGURATION Matrix
+// ==========================================
+// 1. SAVE DYNAMIC SMTP CONFIGURATION
+// ==========================================
 export async function saveSmtpConfig(workspaceId: number, formData: FormData) {
   try {
     await enforceWorkspaceOwnership(workspaceId);
@@ -51,11 +54,14 @@ export async function saveSmtpConfig(workspaceId: number, formData: FormData) {
     revalidatePath(`/dashboard`);
     return { success: true };
   } catch (error: any) {
+    console.error("❌ [SMTP CONFIG UPDATE FAULT]:", error);
     return { success: false, error: error.message };
   }
 }
 
-// 2. DISPATCH LIVE SMTP TEST ROUTE
+// ==========================================
+// 2. TEST SMTP CONNECTION
+// ==========================================
 export async function testSmtpDispatch(workspaceId: number) {
   try {
     await enforceWorkspaceOwnership(workspaceId);
@@ -68,7 +74,7 @@ export async function testSmtpDispatch(workspaceId: number) {
 
     if (!config || !config.smtpHost || !config.smtpUser || !config.smtpPass) {
       throw new Error(
-        "Config arrays incomplete. Save configuration nodes first.",
+        "SMTP configuration is incomplete. Please save settings first.",
       );
     }
 
@@ -87,52 +93,72 @@ export async function testSmtpDispatch(workspaceId: number) {
     await transporter.sendMail({
       from: `"StudioFlow Engine Gateway" <${config.smtpUser}>`,
       to: config.adminAlertEmail || config.smtpUser,
-      subject: "StudioFlow: Diagnostics Verification Pipeline Successful ✓",
-      text: `Your dynamic configuration is active.\n\nWorkspace Vector: ${workspaceId}\nHost: ${config.smtpHost}\nTimestamp: ${new Date().toISOString()}`,
+      subject: "StudioFlow: SMTP Diagnostics Verification Successful ✓",
+      text: `Your SMTP configuration is working correctly.\n\nWorkspace: ${workspaceId}\nHost: ${config.smtpHost}\nTimestamp: ${new Date().toISOString()}`,
     });
 
-    return { success: true };
+    return { success: true, message: "Test email sent successfully!" };
   } catch (error: any) {
+    console.error("❌ [SMTP TEST FAILED]:", error);
     return { success: false, error: error.message };
   }
 }
 
-// 3. FETCH HISTORICAL SYSTEM TELEMETRY LOGS DYNAMICALLY
-export async function getLiveTelemetryLogs(workspaceId: number) {
+// ==========================================
+// 3. FETCH PROJECT TELEMETRY LOGS (Tenant-Aware)
+// ==========================================
+export async function getProjectTelemetryLogs(projectId: number) {
   try {
-    await enforceWorkspaceOwnership(workspaceId);
+    const project = await db
+      .select({ workspaceId: projects.workspaceId })
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1)
+      .then((res) => res[0]);
 
-    const telemetryEntries = await db
+    if (!project || !project.workspaceId) {
+      return { success: false, error: "Project not found.", logs: [] };
+    }
+
+    const tenantDb = await getTenantDb(project.workspaceId);
+
+    const telemetryEntries = await tenantDb
       .select()
       .from(siteMonitoring)
+      .where(eq(siteMonitoring.projectId, projectId))
       .orderBy(desc(siteMonitoring.checkedAt))
       .limit(10);
 
     return { success: true, logs: telemetryEntries };
   } catch (error: any) {
+    console.error("❌ [TELEMETRY FETCH ERROR]:", error);
     return { success: false, error: error.message, logs: [] };
   }
 }
 
-// 4. INGEST LIVE TELEMETRY OUTAGE (NEW)
-// Call this from your API Route, Cron Job, or Webhook when a ping fails
+// ==========================================
+// 4. INGEST LIVE TELEMETRY OUTAGE (Tenant-Aware)
+// ==========================================
 export async function ingestTelemetryOutage(
   projectId: number,
   statusCode: number,
   errorTrace: string,
 ) {
   try {
-    // Look up the project to find the owner's workspaceId
     const project = await db
       .select()
       .from(projects)
       .where(eq(projects.id, projectId))
       .then((res) => res[0]);
 
-    if (!project) throw new Error("Target project node not found in registry.");
+    if (!project || !project.workspaceId) {
+      throw new Error("Target project node not found in registry.");
+    }
 
-    // 1. Write the failure to the database so it appears on the UI
-    await db.insert(siteMonitoring).values({
+    const tenantDb = await getTenantDb(project.workspaceId);
+
+    // Insert into tenant database
+    await tenantDb.insert(siteMonitoring).values({
       projectId: project.id,
       isUp: false,
       statusCode,
@@ -140,7 +166,7 @@ export async function ingestTelemetryOutage(
       checkedAt: new Date(),
     });
 
-    // 2. Fire the dynamic encrypted SMTP email directly to the developer
+    // Send alert email
     await sendSystemAlertEmail({
       workspaceId: project.workspaceId,
       projectName: project.name,
@@ -148,11 +174,10 @@ export async function ingestTelemetryOutage(
       errorTrace,
     });
 
-    // Force UI cache update
     revalidatePath(`/dashboard`);
     return { success: true };
   } catch (error: any) {
-    console.error("Ingestion failed:", error);
+    console.error("❌ [TELEMETRY INGESTION FAULT]:", error);
     return { success: false, error: error.message };
   }
 }
