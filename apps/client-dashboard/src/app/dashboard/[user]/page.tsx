@@ -15,7 +15,6 @@ import SidebarConsole from "../../../components/SidebarConsole";
 import SendPortalLinkButton from "../../../components/SendPortalLinkButton";
 import { getTenantDb } from "@/lib/tenant-db";
 
-// 👇 Use the single source of truth for authentication
 import { getVerifiedUserAndWorkspace } from "../../action";
 
 export const dynamic = "force-dynamic";
@@ -40,7 +39,7 @@ export default async function SystemsOverviewDashboard({
     redirect("/");
   }
 
-  // Fetch the full user record using the trusted userId (needed for the email check)
+  // Fetch the full user record using the trusted userId
   const userRecord = await db.query.users.findFirst({
     where: eq(users.id, auth.data.userId),
   });
@@ -49,7 +48,6 @@ export default async function SystemsOverviewDashboard({
     redirect("/");
   }
 
-  // Construct the sessionUser object so the rest of your page works normally!
   const sessionUser = {
     id: auth.data.userId,
     username: auth.data.userSlug,
@@ -58,9 +56,8 @@ export default async function SystemsOverviewDashboard({
   };
 
   // ==========================================
-  // 2. SLUG NORMALIZATION (THE REDIRECT FIX)
+  // 2. SLUG NORMALIZATION
   // ==========================================
-  // Strip spaces, special characters, and force lowercase to ensure a perfect match
   const urlParamUser = user.toLowerCase().replace(/[^a-z0-9]/g, "");
   const loggedInUser = sessionUser.username
     .toLowerCase()
@@ -77,7 +74,6 @@ export default async function SystemsOverviewDashboard({
 
   const isSuperAdmin = superAdminEmails.includes(sessionUser.email);
 
-  // If not super admin AND the safe URL doesn't match the safe Username, bounce them to THEIR dashboard
   if (!isSuperAdmin && urlParamUser !== loggedInUser) {
     console.warn(
       `Mismatch! Redirecting to correct slug: /dashboard/${loggedInUser}`,
@@ -100,13 +96,7 @@ export default async function SystemsOverviewDashboard({
 
   const currentWorkspaceId = workspaceRecord?.id;
 
-  // 👇 Get tenant DB client for this workspace (only if not superadmin)
-  let tenantDb;
-  if (!isSuperAdmin && currentWorkspaceId) {
-    tenantDb = await getTenantDb(currentWorkspaceId);
-  }
-
-  // ── Fetch Projects ───────────────────────────────────────────
+  // ── Fetch Projects (Strictly CENTRAL DB) ──────────────────────
   let fetchedProjects;
 
   if (isSuperAdmin) {
@@ -115,7 +105,7 @@ export default async function SystemsOverviewDashboard({
       .from(projects)
       .orderBy(desc(projects.id));
   } else {
-    fetchedProjects = await tenantDb
+    fetchedProjects = await db
       .select()
       .from(projects)
       .where(eq(projects.workspaceId, currentWorkspaceId!))
@@ -124,54 +114,56 @@ export default async function SystemsOverviewDashboard({
 
   let activeProjectsList: any[] = [];
 
+  // ── Fetch Tenant Data (Strictly TENANT DB) ────────────────────
   if (fetchedProjects.length > 0) {
-    const projectIds = fetchedProjects.map((p: { id: any }) => p.id);
-
-    let allJobs, allChecklistItems;
-
-    if (isSuperAdmin) {
-      allJobs = await db
-        .select()
-        .from(provisioningJobs)
-        .where(inArray(provisioningJobs.projectId, projectIds))
-        .orderBy(desc(provisioningJobs.id));
-
-      allChecklistItems = await db
-        .select()
-        .from(checklistItems)
-        .where(inArray(checklistItems.projectId, projectIds))
-        .orderBy(checklistItems.id);
-    } else {
-      allJobs = await tenantDb
-        .select()
-        .from(provisioningJobs)
-        .where(inArray(provisioningJobs.projectId, projectIds))
-        .orderBy(desc(provisioningJobs.id));
-
-      allChecklistItems = await tenantDb
-        .select()
-        .from(checklistItems)
-        .where(inArray(checklistItems.projectId, projectIds))
-        .orderBy(checklistItems.id);
-    }
-
     const jobsMap = new Map<number, any[]>();
-    for (const job of allJobs) {
-      if (!jobsMap.has(job.projectId)) {
-        jobsMap.set(job.projectId, []);
-      }
-      jobsMap.get(job.projectId)!.push(job);
-    }
-
     const checklistMap = new Map<number, any[]>();
-    for (const item of allChecklistItems) {
-      if (!checklistMap.has(item.projectId)) {
-        checklistMap.set(item.projectId, []);
+
+    // Get unique workspaces in case SuperAdmin is viewing multiple tenants
+    const workspaceIds = [
+      ...new Set(fetchedProjects.map((p: any) => p.workspaceId)),
+    ];
+
+    for (const wsId of workspaceIds) {
+      if (!wsId) continue;
+
+      try {
+        const tenantDb = await getTenantDb(wsId);
+        const wsProjectIds = fetchedProjects
+          .filter((p: any) => p.workspaceId === wsId)
+          .map((p: any) => p.id);
+
+        if (wsProjectIds.length === 0) continue;
+
+        // Fetch jobs & checklists exclusively from the matched tenant database!
+        const wsJobs = await tenantDb
+          .select()
+          .from(provisioningJobs)
+          .where(inArray(provisioningJobs.projectId, wsProjectIds))
+          .orderBy(desc(provisioningJobs.id));
+
+        const wsChecklists = await tenantDb
+          .select()
+          .from(checklistItems)
+          .where(inArray(checklistItems.projectId, wsProjectIds))
+          .orderBy(checklistItems.id);
+
+        for (const job of wsJobs) {
+          if (!jobsMap.has(job.projectId)) jobsMap.set(job.projectId, []);
+          jobsMap.get(job.projectId)!.push(job);
+        }
+
+        for (const item of wsChecklists) {
+          if (!checklistMap.has(item.projectId))
+            checklistMap.set(item.projectId, []);
+          checklistMap.get(item.projectId)!.push(item);
+        }
+      } catch (e) {
+        console.error(`Failed to load tenant DB for workspace ${wsId}`, e);
       }
-      checklistMap.get(item.projectId)!.push(item);
     }
 
-    activeProjectsList = fetchedProjects.map((project: { id: number }) => ({
+    activeProjectsList = fetchedProjects.map((project: any) => ({
       ...project,
       jobs: jobsMap.get(project.id) || [],
       checklist: checklistMap.get(project.id) || [],
@@ -201,38 +193,31 @@ export default async function SystemsOverviewDashboard({
     "use server";
     try {
       const id = Number(formData.get("id"));
-      let targetProject;
-      let dbClient;
 
-      if (isSuperAdmin) {
-        targetProject = await db.query.projects.findFirst({
-          where: eq(projects.id, id),
-        });
-        dbClient = db;
-      } else {
-        const project = await db.query.projects.findFirst({
-          where: eq(projects.id, id),
-        });
-        if (!project) throw new Error("Project not found");
-        const wsId = project.workspaceId;
-        if (wsId !== currentWorkspaceId)
-          throw new Error("Unauthorized to access this project scope");
-        const tenant = await getTenantDb(wsId);
-        targetProject = await tenant.query.projects.findFirst({
-          where: eq(projects.id, id),
-        });
-        dbClient = tenant;
+      // 1. Resolve Project Context from Central DB
+      const targetProject = await db.query.projects.findFirst({
+        where: eq(projects.id, id),
+      });
+
+      if (!targetProject || !targetProject.workspaceId)
+        throw new Error("Project not found");
+
+      if (!isSuperAdmin && targetProject.workspaceId !== currentWorkspaceId) {
+        throw new Error("Unauthorized");
       }
 
-      if (!targetProject) throw new Error("Project not found");
+      const tenantDb = await getTenantDb(targetProject.workspaceId);
 
-      await dbClient
+      // 2. Wipe Tenant Operational Data
+      await tenantDb
         .delete(checklistItems)
         .where(eq(checklistItems.projectId, id));
-      await dbClient
+      await tenantDb
         .delete(provisioningJobs)
         .where(eq(provisioningJobs.projectId, id));
-      await dbClient.delete(projects).where(eq(projects.id, id));
+
+      // 3. Wipe Central Registry Data
+      await db.delete(projects).where(eq(projects.id, id));
 
       revalidatePath(`/dashboard/${user}`);
     } catch (e) {
@@ -244,35 +229,23 @@ export default async function SystemsOverviewDashboard({
     "use server";
     try {
       const id = Number(formData.get("id"));
-      let targetProject;
-      let dbClient;
 
-      if (isSuperAdmin) {
-        targetProject = await db.query.projects.findFirst({
-          where: eq(projects.id, id),
-        });
-        dbClient = db;
-      } else {
-        const project = await db.query.projects.findFirst({
-          where: eq(projects.id, id),
-        });
-        if (!project) throw new Error("Project not found");
-        const wsId = project.workspaceId;
-        if (wsId !== currentWorkspaceId)
-          throw new Error("Unauthorized to access this project scope");
-        const tenant = await getTenantDb(wsId);
-        targetProject = await tenant.query.projects.findFirst({
-          where: eq(projects.id, id),
-        });
-        dbClient = tenant;
-      }
+      const targetProject = await db.query.projects.findFirst({
+        where: eq(projects.id, id),
+      });
 
       if (!targetProject) throw new Error("Project not found");
 
-      await dbClient
+      if (!isSuperAdmin && targetProject.workspaceId !== currentWorkspaceId) {
+        throw new Error("Unauthorized");
+      }
+
+      // Projects table is entirely managed centrally
+      await db
         .update(projects)
         .set({ status: "paused" })
         .where(eq(projects.id, id));
+
       revalidatePath(`/dashboard/${user}`);
     } catch (e) {
       console.error("[CRITICAL FAILURE PAUSING SYSTEM THREAD]: ", e);
@@ -283,45 +256,33 @@ export default async function SystemsOverviewDashboard({
     "use server";
     try {
       const id = Number(formData.get("id"));
-      let targetProject;
-      let dbClient;
 
-      if (isSuperAdmin) {
-        targetProject = await db.query.projects.findFirst({
-          where: eq(projects.id, id),
-        });
-        dbClient = db;
-      } else {
-        const project = await db.query.projects.findFirst({
-          where: eq(projects.id, id),
-        });
-        if (!project) throw new Error("Project not found");
-        const wsId = project.workspaceId;
-        if (wsId !== currentWorkspaceId)
-          throw new Error("Unauthorized to access this project scope");
-        const tenant = await getTenantDb(wsId);
-        targetProject = await tenant.query.projects.findFirst({
-          where: eq(projects.id, id),
-        });
-        dbClient = tenant;
+      const targetProject = await db.query.projects.findFirst({
+        where: eq(projects.id, id),
+      });
+
+      if (!targetProject || !targetProject.workspaceId)
+        throw new Error("Project not found");
+
+      if (!isSuperAdmin && targetProject.workspaceId !== currentWorkspaceId) {
+        throw new Error("Unauthorized");
       }
 
-      if (!targetProject) throw new Error("Project not found");
+      const tenantDb = await getTenantDb(targetProject.workspaceId);
 
-      // Reset project
-      await dbClient
+      // Central DB
+      await db
         .update(projects)
         .set({ status: "pending", progressPercentage: 0 })
         .where(eq(projects.id, id));
 
-      // Reset job (set to pending)
-      await dbClient
+      // Tenant DB
+      await tenantDb
         .update(provisioningJobs)
         .set({ status: "pending" })
         .where(eq(provisioningJobs.projectId, id));
 
-      // Reset checklist
-      await dbClient
+      await tenantDb
         .update(checklistItems)
         .set({ status: "pending", proofUrl: null })
         .where(eq(checklistItems.projectId, id));
@@ -345,54 +306,61 @@ export default async function SystemsOverviewDashboard({
       if (!itemId || !proofUrl) return;
 
       let targetItem;
-      let dbClient;
+      let tenantDb;
 
       if (isSuperAdmin) {
-        targetItem = await db.query.checklistItems.findFirst({
-          where: eq(checklistItems.id, itemId),
-          with: { project: true },
-        });
-        dbClient = db;
+        // Broad search across workspaces to locate the item
+        const allWs = await db.select().from(workspaces);
+        for (const ws of allWs) {
+          try {
+            const tDb = await getTenantDb(ws.id);
+            const items = await tDb
+              .select()
+              .from(checklistItems)
+              .where(eq(checklistItems.id, itemId))
+              .limit(1);
+            if (items.length > 0) {
+              targetItem = items[0];
+              tenantDb = tDb;
+              break;
+            }
+          } catch (err) {}
+        }
       } else {
-        const item = await db.query.checklistItems.findFirst({
-          where: eq(checklistItems.id, itemId),
-          with: { project: true },
-        });
-        if (!item) throw new Error("Checklist item not found");
-        const wsId = item.project.workspaceId;
-        if (wsId !== currentWorkspaceId)
-          throw new Error("Unauthorized to modify this checklist item");
-        const tenant = await getTenantDb(wsId);
-        targetItem = await tenant.query.checklistItems.findFirst({
-          where: eq(checklistItems.id, itemId),
-          with: { project: true },
-        });
-        dbClient = tenant;
+        // Direct search inside current tenant DB
+        tenantDb = await getTenantDb(currentWorkspaceId!);
+        const items = await tenantDb
+          .select()
+          .from(checklistItems)
+          .where(eq(checklistItems.id, itemId))
+          .limit(1);
+        targetItem = items[0];
       }
 
-      if (!targetItem) throw new Error("Checklist item not found");
+      if (!targetItem || !tenantDb) throw new Error("Checklist item not found");
 
-      // Update checklist item
-      await dbClient
+      // Update item in Tenant DB
+      await tenantDb
         .update(checklistItems)
         .set({ status: "pending_client_review", proofUrl: proofUrl })
         .where(eq(checklistItems.id, itemId));
 
-      // Recalculate progress
-      const allProjectItems = await dbClient
+      // Recalculate progress using Tenant DB
+      const allProjectItems = await tenantDb
         .select()
         .from(checklistItems)
         .where(eq(checklistItems.projectId, targetItem.projectId));
 
       const completedCount = allProjectItems.filter(
-        (i: { status: string }) => i.status !== "pending",
+        (i: any) => i.status !== "pending",
       ).length;
 
       const newProgress = Math.round(
         (completedCount / allProjectItems.length) * 100,
       );
 
-      await dbClient
+      // Update project progress in Central DB
+      await db
         .update(projects)
         .set({ progressPercentage: newProgress })
         .where(eq(projects.id, targetItem.projectId));
