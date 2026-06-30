@@ -1,3 +1,4 @@
+// app/api/cli/sync/route.ts
 import { NextResponse } from "next/server";
 import { db } from "@studioflow/db";
 import { eq } from "drizzle-orm";
@@ -59,6 +60,9 @@ export async function GET(req: Request) {
     );
   } catch (err) {
     console.error("❌ [CLI Sync Error]:", err);
-    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

@@ -65,7 +65,7 @@ async function ensureCentralTables() {
 }
 
 async function ensureTenantSchema(client: any) {
-  // 1. Setup Projects Table (Added client_name field)
+  // 1. Setup Projects Table
   await client.execute(`
     CREATE TABLE IF NOT EXISTS projects (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -105,6 +105,7 @@ async function ensureTenantSchema(client: any) {
       name VARCHAR(255) NOT NULL,
       slug VARCHAR(255) NOT NULL UNIQUE,
       portal_slug VARCHAR(255),
+      proof_url TEXT,
       email VARCHAR(255) NOT NULL,
       company VARCHAR(255),
       onboarding_completed BOOLEAN DEFAULT FALSE,
@@ -112,7 +113,7 @@ async function ensureTenantSchema(client: any) {
     )
   `);
 
-  // 3. Setup Checklist Items Table (Added AUTOMATIC CASCADE ON DELETE)
+  // 3. Setup Checklist Items Table
   await client.execute(`
     CREATE TABLE IF NOT EXISTS checklist_items (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -120,14 +121,33 @@ async function ensureTenantSchema(client: any) {
       title VARCHAR(255) NOT NULL,
       type VARCHAR(50),
       status VARCHAR(50) DEFAULT 'pending',
+      proof_url TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      -- ✅ AUTOMATIC CLEANUP: Deleting a project automatically deletes its items
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+    )
+  `);
+
+  // 4. Setup Provisioning Jobs Table
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS provisioning_jobs (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      project_id INT NOT NULL,
+      workspace_id INT NOT NULL,
+      idempotency_key VARCHAR(255) NOT NULL UNIQUE,
+      status VARCHAR(50) DEFAULT 'pending',
+      manifest JSON NOT NULL,
+      execution_logs JSON,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      started_at TIMESTAMP NULL,
+      completed_at TIMESTAMP NULL,
+      INDEX project_job_idx (project_id),
+      INDEX workspace_job_idx (workspace_id),
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
     )
   `);
 
   console.log(
-    "✅ All required tenant tables (projects, clients, checklist_items) verified/created.",
+    "✅ All required tenant tables (projects, clients, checklist_items, provisioning_jobs) verified/created.",
   );
 }
 
