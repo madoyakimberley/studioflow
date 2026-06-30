@@ -238,27 +238,32 @@ export async function getVerifiedUserAndWorkspace() {
 
       if (cleanToken.startsWith("dev_")) {
         const parts = cleanToken.split("_");
-        const parsedWsId = parts[1]; // 🌟 FIXED: Left as string to avoid breaking string schemas
+        // 🌟 FIXED: Explicitly convert to Number so SQL queries match the integer column
+        const parsedWsId = Number(parts[1]);
 
         const workspace = await db.query.workspaces.findFirst({
-          where: eq(workspaces.id, parsedWsId as any), // 🌟 FIXED: Cast as any to avoid string/number clash
+          where: eq(workspaces.id, parsedWsId as any),
         });
-        if (!workspace)
+
+        if (!workspace) {
           return {
             success: false,
             error: "Workspace not found.",
             timeline: diagnosticTimeline,
           };
+        }
 
         const userRecord = await db.query.users.findFirst({
           where: eq(users.id, workspace.ownerId),
         });
-        if (!userRecord)
+
+        if (!userRecord) {
           return {
             success: false,
             error: "User not found.",
             timeline: diagnosticTimeline,
           };
+        }
 
         resolvedUserId = userRecord.id;
         resolvedUserSlug = userRecord.username
@@ -327,11 +332,11 @@ export async function getVerifiedUserAndWorkspace() {
 
       await db
         .update(users)
-        .set({ workspaceId: generatedWorkspaceId as any } as any) // 🌟 FIXED: Added cast
+        .set({ workspaceId: generatedWorkspaceId as any } as any)
         .where(eq(users.id, resolvedUserId));
 
       await db.insert(workspaceEnvironments).values({
-        workspaceId: generatedWorkspaceId as any, // 🌟 FIXED: Works perfectly now that it's imported!
+        workspaceId: generatedWorkspaceId as any,
         databaseEngine: "postgresql",
         databaseUrl: "",
         databaseOrm: "drizzle",
@@ -355,7 +360,8 @@ export async function getVerifiedUserAndWorkspace() {
       data: {
         userId: resolvedUserId,
         userSlug: resolvedUserSlug,
-        workspaceId: userWorkspace.id as any, // 🌟 FIXED: Cast output to any to bypass downstream errors
+        // 🌟 FIXED: Enforce Number conversion so downstream getTenantDb() doesn't crash
+        workspaceId: Number(userWorkspace.id),
       },
       timeline: diagnosticTimeline,
     };
@@ -368,7 +374,6 @@ export async function getVerifiedUserAndWorkspace() {
     };
   }
 }
-
 // ==========================================
 // CORE SERVER ACTION: PROJECT PROVISIONING
 // ==========================================
