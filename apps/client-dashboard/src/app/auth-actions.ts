@@ -68,7 +68,7 @@ export async function registerUser(payload: RegisterPayload) {
 
       await tx
         .update(users)
-        .set({ workspaceId: wsId }) // Removed 'as any'
+        .set({ workspaceId: wsId })
         .where(eq(users.id, userId));
 
       await tx.insert(workspaceEnvironments).values({
