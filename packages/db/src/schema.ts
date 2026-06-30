@@ -22,6 +22,7 @@ const isIsolatedDev =
 // ==========================================
 
 export const users = mysqlTable("users", {
+  workspaceId: int("workspace_id"),
   id: varchar("id", { length: 255 }).primaryKey(),
   username: varchar("username", { length: 255 }).notNull().unique(),
   email: varchar("email", { length: 255 }).notNull().unique(),

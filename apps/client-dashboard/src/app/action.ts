@@ -332,7 +332,7 @@ export async function getVerifiedUserAndWorkspace() {
 
       await db
         .update(users)
-        .set({ workspaceId: generatedWorkspaceId as any } as any)
+        .set({ workspaceId: generatedWorkspaceId })
         .where(eq(users.id, resolvedUserId));
 
       await db.insert(workspaceEnvironments).values({
