@@ -46,215 +46,173 @@ function IngressSecurityProtocolScanner() {
   }, [protocolState]);
 
   useEffect(() => {
-    const executeIngressHandshake = async () => {
-      const activeSessionToken = searchParams.get("token");
-      const targetUser = searchParams.get("user") || "admin";
-      const needsOnboarding = searchParams.get("onboard") === "true";
-
+    async function executeSecurityHandshake() {
       try {
-        // ==========================================
-        // 🛡️ DELEGATE TO SECURE SERVER ACTION
-        // ==========================================
-        let handshakeResult: any = { success: false };
+        const urlToken = searchParams.get("token");
+        const onboard = searchParams.get("onboard");
 
-        if (activeSessionToken) {
-          // Flow A: Email/Password login (Token is in the URL)
-          handshakeResult =
-            await establishSecureSessionAction(activeSessionToken);
-        } else {
-          // Flow B: Google OAuth login (No URL token, check NextAuth cookies natively)
-          const nextAuthCheck = await getVerifiedUserAndWorkspace();
-
-          if (nextAuthCheck.success && nextAuthCheck.data) {
-            handshakeResult = {
-              success: true,
-              user: {
-                username: nextAuthCheck.data.userSlug,
-                email: nextAuthCheck.data.userId, // Placed here to bypass super-admin type checks safely
-              },
-            };
-          } else {
-            handshakeResult = {
-              success: false,
-              error: nextAuthCheck.error || "No NextAuth session found.",
-            };
-          }
+        // Sync explicit new token from URL parameter to server session
+        if (urlToken) {
+          await establishSecureSessionAction(urlToken);
         }
 
-        if (handshakeResult.success && handshakeResult.user) {
-          await new Promise((r) => setTimeout(r, 4000));
+        // Run verification checks against central database registry
+        const verification = await getVerifiedUserAndWorkspace();
+
+        if (verification.success && verification.data) {
           setProtocolState("ready");
-          await new Promise((r) => setTimeout(r, 800));
 
-          // ==========================================
-          // 🛡️ DYNAMIC ENVIRONMENTAL SUPERADMIN CHECK
-          // ==========================================
-          const adminEmailsString = process.env.NEXT_PUBLIC_ADMIN_EMAILS || "";
-          const superAdminEmails = adminEmailsString
-            .split(",")
-            .map((email) => email.trim())
-            .filter(Boolean);
-
-          const userEmailFromPayload = handshakeResult.user?.email || "";
-          const isSuperAdmin = superAdminEmails.includes(userEmailFromPayload);
-
-          let finalUserSlug = handshakeResult.user?.username || targetUser;
-          if (isSuperAdmin && userEmailFromPayload) {
-            finalUserSlug = userEmailFromPayload
-              .split("@")[0]
-              .replace(/[^a-zA-Z0-9]/g, "");
-          }
-
-          if (needsOnboarding) {
-            router.push(`/onboarding/setup/?user=${finalUserSlug}`);
-          } else {
-            router.push(`/dashboard/${finalUserSlug}`);
-          }
+          // Allow the terminal animation a brief moment to finish elegantly
+          setTimeout(() => {
+            if (onboard === "true") {
+              router.push(`/dashboard/${verification.data.userSlug}/configs`);
+            } else {
+              router.push(`/dashboard/${verification.data.userSlug}`);
+            }
+          }, 1500);
         } else {
+          // If workspace resolution failed, step out of the execution line
           setProtocolState("failed");
           setErrorMessage(
-            handshakeResult.error || "Unauthorized Session Token Parameters.",
+            verification.error || "Could not determine your workspace context.",
           );
-
-          // Delayed fallback so the user can actually read the error animation
-          // before being kicked back to the home page.
-          setTimeout(() => {
-            router.push("/");
-          }, 3500);
         }
       } catch (err: any) {
         setProtocolState("failed");
-        setErrorMessage(err.message || "Network Timeout reaching Core Matrix.");
+        setErrorMessage(
+          err.message || "An unexpected validation exception occurred.",
+        );
       }
-    };
+    }
 
-    executeIngressHandshake();
+    // Delay the actual handshake slightly to sync with the terminal UI sequence
+    const initialDelay = setTimeout(() => {
+      executeSecurityHandshake();
+    }, 1000);
+
+    return () => clearTimeout(initialDelay);
   }, [searchParams, router]);
+
+  // 🌟 CRITICAL FIX: Breaks the error loop by destroying stale browser state
+  const handleHardResetAndExit = () => {
+    // 1. Manually destroy the corrupted client session token cookie
+    document.cookie =
+      "sf_auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;";
+
+    // 2. Perform a hard location change to clear query parameters (?token=...)
+    window.location.href = "/";
+  };
 
   const progressPercentage =
     protocolState === "ready"
       ? 100
-      : protocolState === "failed"
-        ? 100
-        : Math.round(
+      : Math.min(
+          95,
+          Math.round(
             ((currentStepIndex + 1) / SIMULATED_PIPELINE_STEPS.length) * 100,
-          );
+          ),
+        );
 
   return (
-    <div className="relative z-10 w-full max-w-lg bg-theme-surface/80 backdrop-blur-2xl border border-theme-outline rounded-3xl shadow-2xl p-8 md:p-10 text-center flex flex-col items-center transition-colors duration-300">
-      <div className="relative w-32 h-32 mx-auto mb-10 flex items-center justify-center">
-        <motion.div
-          className="absolute inset-0 rounded-full bg-gradient-to-tr from-theme-primary via-theme-secondary to-theme-primary blur-xl opacity-30"
-          animate={{ rotate: 360 }}
-          transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
-        />
-        <motion.div
-          className="absolute inset-2 rounded-2xl bg-theme-primary/10 border border-theme-primary/30"
-          animate={{ scale: [1, 1.05, 1], opacity: [0.5, 0.8, 0.5] }}
-          transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-        />
-        <motion.div
-          className="relative w-20 h-20 rounded-2xl bg-theme-bg border border-theme-outline flex items-center justify-center shadow-inner overflow-hidden"
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: "spring", stiffness: 140, damping: 15 }}
-        >
-          {protocolState === "evaluating" && (
-            <Workflow className="w-10 h-10 text-theme-primary animate-pulse" />
-          )}
-          {protocolState === "ready" && (
-            <ShieldCheck className="w-10 h-10 text-emerald-500" />
-          )}
-          {protocolState === "failed" && (
-            <AlertOctagon className="w-10 h-10 text-rose-500" />
-          )}
-        </motion.div>
+    <div className="w-full max-w-md bg-theme-surface/30 backdrop-blur-md border border-theme-outline/50 rounded-2xl overflow-hidden shadow-2xl">
+      <div className="p-6 border-b border-theme-outline/30 flex items-center justify-between bg-theme-surface/20">
+        <div className="flex items-center gap-2">
+          <Workflow
+            className={`w-5 h-5 ${
+              protocolState === "failed"
+                ? "text-rose-500"
+                : "text-theme-primary animate-pulse"
+            }`}
+          />
+          <span className="font-mono text-xs tracking-wider uppercase font-semibold text-theme-text/90">
+            Ingress Security Protocol
+          </span>
+        </div>
+        <div className="flex gap-1.5">
+          <div
+            className={`w-2 h-2 rounded-full ${
+              protocolState === "failed"
+                ? "bg-rose-500"
+                : protocolState === "ready"
+                  ? "bg-emerald-500"
+                  : "bg-amber-500 animate-ping"
+            }`}
+          />
+        </div>
       </div>
 
-      <div className="space-y-6 w-full">
-        <div className="space-y-2">
-          <h2 className="text-sm font-bold tracking-widest text-theme-text uppercase font-mono flex items-center justify-center gap-2">
-            {protocolState === "evaluating" && (
-              <>
-                <Loader2 className="w-4 h-4 text-theme-primary animate-spin" />
-                Negotiating Handshake
-              </>
-            )}
-            {protocolState === "ready" && "Session Integrity Verified"}
-            {protocolState === "failed" && "Ingress Guard Deflection"}
-          </h2>
-          <p className="text-xs text-theme-muted font-mono max-w-xs mx-auto leading-relaxed">
-            {protocolState === "evaluating" &&
-              "Establishing encrypted tunnel to core matrix..."}
-            {protocolState === "ready" &&
-              "Redirecting to primary operations terminal..."}
-            {protocolState === "failed" &&
-              (errorMessage || "Access Token signature validation failure.")}
-          </p>
-        </div>
+      <div className="p-6 font-mono text-xs space-y-4">
+        {protocolState === "evaluating" && (
+          <div className="space-y-2 min-h-[80px] flex flex-col justify-center">
+            <div className="text-theme-muted flex items-center gap-2">
+              <Loader2 className="w-3 h-3 animate-spin text-theme-primary" />
+              <span>
+                [STAGE {currentStepIndex + 1}/6]: Parsing Token Layers...
+              </span>
+            </div>
+            <div className="text-theme-text font-medium leading-relaxed">
+              &gt; {SIMULATED_PIPELINE_STEPS[currentStepIndex]}
+            </div>
+          </div>
+        )}
 
-        <div className="w-full bg-theme-bg border border-theme-outline rounded-xl overflow-hidden shadow-inner flex flex-col text-left">
-          <div className="bg-theme-surface border-b border-theme-outline/50 px-4 py-2 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-[10px] font-bold text-theme-muted tracking-widest uppercase">
+        {protocolState === "ready" && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 flex items-start gap-3"
+          >
+            <ShieldCheck className="w-5 h-5 shrink-0 mt-0.5" />
+            <div>
+              <div className="font-bold uppercase tracking-wide text-[11px]">
+                Handshake Verified
+              </div>
+              <p className="text-emerald-500/80 mt-1 text-[11px]">
+                Identity matched to runtime grid. Forwarding context to
+                dashboard...
+              </p>
+            </div>
+          </motion.div>
+        )}
+
+        {protocolState === "failed" && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="space-y-4"
+          >
+            <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 flex items-start gap-3">
+              <AlertOctagon className="w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <div className="font-bold uppercase tracking-wide text-[11px]">
+                  Handshake Fault Intercepted
+                </div>
+                <p className="text-rose-500/80 mt-1 text-[11px] font-sans break-words font-medium">
+                  {errorMessage}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={handleHardResetAndExit}
+              className="w-full py-2.5 px-4 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-xl transition-all duration-200 font-bold uppercase text-[11px] tracking-wider flex items-center justify-center gap-2"
+            >
               <Terminal className="w-3.5 h-3.5" />
-              <span>Boot Sequence</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-2 w-2">
-                {protocolState === "evaluating" && (
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-theme-primary opacity-75"></span>
-                )}
-                <span
-                  className={`relative inline-flex rounded-full h-2 w-2 ${protocolState === "failed" ? "bg-rose-500" : "bg-theme-primary"}`}
-                ></span>
-              </span>
-              <span className="text-[10px] font-mono text-theme-muted">
-                NODE_V2
-              </span>
-            </div>
-          </div>
+              Purge Session State & Return to Login
+            </button>
+          </motion.div>
+        )}
+      </div>
 
-          <div className="p-4 h-20 flex flex-col justify-end relative">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={
-                  protocolState === "evaluating"
-                    ? currentStepIndex
-                    : protocolState
-                }
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -5 }}
-                transition={{ duration: 0.2 }}
-                className="font-mono text-xs flex items-start gap-3"
-              >
-                <span
-                  className={`shrink-0 mt-0.5 ${protocolState === "failed" ? "text-rose-500" : "text-theme-secondary"}`}
-                >
-                  {protocolState === "failed" ? "✖" : "❯"}
-                </span>
-                <span
-                  className={`leading-relaxed ${protocolState === "failed" ? "text-rose-400" : "text-theme-text"}`}
-                >
-                  {protocolState === "evaluating"
-                    ? SIMULATED_PIPELINE_STEPS[currentStepIndex]
-                    : protocolState === "ready"
-                      ? "Process lifecycle completed successfully. Access granted."
-                      : "FATAL: Connection securely terminated by host."}
-                </span>
-              </motion.div>
-            </AnimatePresence>
-          </div>
-
-          <div className="h-1 w-full bg-theme-surface/50">
-            <motion.div
-              className={`h-full ${protocolState === "failed" ? "bg-rose-500" : "bg-theme-primary"}`}
-              initial={{ width: "0%" }}
-              animate={{ width: `${progressPercentage}%` }}
-              transition={{ ease: "easeInOut", duration: 0.5 }}
-            />
-          </div>
-        </div>
+      <div className="h-1 w-full bg-theme-surface/50">
+        <motion.div
+          className={`h-full ${
+            protocolState === "failed" ? "bg-rose-500" : "bg-theme-primary"
+          }`}
+          initial={{ width: "0%" }}
+          animate={{ width: `${progressPercentage}%` }}
+          transition={{ ease: "easeInOut", duration: 0.5 }}
+        />
       </div>
     </div>
   );
