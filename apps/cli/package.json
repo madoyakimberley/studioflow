@@ -1,6 +1,6 @@
 {
   "name": "studioflow-cli",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "description": "Universal Multi-Tenant Provisioning Engine",
   "main": "index.js",
   "type": "module",
