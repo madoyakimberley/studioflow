@@ -36,13 +36,14 @@ const CONFIG_FILE_PATH = path.join(STUDIOFLOW_HOME, "config.json");
 const cliEnvPath = path.resolve(__dirname, ".env");
 const cwdEnvPath = path.resolve(process.cwd(), ".env");
 
+// FIX: Prioritize local runtime directory environment flags first so developer tools override global modules.
+if (fs.existsSync(cwdEnvPath)) {
+  dotenv.config({ path: cwdEnvPath });
+}
 if (fs.existsSync(cliEnvPath)) {
   dotenv.config({ path: cliEnvPath });
-} else if (fs.existsSync(cwdEnvPath)) {
-  dotenv.config({ path: cwdEnvPath });
-} else {
-  dotenv.config();
 }
+dotenv.config();
 
 function ensureTlsUrl(url) {
   if (!url) return url;
@@ -55,7 +56,7 @@ function ensureTlsUrl(url) {
 }
 
 const API_BASE_URL = (
-  process.env.API_BASE_URL || "https://studioflow-api-ieck.onrender.com"
+  process.env.NEXT_PUBLIC_APP_URL || "https://studioflow-dashboard.onrender.com"
 )
   .replace(/['"]/g, "")
   .trim()
@@ -66,6 +67,7 @@ const rl = readline.createInterface({
   output: process.stdout,
 });
 
+// ====================== ENGINE DAEMON WORKER ======================
 class EngineDaemonWorker {
   constructor(dbConnectionString, workspaceId) {
     this.connectionString = dbConnectionString;
@@ -90,24 +92,65 @@ class EngineDaemonWorker {
 
   async ensureTablesExist() {
     console.log(
-      `   ${c.magenta}⚙️  Table Migration:${c.reset} Verifying and upgrading schema...`,
+      ` ${c.magenta}⚙️ Table Migration:${c.reset} Verifying and upgrading schema...`,
     );
 
-    await this.poolInstance.execute(`
-      CREATE TABLE IF NOT EXISTS provisioning_jobs (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        workspace_id INT NOT NULL,
-        project_id INT NULL,
-        status VARCHAR(50) DEFAULT 'pending',
-        manifest JSON NOT NULL,
-        execution_logs LONGTEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        started_at TIMESTAMP NULL,
-        completed_at TIMESTAMP NULL
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    `);
+    const jobColumns = {
+      id: "INT AUTO_INCREMENT PRIMARY KEY",
+      workspace_id: "INT NOT NULL",
+      project_id: "INT NULL",
+      idempotency_key: "VARCHAR(255) NULL UNIQUE",
+      status: "VARCHAR(50) DEFAULT 'pending'",
+      manifest: "JSON NOT NULL",
+      execution_logs: "LONGTEXT",
+      created_at: "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+      started_at: "TIMESTAMP NULL",
+      completed_at: "TIMESTAMP NULL",
+    };
 
-    console.log(`   ${c.green}✓ Schema state verified on tenant DB.${c.reset}`);
+    async function getExistingColumns(tableName) {
+      const [rows] = await this.poolInstance.query(
+        `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ? AND TABLE_SCHEMA = DATABASE()`,
+        [tableName],
+      );
+      return rows.map((row) => row.COLUMN_NAME);
+    }
+
+    async function addMissingColumns(tableName, columnsDef) {
+      const existing = await getExistingColumns.call(this, tableName);
+      const missing = Object.keys(columnsDef).filter(
+        (col) => !existing.includes(col),
+      );
+
+      if (missing.length === 0) return;
+
+      console.log(
+        `   ${c.yellow}→ Adding missing columns to ${tableName}: ${missing.join(", ")}${c.reset}`,
+      );
+      for (const col of missing) {
+        const definition = columnsDef[col];
+        await this.poolInstance.execute(
+          `ALTER TABLE ${tableName} ADD COLUMN IF NOT EXISTS ${col} ${definition}`,
+        );
+      }
+    }
+
+    const [exists] = await this.poolInstance.query(
+      `SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'provisioning_jobs' AND TABLE_SCHEMA = DATABASE()`,
+    );
+
+    if (exists.length === 0) {
+      const createSQL = `CREATE TABLE provisioning_jobs (${Object.entries(
+        jobColumns,
+      )
+        .map(([k, v]) => `${k} ${v}`)
+        .join(", ")}) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`;
+      await this.poolInstance.execute(createSQL);
+      console.log(` ${c.green}✓ provisioning_jobs table created.${c.reset}`);
+    } else {
+      await addMissingColumns.call(this, "provisioning_jobs", jobColumns);
+      console.log(` ${c.green}✓ Schema state verified on tenant DB.${c.reset}`);
+    }
   }
 
   async start() {
@@ -121,9 +164,7 @@ class EngineDaemonWorker {
           maxRetriesPerRequest: 1,
           connectTimeout: 3000,
         });
-        this.redis.on("error", () => {
-          // Degradation fallback
-        });
+        this.redis.on("error", () => {});
 
         await this.redis.subscribe("provisioning_queue");
         this.redis.on("message", async (channel, message) => {
@@ -137,9 +178,7 @@ class EngineDaemonWorker {
               ) {
                 await this.runProcessingCycle();
               }
-            } catch (e) {
-              // Ignore invalid parse inputs
-            }
+            } catch (e) {}
           }
         });
         console.log(
@@ -163,18 +202,17 @@ class EngineDaemonWorker {
     try {
       await this.dbBreaker.execute(async () => {
         const queryStr = `
-          SELECT * FROM provisioning_jobs 
-          WHERE workspace_id = ? AND status = 'pending' 
+          SELECT * FROM provisioning_jobs
+          WHERE workspace_id = ? AND status = 'pending'
           ORDER BY id ASC LIMIT 1
         `;
-
         console.log(
           ` ${c.dim}🔍 Polling TENANT DB for workspace ${this.workspaceId}...${c.reset}`,
         );
+
         const [jobs] = await this.poolInstance.execute(queryStr, [
           this.workspaceId,
         ]);
-
         if (!jobs || jobs.length === 0) return;
 
         const activeJob = jobs[0];
@@ -199,12 +237,14 @@ class EngineDaemonWorker {
             this.connectionString,
           );
 
-          await projectScaffolder.scaffold();
+          // CHANGED HERE: .scaffold() -> .execute()
+          await projectScaffolder.execute();
 
           await this.poolInstance.execute(
             "UPDATE provisioning_jobs SET status = 'completed', completed_at = CURRENT_TIMESTAMP WHERE id = ?",
             [activeJob.id],
           );
+
           console.log(
             `${c.green}✅ Job [ID: ${activeJob.id}] Scaffolding Executed and Verified!${c.reset}\n`,
           );
@@ -217,7 +257,6 @@ class EngineDaemonWorker {
             error: jobException.message,
             stack: jobException.stack,
           });
-
           await this.poolInstance.execute(
             "UPDATE provisioning_jobs SET status = 'failed', execution_logs = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?",
             [structuredLogs, activeJob.id],
@@ -225,13 +264,14 @@ class EngineDaemonWorker {
         }
       });
     } catch (err) {
-      // Catch breaker exceptions silently to preserve cycle loop
+      console.error(`${c.red}❌ Cycle Error:${c.reset}`, err.message);
     } finally {
       this.isProcessing = false;
     }
   }
 }
 
+// ====================== LOGIN & LOGOUT ======================
 async function runLoginCommand(cliAuthToken) {
   if (!cliAuthToken) {
     console.error(
@@ -244,6 +284,7 @@ async function runLoginCommand(cliAuthToken) {
   console.log(
     `\n📡 Synchronizing CLI state environment parameters with Cloud Dashboard...`,
   );
+  console.log(`   Token: ${cliAuthToken.substring(0, 15)}...`);
 
   try {
     const apiCallResponse = await fetch(`${API_BASE_URL}/api/cli/sync`, {
@@ -254,15 +295,26 @@ async function runLoginCommand(cliAuthToken) {
       },
     });
 
+    console.log(`   Target API Base URL: ${API_BASE_URL}/api/cli/sync`);
+    console.log(
+      `   Response Status: ${apiCallResponse.status} ${apiCallResponse.statusText}`,
+    );
+
     if (!apiCallResponse.ok) {
-      const errorPayload = await apiCallResponse.json().catch(() => ({}));
-      throw new Error(
-        errorPayload.error ||
-          `Server responded with status code ${apiCallResponse.status}`,
-      );
+      let errorMsg = `Server responded with status code ${apiCallResponse.status}`;
+      try {
+        const errorPayload = await apiCallResponse.json();
+        errorMsg = errorPayload.error || errorMsg;
+        console.log(`   Error Payload Details:`, errorPayload);
+      } catch (_) {}
+
+      throw new Error(errorMsg);
     }
 
     const payloadData = await apiCallResponse.json();
+    console.log(
+      `   ✅ Connection Established with Workspace Target: ${payloadData.workspaceId}`,
+    );
 
     if (!fs.existsSync(STUDIOFLOW_HOME)) {
       fs.mkdirSync(STUDIOFLOW_HOME, { recursive: true });
@@ -273,9 +325,17 @@ async function runLoginCommand(cliAuthToken) {
       JSON.stringify({ token: cliAuthToken }, null, 2),
     );
 
-    // Force the worker engine to use Tenant DB connection instead of Central Queue DB
     const operationalDbUrl =
-      payloadData.tenantDatabaseUrl || payloadData.queueDatabaseUrl;
+      payloadData.tenantDatabaseUrl ||
+      payloadData.queueDatabaseUrl ||
+      payloadData.databaseUrl;
+
+    if (!operationalDbUrl) {
+      console.error(
+        `${c.red}❌ Synchronization Fault: No valid workspace database URL returned from central infrastructure.${c.reset}`,
+      );
+      process.exit(1);
+    }
 
     const envFileString = [
       `# StudioFlow Local Engine Runtime Environment Sync Properties`,
@@ -293,7 +353,7 @@ async function runLoginCommand(cliAuthToken) {
     fs.writeFileSync(cliEnvPath, envFileString);
 
     console.log(
-      `${c.green}✅ Authentication Configured Successfully! Local Engine Runtime Environment Restructured.${c.reset}\n`,
+      `${c.green}✅ Login Successful! Global tenant environments synchronized and cached.${c.reset}\n`,
     );
     process.exit(0);
   } catch (syncFault) {
@@ -301,8 +361,15 @@ async function runLoginCommand(cliAuthToken) {
       `\n${c.red}❌ Cloud Environment Sync Failed:${c.reset}`,
       syncFault.message,
     );
+    console.error(`\n${c.yellow}🔧 Troubleshoot Mismatch Guide:${c.reset}`);
     console.error(
-      `Please verify your connectivity or network profiles and retry.\n`,
+      `   • Target Endpoint Attempted: ${c.cyan}${API_BASE_URL}/api/cli/sync${c.reset}`,
+    );
+    console.error(
+      `   • If developing locally, ensure you have ${c.bold}API_BASE_URL="http://localhost:3000"${c.reset} inside your project folder's local .env file.`,
+    );
+    console.error(
+      `   • Verify that your server backend application mounts the router execution path for /api/cli/sync`,
     );
     process.exit(1);
   }
@@ -321,6 +388,7 @@ function runLogoutCommand() {
   process.exit(0);
 }
 
+// ====================== MAIN EXECUTION ======================
 const systemArguments = process.argv.slice(2);
 const activeCommandRoute = systemArguments[0];
 
@@ -362,7 +430,7 @@ if (activeCommandRoute === "login") {
   console.log(
     `\n${c.cyan}===========================================${c.reset}`,
   );
-  console.log(`${c.bold}        StudioFlow Control Panel           ${c.reset}`);
+  console.log(`${c.bold} StudioFlow Control Panel ${c.reset}`);
   console.log(`${c.cyan}===========================================${c.reset}`);
   console.log(` ${c.bold}[1]${c.reset} Start Background Provisioning Worker`);
   console.log(` ${c.bold}[2]${c.reset} Exit`);

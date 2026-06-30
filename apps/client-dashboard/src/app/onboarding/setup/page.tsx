@@ -288,35 +288,27 @@ function EnvironmentSetupForm() {
                 </span>
                 Authenticate Local Engine
               </h3>
-              <div className="pl-9 space-y-3">
-                <div className="bg-theme-surface/50 border border-theme-outline/30 rounded-lg p-4 flex justify-between items-center">
-                  <div className="flex items-center gap-3 overflow-hidden">
+              <div className="pl-9 space-y-2">
+                <p className="text-xs text-theme-muted">
+                  Run the combined command below in your project folder to bind
+                  your engine to this active cloud workspace session:
+                </p>
+                <div className="bg-theme-surface/50 border border-theme-outline/30 rounded-lg p-4 flex justify-between items-center gap-4">
+                  <div className="flex items-center gap-3 overflow-hidden w-full">
                     <Lock className="w-4 h-4 text-theme-primary shrink-0" />
-                    <code className="text-theme-text text-[13px] font-mono truncate">
-                      {generatedCliToken}
+                    <code className="text-theme-text text-[13px] font-mono truncate select-all">
+                      studioflow login {generatedCliToken}
                     </code>
                   </div>
                   <button
                     onClick={() =>
-                      copyToClipboard(generatedCliToken, "Token copied!")
-                    }
-                    className="text-theme-muted hover:text-theme-primary"
-                  >
-                    <Copy className="w-5 h-5" />
-                  </button>
-                </div>
-                <div className="bg-theme-surface/50 border border-theme-outline/30 rounded-lg p-4 flex justify-between items-center">
-                  <code className="text-theme-text text-[13px] font-mono">
-                    studioflow login
-                  </code>
-                  <button
-                    onClick={() =>
                       copyToClipboard(
-                        "studioflow login",
-                        "Login command copied!",
+                        `studioflow login ${generatedCliToken}`,
+                        "Authentication command copied!",
                       )
                     }
-                    className="text-theme-muted hover:text-theme-primary"
+                    className="text-theme-muted hover:text-theme-primary shrink-0 transition-colors"
+                    title="Copy full command"
                   >
                     <Copy className="w-5 h-5" />
                   </button>
