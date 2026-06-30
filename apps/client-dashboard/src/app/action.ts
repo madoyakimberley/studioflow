@@ -517,12 +517,20 @@ export async function queueProjectProvisioning(
         workspaceId: actualWorkspaceId,
         name: payload.name,
         slug: projectSlug,
+        clientName: payload.clientName,
         clientEmail: payload.clientEmail,
         brief: payload.brief || "No brief provided.",
         status: "pending",
         progressPercentage: 0,
         frontendFramework: extractedFrontend,
         backendFramework: "Node.js",
+        universalManifest: {
+          services: payload.services || [],
+          gitProvider: payload.gitProvider,
+          folderStructure: payload.folderStructure,
+          deploymentTarget: payload.deploymentTarget,
+          nodePackageManager: payload.nodePackageManager,
+        },
       } as any)
       .catch((err: any) => {
         throw new Error(`Central Registry insert failure: ${err.message}`);
@@ -547,6 +555,7 @@ export async function queueProjectProvisioning(
         id: projectId,
         workspaceId: actualWorkspaceId,
         clientId: targetClient.id,
+        clientName: payload.clientName,
         name: payload.name,
         slug: projectSlug,
         clientEmail: payload.clientEmail,

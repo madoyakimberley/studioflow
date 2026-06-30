@@ -71,7 +71,7 @@ async function ensureTenantSchema(client: any) {
       id INT AUTO_INCREMENT PRIMARY KEY,
       workspace_id INT NOT NULL,
       client_id INT NOT NULL,
-      client_name VARCHAR(255) NOT NULL, -- ✅ ADDED: Frontend now has a target column!
+      client_name VARCHAR(255) NOT NULL, 
       name VARCHAR(255) NOT NULL,
       slug VARCHAR(255) NOT NULL UNIQUE,
       frontend_framework VARCHAR(50) DEFAULT 'dynamic',
