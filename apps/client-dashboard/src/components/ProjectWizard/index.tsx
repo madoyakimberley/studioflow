@@ -18,7 +18,7 @@ import { WizardStepReview } from "./WizardStepReview";
 
 interface ProjectWizardProps {
   onClose?: () => void;
-  workspaceId?: number; // Added to allow dynamic injection from parent
+  workspaceId?: number;
 }
 
 export default function ProjectWizard({
@@ -27,8 +27,6 @@ export default function ProjectWizard({
 }: ProjectWizardProps) {
   const router = useRouter();
   const params = useParams();
-
-  // Clean dynamic parameter resolution
   const currentUser = (params?.user as string) || "admin";
 
   const [step, setStep] = useState<number>(1);
@@ -164,6 +162,9 @@ export default function ProjectWizard({
     setServices(services.filter((s) => s.id !== id));
   };
 
+  // ==========================================
+  // UPDATED SUBMIT PIPELINE
+  // ==========================================
   const handleSubmitPipeline = async () => {
     setIsSubmitting(true);
     try {
@@ -196,15 +197,30 @@ export default function ProjectWizard({
 
       const res = await queueProjectProvisioning(payload);
 
+      // 🚨 DEV DEBUG: Silently dumps the actual server object to your browser console
+      console.error("[SERVER RESPONSE DUMP]:", res);
+
       if (res.success && res.slug) {
         toast.success("Project created successfully with Zero-Trust Security!");
         router.push(`/dashboard/${currentUser}/projects/${res.slug}`);
         if (onClose) onClose();
       } else {
-        toast.error(res.error || "Failed to create project.");
+        const errorText = res.error || "Server rejected project creation.";
+        toast.error(`Error: ${errorText}`);
+
+        // 🚨 FAILSAFE UI: If toasts are hidden, this forces the browser to show the text.
+        // You can comment out or delete the alert() line below once you find the bug.
+        alert(`Provisioning Failed: ${errorText}`);
       }
     } catch (err: any) {
-      toast.error(err.message || "An error occurred.");
+      // 🚨 DEV DEBUG: Dumps full client-side crash trace
+      console.error("[CLIENT CATCH DUMP]:", err);
+
+      const crashText = err.message || "A critical client error occurred.";
+      toast.error(crashText);
+
+      // 🚨 FAILSAFE UI
+      alert(`App Crash: ${crashText}`);
     } finally {
       setIsSubmitting(false);
     }
