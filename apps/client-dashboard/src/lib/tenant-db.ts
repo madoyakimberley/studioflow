@@ -64,9 +64,9 @@ async function ensureCentralTables() {
   console.log("✅ Central table `workspace_environments` verified/created");
 }
 
-async function ensureTenantSchema(client: any) {
+async function ensureTenantSchema(executor: any) {
   // 1. Setup Projects Table
-  await client.execute(`
+  await executor.execute(`
     CREATE TABLE IF NOT EXISTS projects (
       id INT AUTO_INCREMENT PRIMARY KEY,
       workspace_id INT NOT NULL,
@@ -98,7 +98,7 @@ async function ensureTenantSchema(client: any) {
   `);
 
   // 2. Setup Clients Table
-  await client.execute(`
+  await executor.execute(`
     CREATE TABLE IF NOT EXISTS clients (
       id INT AUTO_INCREMENT PRIMARY KEY,
       workspace_id INT NOT NULL,
@@ -114,7 +114,7 @@ async function ensureTenantSchema(client: any) {
   `);
 
   // 3. Setup Checklist Items Table
-  await client.execute(`
+  await executor.execute(`
     CREATE TABLE IF NOT EXISTS checklist_items (
       id INT AUTO_INCREMENT PRIMARY KEY,
       project_id INT NOT NULL,
@@ -128,7 +128,7 @@ async function ensureTenantSchema(client: any) {
   `);
 
   // 4. Setup Provisioning Jobs Table
-  await client.execute(`
+  await executor.execute(`
     CREATE TABLE IF NOT EXISTS provisioning_jobs (
       id INT AUTO_INCREMENT PRIMARY KEY,
       project_id INT NOT NULL,
@@ -203,6 +203,9 @@ export async function getTenantDb(workspaceId: number) {
         idle_timeout: 10,
       });
       client = drizzlePg(connection, { schema });
+
+      // PostgreSQL connection objects can execute raw strings directly
+      await ensureTenantSchema(connection);
     } else if (engine === "mysql") {
       const tenantUrl = ensureTlsUrl(env.database_url);
       const tenantPool = mysql.createPool({
@@ -212,6 +215,9 @@ export async function getTenantDb(workspaceId: number) {
         connectTimeout: 15000,
       });
       client = drizzle(tenantPool, { schema, mode: "default" });
+
+      // Pass the underlying raw MySQL pool to execute raw initialization statements
+      await ensureTenantSchema(tenantPool);
     } else {
       throw new Error(`Unsupported database engine: ${engine}`);
     }
@@ -220,7 +226,6 @@ export async function getTenantDb(workspaceId: number) {
     throw err;
   }
 
-  await ensureTenantSchema(client);
   clientCache.set(workspaceId, client);
   console.log(
     `✅ Tenant DB client created and cached for workspace ${workspaceId}`,
