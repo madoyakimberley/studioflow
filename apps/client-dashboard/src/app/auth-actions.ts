@@ -68,7 +68,7 @@ export async function registerUser(payload: RegisterPayload) {
 
       await tx
         .update(users)
-        .set({ workspaceId: wsId as any } as any)
+        .set({ workspaceId: wsId })
         .where(eq(users.id, userId));
 
       await tx.insert(workspaceEnvironments).values({
