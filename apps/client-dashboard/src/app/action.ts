@@ -587,19 +587,19 @@ export async function queueProjectProvisioning(
           projectId,
           title: "Initialize Secure Git Repository",
           type: "MVP",
-          isCompleted: false,
+          status: "pending",
         },
         {
           projectId,
           title: `Configure ${payload.folderStructure} Monorepo Structure`,
           type: "MVP",
-          isCompleted: false,
+          status: "pending",
         },
         {
           projectId,
           title: `Provision ${payload.deploymentTarget} Deployment Pipeline`,
           type: "MVP",
-          isCompleted: false,
+          status: "pending",
         },
         {
           projectId,
