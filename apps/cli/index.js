@@ -238,7 +238,7 @@ class EngineDaemonWorker {
           );
 
           // CHANGED HERE: .scaffold() -> .execute()
-          await projectScaffolder.execute();
+          await projectScaffolder.processExecutionPipeline();
 
           await this.poolInstance.execute(
             "UPDATE provisioning_jobs SET status = 'completed', completed_at = CURRENT_TIMESTAMP WHERE id = ?",
