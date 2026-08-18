@@ -374,6 +374,7 @@ export async function getVerifiedUserAndWorkspace() {
     };
   }
 }
+
 // ==========================================
 // CORE SERVER ACTION: PROJECT PROVISIONING
 // ==========================================
@@ -429,7 +430,7 @@ export async function queueProjectProvisioning(
     }
 
     // Connect to Tenant Isolation DB
-    const tenantDb = await getTenantDb(actualWorkspaceId as any);
+    let tenantDb = await getTenantDb(actualWorkspaceId as any);
     if (!tenantDb) {
       return { success: false, error: "Failed to connect to tenant database." };
     }
@@ -437,17 +438,45 @@ export async function queueProjectProvisioning(
     // ==========================================
     // 2. TENANT DB: CLIENT PROVISIONING
     // ==========================================
-    let targetClient = await tenantDb.query.clients
-      .findFirst({
+    let targetClient;
+
+    try {
+      targetClient = await tenantDb.query.clients.findFirst({
         where: (clients: any, { eq, and }: any) =>
           and(
             eq(clients.email, payload.clientEmail.trim().toLowerCase()),
             eq(clients.workspaceId, actualWorkspaceId),
           ),
-      })
-      .catch((err: any) => {
-        throw new Error(`Tenant client lookup crash: ${err.message}`);
       });
+    } catch (initialErr: any) {
+      console.warn(
+        `⚠️ Client lookup failed. Attempting self-healing cache wipe...`,
+        initialErr?.message || initialErr,
+      );
+
+      // Force cache clearing & trigger schema initialization
+      tenantDb = await getTenantDb(actualWorkspaceId as any, true);
+
+      if (!tenantDb) {
+        throw new Error(
+          "Failed to reconnect to tenant database during self-healing attempt.",
+        );
+      }
+
+      targetClient = await tenantDb.query.clients
+        .findFirst({
+          where: (clients: any, { eq, and }: any) =>
+            and(
+              eq(clients.email, payload.clientEmail.trim().toLowerCase()),
+              eq(clients.workspaceId, actualWorkspaceId),
+            ),
+        })
+        .catch((retryErr: any) => {
+          throw new Error(
+            `Tenant client lookup crash after heal attempt: ${retryErr.message}`,
+          );
+        });
+    }
 
     if (!targetClient) {
       const baseSlug = payload.clientName

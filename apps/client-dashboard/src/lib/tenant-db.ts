@@ -1,4 +1,3 @@
-// lib/tenant-db.ts
 import { drizzle } from "drizzle-orm/mysql2";
 import { drizzle as drizzlePg } from "drizzle-orm/postgres-js";
 import mysql from "mysql2/promise";
@@ -151,11 +150,19 @@ async function ensureTenantSchema(executor: any) {
   );
 }
 
-export async function getTenantDb(workspaceId: number) {
+export async function getTenantDb(
+  workspaceId: number,
+  forceRefresh: boolean = false,
+) {
   console.log(`🔍 getTenantDb called for workspace ${workspaceId}`);
   await ensureCentralTables();
 
-  if (clientCache.has(workspaceId)) {
+  if (forceRefresh) {
+    console.log(
+      `♻️ Force refresh requested. Clearing cache for workspace ${workspaceId}`,
+    );
+    clientCache.delete(workspaceId);
+  } else if (clientCache.has(workspaceId)) {
     console.log(
       `✅ Using cached tenant DB client for workspace ${workspaceId}`,
     );
