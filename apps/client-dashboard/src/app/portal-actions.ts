@@ -253,11 +253,19 @@ export async function sendPortalVerificationCodeAction(projectId: number) {
       })
       .where(eq(projects.id, projectId));
 
-    await sendPortalAccessCodeEmail({
+    const emailSent = await sendPortalAccessCodeEmail({
       clientEmail: project.clientEmail,
       projectName: project.name,
       securePin: securePin,
+      workspaceId: project.workspaceId,
     });
+
+    if (!emailSent) {
+      return {
+        success: false,
+        message: "Failed to transmit access code. Verify SMTP settings.",
+      };
+    }
 
     return {
       success: true,
@@ -612,12 +620,20 @@ export async function sendClientPortalWelcomeAction(projectSlug: string) {
     const baseUrl = rawBaseUrl.replace(/\/$/, "");
     const portalLink = `${baseUrl}/portal/${projectSlug}?code=${securePin}`;
 
-    await sendPortalWelcomeEmail({
+    const emailSent = await sendPortalWelcomeEmail({
       clientEmail: project.clientEmail,
       projectName: project.name,
       portalLink: portalLink,
       securePin: securePin,
+      workspaceId: project.workspaceId,
     });
+
+    if (!emailSent) {
+      return {
+        success: false,
+        message: "Failed to transmit onboarding email. Check SMTP setup.",
+      };
+    }
 
     return {
       success: true,
@@ -672,14 +688,24 @@ export async function dispatchSecurePortalLink(
     const rawAppUrl =
       process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const cleanAppUrl = rawAppUrl.replace(/\/$/, "");
-    const securePortalUrl = `${cleanAppUrl}/portal/${portalSlug}?code=${secureOtp}`;
+    const targetSlug = project.slug || portalSlug;
+    const securePortalUrl = `${cleanAppUrl}/portal/${targetSlug}?code=${secureOtp}`;
 
-    await sendPortalWelcomeEmail({
+    const emailSent = await sendPortalWelcomeEmail({
       clientEmail,
       projectName: project.name,
       portalLink: securePortalUrl,
       securePin: secureOtp,
+      workspaceId: project.workspaceId,
     });
+
+    if (!emailSent) {
+      return {
+        success: false,
+        message:
+          "Failed to deliver email. Check server logs or SMTP configuration.",
+      };
+    }
 
     revalidatePath("/dashboard", "layout");
 
@@ -691,7 +717,7 @@ export async function dispatchSecurePortalLink(
     console.error("❌ Failed to dispatch secure portal link:", error);
     return {
       success: false,
-      message: "Failed to transmit secure routing link.",
+      message: error.message || "Failed to transmit secure routing link.",
     };
   }
 }
