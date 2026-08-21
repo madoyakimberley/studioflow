@@ -118,6 +118,7 @@ interface PortalCodePayload {
   projectName: string;
   securePin: string;
   isPremium?: boolean; // ✨ Future-proof switch for routing
+  workspaceId?: number;
 }
 
 interface PortalWelcomePayload {
@@ -126,6 +127,7 @@ interface PortalWelcomePayload {
   portalLink: string;
   securePin: string;
   isPremium?: boolean; // ✨ Future-proof switch for routing
+  workspaceId?: number;
 }
 
 // ==========================================
@@ -192,18 +194,46 @@ export async function sendPortalAccessCodeEmail(payload: PortalCodePayload) {
     if (apiSuccess) return true;
   }
 
-  // 🌟 STRATEGY 2: Default pipeline (Nodemailer using your .env.local credentials)
-  const transporter = createFallbackTransporter();
-  const systemSender =
-    process.env.SMTP_FROM_EMAIL ||
-    `"StudioFlow Delivery" <delivery@studioflow.dev>`;
+  // 🌟 STRATEGY 2: Dynamic workspace transporter if workspaceId provided
+  if (payload.workspaceId) {
+    try {
+      const { transporter, senderEmail } = await createDynamicTransporter(
+        payload.workspaceId,
+      );
+      return await transporter.sendMail({
+        from: `"StudioFlow Delivery" <${senderEmail}>`,
+        to: payload.clientEmail,
+        subject: subject,
+        html: htmlTemplate,
+      });
+    } catch (error) {
+      console.warn(
+        "⚠️ Dynamic transporter failed. Reverting to fallback transporter.",
+        error,
+      );
+    }
+  }
 
-  return transporter.sendMail({
-    from: systemSender,
-    to: payload.clientEmail,
-    subject: subject,
-    html: htmlTemplate,
-  });
+  // 🌟 STRATEGY 3: Default pipeline (Nodemailer using your .env.local credentials)
+  try {
+    const transporter = createFallbackTransporter();
+    const systemSender =
+      process.env.SMTP_FROM_EMAIL ||
+      `"StudioFlow Delivery" <delivery@studioflow.dev>`;
+
+    return await transporter.sendMail({
+      from: systemSender,
+      to: payload.clientEmail,
+      subject: subject,
+      html: htmlTemplate,
+    });
+  } catch (error) {
+    console.error(
+      "❌ [SMTP GATEWAY FAILURE]: Could not dispatch portal access code email.",
+      error,
+    );
+    return false;
+  }
 }
 
 export async function sendPortalWelcomeEmail(payload: PortalWelcomePayload) {
@@ -232,16 +262,44 @@ export async function sendPortalWelcomeEmail(payload: PortalWelcomePayload) {
     if (apiSuccess) return true;
   }
 
-  // 🌟 STRATEGY 2: Default pipeline (Nodemailer using your .env.local credentials)
-  const transporter = createFallbackTransporter();
-  const systemSender =
-    process.env.SMTP_FROM_EMAIL ||
-    `"StudioFlow Delivery" <delivery@studioflow.dev>`;
+  // 🌟 STRATEGY 2: Dynamic workspace transporter if workspaceId provided
+  if (payload.workspaceId) {
+    try {
+      const { transporter, senderEmail } = await createDynamicTransporter(
+        payload.workspaceId,
+      );
+      return await transporter.sendMail({
+        from: `"StudioFlow Delivery" <${senderEmail}>`,
+        to: payload.clientEmail,
+        subject: subject,
+        html: htmlTemplate,
+      });
+    } catch (error) {
+      console.warn(
+        "⚠️ Dynamic transporter failed for welcome email. Reverting to fallback.",
+        error,
+      );
+    }
+  }
 
-  return transporter.sendMail({
-    from: systemSender,
-    to: payload.clientEmail,
-    subject: subject,
-    html: htmlTemplate,
-  });
+  // 🌟 STRATEGY 3: Default pipeline (Nodemailer using your .env.local credentials)
+  try {
+    const transporter = createFallbackTransporter();
+    const systemSender =
+      process.env.SMTP_FROM_EMAIL ||
+      `"StudioFlow Delivery" <delivery@studioflow.dev>`;
+
+    return await transporter.sendMail({
+      from: systemSender,
+      to: payload.clientEmail,
+      subject: subject,
+      html: htmlTemplate,
+    });
+  } catch (error) {
+    console.error(
+      "❌ [SMTP GATEWAY FAILURE]: Could not dispatch portal welcome email.",
+      error,
+    );
+    return false;
+  }
 }

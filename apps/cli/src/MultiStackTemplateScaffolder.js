@@ -36,7 +36,8 @@ export class MultiStackTemplateScaffolder {
     this.manifest = manifest;
     this.projectName = (manifest.projectName || projectSlug).trim();
 
-    this.githubToken = process.env.GITHUB_PAT || process.env.GITHUB_TOKEN;
+    // 🔄 ALIGNED: Reads githubToken from DB or fallback GITHUB_PAT / GITHUB_TOKEN
+    this.githubToken = process.env.GITHUB_TOKEN || process.env.GITHUB_PAT;
     this.githubRepoUrl = null;
 
     const structChoice = this.manifest.folderStructure || "monorepo";
@@ -185,6 +186,20 @@ export class MultiStackTemplateScaffolder {
         await this.generateRustCargoManifest(fullSrvPath, srv);
       else if (srv.runtime === "ruby")
         await this.generateRubyGemfile(fullSrvPath, srv);
+
+      // AUTOMATED DEPENDENCY INSTALLATION
+      const executor = new CommandProcessExecutor();
+      if (
+        srv.runtime === "javascript" ||
+        srv.runtime === "node" ||
+        srv.runtime === "typescript"
+      ) {
+        console.log(`  -> Installing Node.js dependencies via ${pm}...`);
+        await executor.execute(`${pm} install`, fullSrvPath);
+      } else if (srv.runtime === "python") {
+        console.log(`  -> Installing Python dependencies via pip...`);
+        await executor.execute("pip install -r requirements.txt", fullSrvPath);
+      }
 
       await this.stubServiceEntryPoint(fullSrvPath, srv);
 
@@ -541,18 +556,45 @@ export class EnvVaultManager {
       return this._lastDeployUrl || `https://${this.projectSlug}.onrender.com`;
     }
 
+    // 🔄 ALIGNED: Reads deploymentApiKey and deploymentOwnerId saved by environment-action.ts
+    const apiKey = process.env.DEPLOYMENT_API_KEY || process.env.RENDER_API_KEY;
+    const ownerId =
+      process.env.DEPLOYMENT_OWNER_ID || process.env.RENDER_OWNER_ID;
+
     let frontendUrl = null;
     const servicesToDeploy = this.isMonorepo
       ? this.manifest.services
       : [serviceManifest];
 
     for (const srv of servicesToDeploy) {
+      // Maps service spec type to valid Render enum: static_site | web_service | private_service | background_worker | cron_job | workflow
+      const getRenderType = (type) => {
+        const t = (type || "").toLowerCase();
+        if (t.includes("static")) return "static_site";
+        if (t.includes("worker")) return "background_worker";
+        if (t.includes("cron")) return "cron_job";
+        if (t.includes("private")) return "private_service";
+        if (t.includes("workflow")) return "workflow";
+        return "web_service";
+      };
+
+      const renderType = getRenderType(srv.type || srv.serviceType);
+
       const payload = {
+        type: renderType,
         name: `${this.projectSlug}-${srv.name}`,
-        ownerId: "mock-owner-id",
+        ownerId: ownerId || "mock-owner-id",
         repo: this.githubRepoUrl || "https://github.com/mock/repo",
         autoDeploy: "yes",
-        env: "docker",
+        // Render API v1 requires serviceDetails for non-static services
+        serviceDetails:
+          renderType === "static_site"
+            ? undefined
+            : {
+                env: "docker",
+                plan: "free",
+                numInstances: 1,
+              },
         envVars: [
           { key: "SF_VAULT_KEY", value: this.vaultMasterKeyHex },
           { key: "APP_ENV", value: "production" },
@@ -564,7 +606,7 @@ export class EnvVaultManager {
         const res = await fetch("https://api.render.com/v1/services", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${process.env.RENDER_API_KEY || "mock-key"}`,
+            Authorization: `Bearer ${apiKey || "mock-key"}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify(payload),
@@ -588,7 +630,7 @@ export class EnvVaultManager {
                 `https://api.render.com/v1/services/${srvId}/deploys/${deployId}`,
                 {
                   headers: {
-                    Authorization: `Bearer ${process.env.RENDER_API_KEY || "mock-key"}`,
+                    Authorization: `Bearer ${apiKey || "mock-key"}`,
                   },
                 },
               );
@@ -632,7 +674,11 @@ export class EnvVaultManager {
   async deployToRailwayAPI() {
     if (this.deploymentTarget !== "railway" || !this.githubRepoUrl) return null;
 
-    const railwayApiKey = process.env.RAILWAY_API_KEY || "mock-railway-key";
+    // 🔄 ALIGNED: Reads deploymentApiKey saved by environment-action.ts
+    const railwayApiKey =
+      process.env.DEPLOYMENT_API_KEY ||
+      process.env.RAILWAY_API_KEY ||
+      "mock-railway-key";
     if (!railwayApiKey) {
       console.error("❌ RAILWAY_API_KEY is missing!");
       return null;

@@ -237,8 +237,38 @@ class EngineDaemonWorker {
             this.connectionString,
           );
 
-          // CHANGED HERE: .scaffold() -> .execute()
+          // 1. Scaffold files, ORM, vaults & install dependencies
           await projectScaffolder.processExecutionPipeline();
+
+          // 2. Setup git repository & push initial commit
+          console.log(
+            ` ${c.cyan}⚙️ Initializing Git repository and pushing to GitHub...${c.reset}`,
+          );
+          await projectScaffolder.setupGitRepository();
+
+          // 3. Trigger cloud deployments based on manifest specification
+          const deployTarget = (
+            manifestData.deploymentTarget || "none"
+          ).toLowerCase();
+          if (deployTarget === "render") {
+            console.log(
+              ` ${c.cyan}🚀 Deploying application to Render...${c.reset}`,
+            );
+            await projectScaffolder.deployToRenderAPI(
+              projectScaffolder.projectName,
+              manifestData.services?.[0],
+            );
+          } else if (deployTarget === "railway") {
+            console.log(
+              ` ${c.cyan}🚀 Deploying application to Railway...${c.reset}`,
+            );
+            await projectScaffolder.deployToRailwayAPI();
+          } else if (deployTarget === "vercel") {
+            console.log(
+              ` ${c.cyan}🚀 Deploying application to Vercel...${c.reset}`,
+            );
+            await projectScaffolder.deployToVercelAPI();
+          }
 
           await this.poolInstance.execute(
             "UPDATE provisioning_jobs SET status = 'completed', completed_at = CURRENT_TIMESTAMP WHERE id = ?",
